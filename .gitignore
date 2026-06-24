@@ -1,0 +1,17 @@
+# Build output
+build/
+build-*/
+cmake-build-*/
+
+# Conan
+CMakeUserPresets.json
+conan.lock
+.conan/
+
+# Editor / OS
+.idea/
+.vscode/
+.cache/
+compile_commands.json
+*.swp
+.DS_Store
