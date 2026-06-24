@@ -25,14 +25,19 @@ class XrplRpcSpecConan(ConanFile):
     }
     default_options = {
         "tests": False,
+        # boost 1.91's cobalt_io_ssl component fails package_info() unless cobalt
+        # is disabled (it expects an OpenSSL-backed build we don't pull in).
+        # We only need Boost::json, so drop cobalt. Mirrors rippled.
+        "boost/*:without_cobalt": True,
     }
 
     def requirements(self):
         if self.options.tests:
-            # Tests exercise the rippled (xrpl::) backend, so they need libxrpl's
-            # headers. Available from the xrplf remote (https://conan.ripplex.io).
+            # Tests run against the rippled (xrpl::) backend, but mock the small
+            # libxrpl protocol surface they touch (see tests/stubs), so the only
+            # real test dependency is gtest. Boost::json comes from the main
+            # `requires` above.
             self.test_requires("gtest/1.17.0")
-            self.test_requires("xrpl/[*]")
 
     def layout(self):
         cmake_layout(self)
