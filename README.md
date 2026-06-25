@@ -45,6 +45,34 @@ CMake target `rpcspec::rpcspec`. Add it to your requirements and define the
 backend macro in your toolchain. Its only direct dependency is `Boost::json`;
 the XRPL protocol headers come from your project.
 
+## Local development (editable package)
+
+When hacking on the DSL while building a consumer (Clio or rippled) against it,
+register this repo as an **editable** Conan package. Consumers that require
+`xrpl-rpc-spec/0.1.0` then resolve to your working tree instead of the Conan
+cache, so header edits are picked up on the consumer's next build — no
+`conan export`/`conan create` round-trip.
+
+```sh
+# From this repo's root — registers xrpl-rpc-spec/0.1.0 → this working copy.
+# (name + version come from the conanfile.)
+conan editable add .
+
+# Verify it's registered.
+conan editable list        # -> xrpl-rpc-spec/0.1.0  Path: .../xrpl-rpc-spec
+
+# Now build the consumer as usual; its `conan install` resolves the requirement
+# to this folder. Edit headers here, rebuild the consumer, changes apply.
+
+# When done, revert to the cached/remote package.
+conan editable remove .    # or: conan editable remove -r xrpl-rpc-spec/0.1.0
+```
+
+The recipe's `layout()` exposes `include/` as the include dir in editable mode,
+so consumers find the headers directly in the source tree (no packaging step).
+After `conan editable remove`, consumers fall back to the cached package, so make
+sure one is available (`conan create .`) or re-export as needed.
+
 ## Building the tests
 
 The standalone tests run against the rippled (`xrpl::`) backend, but the small

@@ -49,6 +49,9 @@ class XrplRpcSpecConan(ConanFile):
 
     def layout(self):
         cmake_layout(self)
+        # In editable mode there is no packaged folder; point consumers at the
+        # headers in the working tree so `conan editable add .` just works.
+        self.cpp.source.includedirs = ["include"]
 
     # Header-only: the binary is identical across settings, so don't rebuild
     # per compiler/arch/build_type.
