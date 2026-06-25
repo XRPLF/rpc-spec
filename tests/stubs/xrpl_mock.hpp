@@ -114,11 +114,11 @@ struct base_uint {
     }
 
     // Parse exactly Bits/4 hex characters into the raw bytes. Returns false on
-    // wrong length or non-hex input (mirrors libxrpl's strict parseHex).
+    // wrong length or non-hex input (mirrors libxrpl's strict parseHex, which
+    // accepts both const char* and string_view).
     [[nodiscard]] bool
-    parseHex(char const* str)
+    parseHex(std::string_view sv)
     {
-        std::string_view const sv{str};
         if (sv.size() != Bits / 4)
             return false;
         auto const bytes = mock_detail::hexToBytes(sv);
@@ -126,6 +126,12 @@ struct base_uint {
             return false;
         std::copy(bytes->begin(), bytes->end(), std::begin(data_));
         return true;
+    }
+
+    [[nodiscard]] bool
+    parseHex(char const* str)
+    {
+        return parseHex(std::string_view{str});
     }
 
     bool
@@ -222,10 +228,56 @@ noAccount()
     return {};
 }
 
+[[nodiscard]] inline AccountID
+xrpAccount()
+{
+    return {};
+}
+
+// ---- protocol/Issue.h -------------------------------------------------------
+struct Issue {
+    Currency currency;
+    AccountID account;
+    bool operator==(Issue const&) const noexcept = default;
+};
+
+[[nodiscard]] inline Issue
+noIssue()
+{
+    return {};
+}
+
+// Parses an issue from a "CUR" / "CUR.issuer" style string. The mock accepts
+// anything; the real libxrpl throws std::runtime_error on malformed input.
+[[nodiscard]] inline Issue
+issueFromJson(std::string const&)
+{
+    return {};
+}
+
+// ---- protocol/STXChainBridge.h ----------------------------------------------
+struct STXChainBridge {
+    bool operator==(STXChainBridge const&) const noexcept = default;
+};
+
+// ---- protocol/Book.h --------------------------------------------------------
+struct Book {
+    Issue in;
+    Issue out;
+    bool operator==(Book const&) const noexcept = default;
+};
+
 [[nodiscard]] inline bool
 isXRP(Currency const& c)
 {
     return c.isXrp();
+}
+
+// libxrpl also has isXRP(AccountID): the XRP "account" is the all-zero ID.
+[[nodiscard]] inline bool
+isXRP(AccountID const& a)
+{
+    return a.isZero();
 }
 
 // "XRP", any 3-character ISO code, or a 40-char hex code is accepted.
@@ -342,6 +394,45 @@ enum ErrorCodeI : int {
     RpcInvalidParams = 31,
     RpcActMalformed = 35,
     RpcNotSupported = 75,
+    // Additional codes referenced by migrated handler specs (values are
+    // placeholders — only the enumerators need to exist for these mocked tests).
+    RpcNoPermission = 100,
+    RpcIssueMalformed = 101,
+    RpcDomainMalformed = 102,
+    RpcDstAmtMalformed = 103,
+    RpcDstIsrMalformed = 104,
+    RpcSrcCurMalformed = 105,
+    RpcSrcIsrMalformed = 106,
+    RpcOracleMalformed = 107,
+    RpcInvalidHotwallet = 108,
+    RpcStreamMalformed = 109,
+    RpcBadIssuer = 110,
+    RpcBadMarket = 111,
+};
+
+// ---- protocol/TxFormats.h ---------------------------------------------------
+// Mock of the iterable TxFormats registry. Real libxrpl derives this from the
+// linked rippled version; the mock carries a small representative sample so
+// detail::txTypesInLowercase() yields a non-empty set.
+class TxFormats {
+public:
+    struct Item {
+        std::string name_;
+        [[nodiscard]] std::string const& getName() const noexcept { return name_; }
+    };
+
+    [[nodiscard]] static TxFormats const&
+    getInstance()
+    {
+        static TxFormats const kINSTANCE{};
+        return kINSTANCE;
+    }
+
+    [[nodiscard]] auto begin() const noexcept { return items_.begin(); }
+    [[nodiscard]] auto end() const noexcept { return items_.end(); }
+
+private:
+    std::vector<Item> items_{{"Payment"}, {"OfferCreate"}, {"OfferCancel"}, {"AccountSet"}};
 };
 
 // ---- protocol/LedgerFormats.h -----------------------------------------------

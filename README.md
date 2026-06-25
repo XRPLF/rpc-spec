@@ -59,11 +59,14 @@ option also wires up `RPCSPEC_IS_RIPPLED=1` and `rpcspec_tests=ON` in the
 generated toolchain, so no extra `-D` flags are needed:
 
 ```sh
-# 1. Install deps and generate the toolchain + presets (Release).
-conan install . -o tests=True --build=missing
+# 1. Install deps and generate the toolchain + presets. The generated preset is
+#    named after the build type, so pin it explicitly to get `conan-release`
+#    (a plain `conan install` follows your profile's default — often Debug,
+#    which yields `conan-debug` instead).
+conan install . -o tests=True -s build_type=Release --build=missing
 
-# 2. Configure, build, and run. Use the matching debug presets for a
-#    `-s build_type=Debug` install.
+# 2. Configure, build, and run. (Use `conan-debug` for a Debug install;
+#    run `cmake --list-presets` if unsure which presets exist.)
 cmake --preset conan-release
 cmake --build --preset conan-release
 ctest --preset conan-release --output-on-failure
