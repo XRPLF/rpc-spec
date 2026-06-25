@@ -14,10 +14,10 @@ namespace rpc::spec {
  * @brief Validates a sub-object's fields using a list of FieldSpecs.
  *
  * Satisfies SomeModifier so it participates in the process() path and can run
- * both requirements and modifiers on nested fields. When the field is absent the
- * Section is a no-op; when the field is present but not an object it returns
- * rpcINVALID_PARAMS. Nested FieldSpecs are applied via processNested() which
- * navigates into the object using FA::child().
+ * both requirements and modifiers on nested fields. When the field is absent
+ * the Section is a no-op; when the field is present but not an object it
+ * returns RpcInvalidParams. Nested FieldSpecs are applied via processNested()
+ * which navigates into the object using FA::child().
  *
  * Example:
  *   field("taker_pays", section(
@@ -25,37 +25,30 @@ namespace rpc::spec {
  *       field("issuer",   account)
  *   ))
  */
-template <typename... SubFields>
-struct Section {
-    static constexpr std::string_view kNAME = "section";
+template <typename... SubFields> struct Section {
+  static constexpr std::string_view kNAME = "section";
 
-    std::tuple<SubFields...> subFields;
+  std::tuple<SubFields...> subFields;
 
-    consteval explicit Section(SubFields... sf) : subFields{sf...}
-    {
-    }
+  consteval explicit Section(SubFields... sf) : subFields{sf...} {}
 
-    template <SomeFieldView FA>
-    [[nodiscard]] MaybeError
-    modify(FA& fa) const
-    {
-        if (!fa.present())
-            return {};
-        if (!fa.isObject())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+  template <SomeFieldView FA> [[nodiscard]] MaybeError modify(FA &fa) const {
+    if (!fa.present())
+      return {};
+    if (!fa.isObject())
+      return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
 
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... subSpec) {
-                (void)((result = subSpec.processNested(fa), result.has_value()) && ...);
-            },
-            subFields
-        );
-        return result;
-    }
+    MaybeError result{};
+    std::apply(
+        [&](auto const &...subSpec) {
+          (void)((result = subSpec.processNested(fa), result.has_value()) &&
+                 ...);
+        },
+        subFields);
+    return result;
+  }
 };
 
-template <typename... Fs>
-Section(Fs...) -> Section<Fs...>;
+template <typename... Fs> Section(Fs...) -> Section<Fs...>;
 
-}  // namespace rpc::spec
+} // namespace rpc::spec

@@ -33,66 +33,52 @@ namespace rpc::spec {
  * Enables uniform return type for versioned specs.
  */
 class RpcSpecView {
-    void const* self_;
-    MaybeError (*processImpl_)(void const*, ObjectView&);
-    Warnings (*checkImpl_)(void const*, ObjectView const&);
-    void (*dumpImpl_)(void const*, SpecDumpWriter&);
+  void const *self_;
+  MaybeError (*processImpl_)(void const *, ObjectView &);
+  Warnings (*checkImpl_)(void const *, ObjectView const &);
+  void (*dumpImpl_)(void const *, SpecDumpWriter &);
 
 public:
-    template <typename... Fields>
-    // NOLINTNEXTLINE(google-explicit-constructor)
-    constexpr RpcSpecView(RpcSpec<Fields...> const& spec) noexcept
-        : self_{&spec}
-        , processImpl_{[](void const* s, ObjectView& r) {
-            return static_cast<RpcSpec<Fields...> const*>(s)->process(r);
-        }}
-        , checkImpl_{[](void const* s, ObjectView const& r) {
-            return static_cast<RpcSpec<Fields...> const*>(s)->check(r);
-        }}
-        , dumpImpl_{[](void const* s, SpecDumpWriter& w) {
-            dumpRpcSpec(w, *static_cast<RpcSpec<Fields...> const*>(s));
-        }}
-    {
-    }
+  template <typename... Fields>
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  constexpr RpcSpecView(RpcSpec<Fields...> const &spec) noexcept
+      : self_{&spec}, processImpl_{[](void const *s, ObjectView &r) {
+          return static_cast<RpcSpec<Fields...> const *>(s)->process(r);
+        }},
+        checkImpl_{[](void const *s, ObjectView const &r) {
+          return static_cast<RpcSpec<Fields...> const *>(s)->check(r);
+        }},
+        dumpImpl_{[](void const *s, SpecDumpWriter &w) {
+          dumpRpcSpec(w, *static_cast<RpcSpec<Fields...> const *>(s));
+        }} {}
 
-    [[nodiscard]] MaybeError
-    process(ObjectView& root) const
-    {
-        return processImpl_(self_, root);
-    }
+  [[nodiscard]] MaybeError process(ObjectView &root) const {
+    return processImpl_(self_, root);
+  }
 
-    [[nodiscard]] Warnings
-    check(ObjectView const& root) const
-    {
-        return checkImpl_(self_, root);
-    }
+  [[nodiscard]] Warnings check(ObjectView const &root) const {
+    return checkImpl_(self_, root);
+  }
 
-    /// Walk the spec tree and emit a human-readable description via @p w.
-    void
-    dump(SpecDumpWriter& w) const
-    {
-        dumpImpl_(self_, w);
-    }
+  void dump(SpecDumpWriter &w) const { dumpImpl_(self_, w); }
 
-    template <typename V>
-        requires(!std::same_as<V, ObjectView>) && std::constructible_from<ObjectView, V&>
-    [[nodiscard]] MaybeError
-    process(V& v) const
-    {
-        ObjectView root{v};
-        return processImpl_(self_, root);
-    }
+  template <typename V>
+    requires(!std::same_as<V, ObjectView>) &&
+            std::constructible_from<ObjectView, V &>
+  [[nodiscard]] MaybeError process(V &v) const {
+    ObjectView root{v};
+    return processImpl_(self_, root);
+  }
 
-    template <typename V>
-        requires(!std::same_as<V, ObjectView>) && std::constructible_from<ObjectView, V const&>
-    [[nodiscard]] Warnings
-    check(V const& v) const
-    {
-        ObjectView const root{v};
-        return checkImpl_(self_, root);
-    }
+  template <typename V>
+    requires(!std::same_as<V, ObjectView>) &&
+            std::constructible_from<ObjectView, V const &>
+  [[nodiscard]] Warnings check(V const &v) const {
+    ObjectView const root{v};
+    return checkImpl_(self_, root);
+  }
 };
 
 using RpcSpecConstRef = RpcSpecView;
 
-}  // namespace rpc::spec
+} // namespace rpc::spec

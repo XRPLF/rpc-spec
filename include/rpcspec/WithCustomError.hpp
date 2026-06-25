@@ -1,12 +1,8 @@
 /** @file */
 #pragma once
 
-// WithCustomError uses rpc::CombinedError/rpc::Status from Clio's error system.
-// This header is only usable in Clio builds.
-#if RPCSPEC_IS_CLIO
-
-#include "rpc/Errors.hpp"
 #include <rpcspec/Concepts.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/Types.hpp>
 
 #include <string>
@@ -100,5 +96,3 @@ private:
 };
 
 }  // namespace rpc::spec
-
-#endif  // RPCSPEC_IS_CLIO
