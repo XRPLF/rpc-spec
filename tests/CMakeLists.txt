@@ -4,7 +4,16 @@
 # Boost::json (the latter via rpcspec::rpcspec).
 find_package(GTest REQUIRED)
 
-add_executable(rpcspec_tests RpcSpec.cpp)
+add_executable(
+    rpcspec_tests
+    RpcSpec.cpp
+    StatusPrinter.cpp
+    SpecCoreTests.cpp
+    SpecFieldViewTests.cpp
+    SpecMockBackendTests.cpp
+    SpecModifierTests.cpp
+    SpecValidatorTests.cpp
+)
 
 target_link_libraries(
     rpcspec_tests
