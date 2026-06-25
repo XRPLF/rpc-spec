@@ -1,17 +1,26 @@
 /** @file */
 #pragma once
-// Minimal mock of the libxrpl protocol surface that rpcspec's detail/XrplNs.hpp
-// (rippled backend) references. This lets the standalone unit tests compile and
-// run with ZERO dependency on libxrpl — only Boost::json is needed.
+// Minimal mock of the libxrpl protocol surface that rpcspec's headers (rippled
+// backend) reference. This lets the standalone unit tests compile and run with
+// ZERO dependency on libxrpl — only Boost::json is needed.
 //
 // It mirrors just enough of namespace xrpl to satisfy the `using xrpl::...`
-// declarations and the inline wrappers in XrplNs.hpp / XrplParse.hpp. The bodies
-// are intentionally trivial: the tests exercise the consteval DSL machinery and
-// the ledger-types table, not real base58/account parsing.
+// declarations and the inline wrappers in XrplParse.hpp / Validators.hpp.
 //
-// The eight <xrpl/...> headers that XrplNs.hpp includes are thin shims that each
-// include this file (see tests/stubs/xrpl/...).
+// FIDELITY NOTE: the parsers below are *structural*, not cryptographic. base58
+// decoding is real (Ripple alphabet, big-number algorithm, version-byte and
+// length checks) but the 4-byte SHA-256 checksum is NOT verified — pulling in a
+// real hash would defeat the dependency-free design. This is enough to make the
+// spec tests' fixtures behave correctly (a well-formed account/seed decodes and
+// validates; a malformed or wrong-length one is rejected), but it is not a
+// drop-in for libxrpl's parsing. Currency/hex parsing is likewise format-based.
+//
+// The <xrpl/...> headers the framework includes are thin shims that each include
+// this file (see tests/stubs/xrpl/...).
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -21,10 +30,109 @@
 
 namespace xrpl {
 
+// ---- hex / base58 helpers (mock-local) --------------------------------------
+namespace mock_detail {
+
+[[nodiscard]] inline int
+hexVal(unsigned char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
+}
+
+// Decode a hex string into bytes. Returns nullopt on odd length or non-hex char.
+[[nodiscard]] inline std::optional<std::vector<unsigned char>>
+hexToBytes(std::string_view sv)
+{
+    if (sv.size() % 2 != 0)
+        return std::nullopt;
+    std::vector<unsigned char> out;
+    out.reserve(sv.size() / 2);
+    for (std::size_t i = 0; i < sv.size(); i += 2) {
+        int const hi = hexVal(static_cast<unsigned char>(sv[i]));
+        int const lo = hexVal(static_cast<unsigned char>(sv[i + 1]));
+        if (hi < 0 || lo < 0)
+            return std::nullopt;
+        out.push_back(static_cast<unsigned char>((hi << 4) | lo));
+    }
+    return out;
+}
+
+// Ripple base58 alphabet (note: excludes 0 O I l).
+inline constexpr std::string_view kBASE58_ALPHABET =
+    "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz";
+
+// Big-endian byte decode of a Ripple-base58 string. Returns nullopt on any
+// character outside the alphabet. Checksum is NOT validated (see fidelity note).
+[[nodiscard]] inline std::optional<std::vector<unsigned char>>
+decodeBase58(std::string_view s)
+{
+    if (s.empty())
+        return std::nullopt;
+    std::vector<unsigned char> bytes;  // little-endian during accumulation
+    for (char const ch : s) {
+        auto const pos = kBASE58_ALPHABET.find(ch);
+        if (pos == std::string_view::npos)
+            return std::nullopt;
+        int carry = static_cast<int>(pos);
+        for (auto& b : bytes) {
+            carry += 58 * b;
+            b = static_cast<unsigned char>(carry & 0xff);
+            carry >>= 8;
+        }
+        while (carry > 0) {
+            bytes.push_back(static_cast<unsigned char>(carry & 0xff));
+            carry >>= 8;
+        }
+    }
+    // Each leading alphabet[0] char ('r') maps to a leading zero byte.
+    for (char const ch : s) {
+        if (ch != kBASE58_ALPHABET[0])
+            break;
+        bytes.push_back(0);
+    }
+    std::reverse(bytes.begin(), bytes.end());
+    return bytes;
+}
+
+}  // namespace mock_detail
+
 // ---- basics/base_uint.h -----------------------------------------------------
 template <std::size_t Bits>
 struct base_uint {
     std::uint8_t data_[Bits / 8]{};
+
+    [[nodiscard]] bool
+    isZero() const noexcept
+    {
+        return std::all_of(std::begin(data_), std::end(data_), [](auto b) { return b == 0; });
+    }
+
+    // Parse exactly Bits/4 hex characters into the raw bytes. Returns false on
+    // wrong length or non-hex input (mirrors libxrpl's strict parseHex).
+    [[nodiscard]] bool
+    parseHex(char const* str)
+    {
+        std::string_view const sv{str};
+        if (sv.size() != Bits / 4)
+            return false;
+        auto const bytes = mock_detail::hexToBytes(sv);
+        if (!bytes || bytes->size() != Bits / 8)
+            return false;
+        std::copy(bytes->begin(), bytes->end(), std::begin(data_));
+        return true;
+    }
+
+    bool
+    operator==(base_uint const& other) const noexcept
+    {
+        return std::equal(std::begin(data_), std::end(data_), std::begin(other.data_));
+    }
 };
 using uint128 = base_uint<128>;
 using uint160 = base_uint<160>;
@@ -55,21 +163,58 @@ makeSlice(Container const& c)
 using Blob = std::vector<unsigned char>;
 
 [[nodiscard]] inline std::optional<Blob>
-strUnHex(std::string_view)
+strUnHex(std::string_view sv)
 {
-    return std::nullopt;
+    return mock_detail::hexToBytes(sv);
+}
+
+[[nodiscard]] inline std::optional<Blob>
+strViewUnHex(std::string_view sv)
+{
+    return mock_detail::hexToBytes(sv);
 }
 
 // ---- protocol/tokens.h ------------------------------------------------------
+// Version bytes for the Ripple base58 token types we care about.
 enum class TokenType {
-    None = 0,
+    None = 1,
+    NodePublic = 28,
+    NodePrivate = 32,
     AccountID = 0,
     AccountPublic = 35,
+    AccountSecret = 34,
+    FamilySeed = 33,
 };
 
 // ---- protocol/AccountID.h (+ Currency) --------------------------------------
-class Currency {};
-class AccountID {};
+class AccountID {
+    std::array<std::uint8_t, 20> data_{};
+
+public:
+    AccountID() = default;
+
+    [[nodiscard]] std::uint8_t* data() noexcept { return data_.data(); }
+    [[nodiscard]] std::uint8_t const* data() const noexcept { return data_.data(); }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return 20; }
+
+    [[nodiscard]] bool
+    isZero() const noexcept
+    {
+        return std::all_of(data_.begin(), data_.end(), [](auto b) { return b == 0; });
+    }
+
+    bool operator==(AccountID const& other) const noexcept = default;
+};
+
+class Currency {
+    bool isXrp_ = false;
+
+public:
+    Currency() = default;
+    explicit Currency(bool isXrp) : isXrp_(isXrp) {}
+    [[nodiscard]] bool isXrp() const noexcept { return isXrp_; }
+    bool operator==(Currency const&) const noexcept = default;
+};
 
 [[nodiscard]] inline AccountID
 noAccount()
@@ -78,20 +223,27 @@ noAccount()
 }
 
 [[nodiscard]] inline bool
-isXRP(Currency const&)
+isXRP(Currency const& c)
 {
-    return false;
+    return c.isXrp();
 }
 
+// "XRP", any 3-character ISO code, or a 40-char hex code is accepted.
 [[nodiscard]] inline bool
-toCurrency(Currency&, std::string const&)
+toCurrency(Currency& currency, std::string const& code)
 {
-    return false;
-}
-
-[[nodiscard]] inline bool
-toIssuer(AccountID&, std::string const&)
-{
+    if (code == "XRP") {
+        currency = Currency{true};
+        return true;
+    }
+    if (code.size() == 3) {
+        currency = Currency{false};
+        return true;
+    }
+    if (code.size() == 40 && mock_detail::hexToBytes(code).has_value()) {
+        currency = Currency{false};
+        return true;
+    }
     return false;
 }
 
@@ -105,18 +257,26 @@ public:
 [[nodiscard]] inline AccountID
 calcAccountID(PublicKey const&)
 {
-    return {};
+    // Non-zero so a parsed public key yields a valid-looking account.
+    AccountID a;
+    a.data()[0] = 1;
+    return a;
 }
 
 enum class KeyType { secp256k1, ed25519 };
 
 [[nodiscard]] inline std::optional<KeyType>
-publicKeyType(Slice const&)
+publicKeyType(Slice const& s)
 {
+    // libxrpl recognises 33-byte (secp256k1) and 32-byte (ed25519, 0xED-prefixed)
+    // keys; for the mock we only need the size gate the wrappers rely on.
+    if (s.size() == 33)
+        return KeyType::secp256k1;
     return std::nullopt;
 }
 
-// parseBase58 overloads used by XrplParse.hpp's wrappers.
+// parseBase58 — version-byte + length aware. Used by XrplParse.hpp's wrappers.
+// Primary template: unsupported types never parse.
 template <class T>
 [[nodiscard]] std::optional<T>
 parseBase58(std::string const&)
@@ -131,13 +291,51 @@ parseBase58(TokenType, std::string const&)
     return std::nullopt;
 }
 
-// Credential limits referenced by XrplNs.hpp.
+// AccountID: 1 version byte (TokenType::AccountID == 0) + 20 bytes + 4 checksum.
+template <>
+[[nodiscard]] inline std::optional<AccountID>
+parseBase58<AccountID>(std::string const& str)
+{
+    auto const bytes = mock_detail::decodeBase58(str);
+    if (!bytes || bytes->size() != 25)
+        return std::nullopt;
+    if ((*bytes)[0] != static_cast<std::uint8_t>(TokenType::AccountID))
+        return std::nullopt;
+    AccountID a;
+    std::copy(bytes->begin() + 1, bytes->begin() + 21, a.data());
+    return a;
+}
+
+// PublicKey (account-public): 1 version byte + 33 key bytes + 4 checksum.
+template <>
+[[nodiscard]] inline std::optional<PublicKey>
+parseBase58<PublicKey>(TokenType type, std::string const& str)
+{
+    auto const bytes = mock_detail::decodeBase58(str);
+    if (!bytes || bytes->size() != 38)
+        return std::nullopt;
+    if ((*bytes)[0] != static_cast<std::uint8_t>(type))
+        return std::nullopt;
+    return PublicKey{Slice{bytes->data() + 1, 33}};
+}
+
+[[nodiscard]] inline bool
+toIssuer(AccountID& issuer, std::string const& str)
+{
+    auto const parsed = parseBase58<AccountID>(str);
+    if (!parsed)
+        return false;
+    issuer = *parsed;
+    return true;
+}
+
+// Credential limits referenced by Validators.hpp.
 inline constexpr std::size_t kMaxCredentialTypeLength = 64;
 inline constexpr std::size_t kMaxCredentialsArraySize = 8;
 
 // ---- protocol/ErrorCodes.h --------------------------------------------------
 // Unscoped enum so xrpl::RpcSuccess etc. are namespace-scope constants of type
-// ErrorCodeI, matching how XrplNs.hpp consumes them.
+// ErrorCodeI, matching how the framework consumes them.
 enum ErrorCodeI : int {
     RpcSuccess = 0,
     RpcUnknown = -1,
