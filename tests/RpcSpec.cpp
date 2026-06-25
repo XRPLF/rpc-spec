@@ -1,4 +1,4 @@
-// Core spec DSL — compiles under both Clio (ripple:: namespace) and rippled (xrpl::).
+// Core spec DSL — compiles under both Clio (xrpl:: namespace) and rippled (xrpl::).
 // Validators.hpp is Clio-specific (JSON param validation) and not included here.
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/RpcSpec.hpp>
@@ -20,7 +20,7 @@ TEST(RpcSpec, StatusDefault)
 {
     rpc::Status s;
     EXPECT_FALSE(static_cast<bool>(s));
-    EXPECT_TRUE(s == ripple::rpcSUCCESS);
+    EXPECT_TRUE(s == xrpl::RpcSuccess);
 }
 
 TEST(RpcSpec, LedgerTypesTable)

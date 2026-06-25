@@ -1,5 +1,8 @@
+import os
+
 from conan import ConanFile
-from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
+from conan.tools.cmake import CMakeToolchain, cmake_layout
+from conan.tools.files import copy
 
 
 class XrplRpcSpecConan(ConanFile):
@@ -11,6 +14,11 @@ class XrplRpcSpecConan(ConanFile):
     description = "Consteval RPC spec DSL for XRPL — shared by Clio and rippled"
     settings = "os", "compiler", "build_type", "arch"
     package_type = "header-library"
+    no_copy_source = True
+
+    # The headers travel with the recipe so consumers get a real package (not a
+    # source build). CMakeLists/tests are exported too for local `conan create`.
+    exports_sources = "include/*", "CMakeLists.txt", "tests/*", "LICENSE.md", "README.md"
 
     # Build-time consumers (Clio, rippled) provide their own xrpl/ripple headers;
     # the only direct dependency of the headers is Boost::json. Keep this aligned
@@ -42,22 +50,34 @@ class XrplRpcSpecConan(ConanFile):
     def layout(self):
         cmake_layout(self)
 
+    # Header-only: the binary is identical across settings, so don't rebuild
+    # per compiler/arch/build_type.
+    def package_id(self):
+        self.info.clear()
+
+    # Only used for local standalone test builds (cmake -Drpcspec_tests=ON);
+    # consumers never run this.
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
-        # The rippled backend is the one exercised by the standalone tests.
         if self.options.tests:
             tc.preprocessor_definitions["RPCSPEC_IS_RIPPLED"] = "1"
         tc.generate()
 
-    def build(self):
-        cmake = CMake(self)
-        cmake.configure()
-        cmake.build()
-
+    # Header-only: no compilation. Just copy the headers into the package.
     def package(self):
-        cmake = CMake(self)
-        cmake.install()
+        copy(
+            self,
+            "*",
+            src=os.path.join(self.source_folder, "include"),
+            dst=os.path.join(self.package_folder, "include"),
+        )
+        copy(
+            self,
+            "LICENSE.md",
+            src=self.source_folder,
+            dst=os.path.join(self.package_folder, "licenses"),
+        )
 
     def package_info(self):
         self.cpp_info.bindirs = []

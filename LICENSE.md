@@ -1,6 +1,6 @@
 ISC License
 
-Copyright (c) 2012-present, the XRP Ledger developers.
+Copyright (c) 2026-present, the XRP Ledger developers.
 
 Permission to use, copy, modify, and distribute this software for any
 purpose with or without fee is hereby granted, provided that the above

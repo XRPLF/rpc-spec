@@ -40,7 +40,7 @@ struct Required {
     {
         if (!f.present()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 "Required field '" + std::string{f.key()} + "' missing"
             }};
         }
@@ -69,7 +69,7 @@ struct Type<int64_t> {
         if (!f.present())
             return {};
         if (!f.isInt64())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -92,7 +92,7 @@ struct Type<bool> {
         if (!f.present())
             return {};
         if (!f.isBool())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -115,7 +115,7 @@ struct Type<std::string> {
         if (!f.present())
             return {};
         if (!f.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -138,7 +138,7 @@ struct Type<double> {
         if (!f.present())
             return {};
         if (!f.isDouble())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -161,7 +161,7 @@ struct Type<uint32_t> {
         if (!f.present())
             return {};
         if (!f.isUint32())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -184,7 +184,7 @@ struct Type<JsonObject> {
         if (!f.present())
             return {};
         if (!f.isObject())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
@@ -207,12 +207,12 @@ struct Type<JsonArray> {
         if (!f.present())
             return {};
         if (!f.isArray())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
 
-// OR-semantics: accepts any of the listed types. Returns rpcINVALID_PARAMS if none match.
+// OR-semantics: accepts any of the listed types. Returns RpcInvalidParams if none match.
 template <typename T1, typename T2, typename... Rest>
 struct Type<T1, T2, Rest...> {
     static constexpr std::string_view kNAME = "type";
@@ -237,7 +237,7 @@ struct Type<T1, T2, Rest...> {
             return {};
         if (f.template is<T1>() || f.template is<T2>() || (f.template is<Rest>() || ...))
             return {};
-        return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 };
 
@@ -268,19 +268,19 @@ struct Min {
             if (!f.isInt64())
                 return {};
             if (f.asInt64() < bound) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         } else if constexpr (std::is_same_v<T, uint32_t>) {
             if (!f.isUint32())
                 return {};
             if (f.asUint32() < bound) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         } else if constexpr (std::is_same_v<T, double>) {
             if (!f.isDouble())
                 return {};
             if (f.asDouble() < bound) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         }
         return {};
@@ -334,14 +334,6 @@ struct Clamp {
 template <typename T>
 Clamp(T, T) -> Clamp<T>;
 
-// Mirrors the old `checkTypeAndClamp<Target>` behaviour: silently coerces an integer-valued
-// field into the inclusive range of `Target`. No-op for absent/non-integer fields. Negative
-// int64 input for an unsigned target is clamped to 0; values exceeding `Target::max()` are
-// clamped to `Target::max()`. The clamped result is stored back through the field-view API
-// (uint32 for unsigned target, int64 otherwise).
-//
-// Use after `type<int64_t>` or `type<uint32_t>` when downstream deserialisation truncates to a
-// narrower type — e.g. `account_tx.ledger_index_min` being read as `int32_t`.
 template <typename Target>
     requires std::integral<Target> && (!std::is_same_v<Target, bool>)
 struct ClampAs {
@@ -418,12 +410,12 @@ struct AccountFormat {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotString"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
             }};
         }
         if (!detail::accountFromStringStrict(std::string{f.asString()})) {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::rpcACT_MALFORMED, std::string{f.key()} + "Malformed"}
+                rpc::Status{rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}
             };
         }
         return {};
@@ -454,14 +446,13 @@ public:
         if (!f.present())
             return {};
         if (!f.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         if (!detail::systemTpFromUtcStr(std::string{f.asString()}, std::string{format_}))
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
 
-// Helper: true if sv parses as a uint32 integer via from_chars.
 [[nodiscard]] inline bool
 checkIsU32Numeric(std::string_view sv)
 {
@@ -470,19 +461,16 @@ checkIsU32Numeric(std::string_view sv)
     return ec == std::errc();
 }
 
-// Validates a hex-encoded integer of the given ripple type (uint160/uint192/uint256).
-// rpcINVALID_PARAMS + "<key>NotString" if not a string.
-// rpcINVALID_PARAMS + "<key>Malformed" if not valid hex.
 template <typename HexType>
     requires(
-        std::is_same_v<HexType, ripple::uint160> || std::is_same_v<HexType, ripple::uint192> ||
-        std::is_same_v<HexType, ripple::uint256>
+        std::is_same_v<HexType, xrpl::uint160> || std::is_same_v<HexType, xrpl::uint192> ||
+        std::is_same_v<HexType, xrpl::uint256>
     )
 struct HexStringValidator {
     static constexpr std::string_view kNAME = []() {
-        if constexpr (std::is_same_v<HexType, ripple::uint256>) {
+        if constexpr (std::is_same_v<HexType, xrpl::uint256>) {
             return std::string_view{"uint256Hex"};
-        } else if constexpr (std::is_same_v<HexType, ripple::uint192>) {
+        } else if constexpr (std::is_same_v<HexType, xrpl::uint192>) {
             return std::string_view{"uint192Hex"};
         } else {
             return std::string_view{"uint160Hex"};
@@ -497,14 +485,14 @@ struct HexStringValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 "Invalid field '" + std::string{f.key()} + "', not hex string."
             }};
         }
         HexType parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str())) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 "Invalid field '" + std::string{f.key()} + "', not hex string."
             }};
         }
@@ -512,14 +500,10 @@ struct HexStringValidator {
     }
 };
 
-using Uint256HexStringValidator = HexStringValidator<ripple::uint256>;
-using Uint192HexStringValidator = HexStringValidator<ripple::uint192>;
-using Uint160HexStringValidator = HexStringValidator<ripple::uint160>;
+using Uint256HexStringValidator = HexStringValidator<xrpl::uint256>;
+using Uint192HexStringValidator = HexStringValidator<xrpl::uint192>;
+using Uint160HexStringValidator = HexStringValidator<xrpl::uint160>;
 
-// Accepts a ledger index: any integer, or a string that is one of the standard
-// ledger keywords ("validated", "closed", "current") or a uint32-numeric string.
-// rpcINVALID_PARAMS (no message) for non-string/non-int; rpcINVALID_PARAMS +
-// "Invalid field 'ledger_index', not string or number." for unrecognised keyword strings.
 struct LedgerIndexValidator {
     static constexpr std::string_view kNAME = "ledgerIndex";
 
@@ -532,21 +516,18 @@ struct LedgerIndexValidator {
         if (f.isInt64() || f.isUint32())
             return {};
         if (!f.isString()) {
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         auto const sv = f.asString();
         if (sv == "validated" || sv == "closed" || sv == "current" || checkIsU32Numeric(sv))
             return {};
         return std::unexpected{rpc::Status{
-            rpc::RippledError::rpcINVALID_PARAMS,
+            rpc::RippledError::RpcInvalidParams,
             "Invalid field 'ledger_index', not string or number."
         }};
     }
 };
 
-// Validates a strictly base58-encoded AccountID (not hex pubkeys).
-// rpcINVALID_PARAMS + "<key>NotString" if not string.
-// ClioError::RpcMalformedAddress if not a valid base58 account or zero account.
 struct AccountBase58Validator {
     static constexpr std::string_view kNAME = "accountBase58";
 
@@ -558,10 +539,10 @@ struct AccountBase58Validator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotString"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
             }};
         }
-        auto const account = detail::parseBase58Wrapper<ripple::AccountID>(std::string{f.asString()});
+        auto const account = detail::parseBase58Wrapper<xrpl::AccountID>(std::string{f.asString()});
         if (!account || account->isZero()) {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedAddress}};
         }
@@ -569,10 +550,6 @@ struct AccountBase58Validator {
     }
 };
 
-// Validates a currency string (XRP, 3-char ISO, or 40-char hex).
-// rpcINVALID_PARAMS + "<key>NotString" if not string.
-// rpcINVALID_PARAMS + "<key>IsEmpty" if empty string.
-// ClioError::RpcMalformedCurrency + "malformedCurrency" if ripple::to_currency fails.
 struct CurrencyValidator {
     static constexpr std::string_view kNAME = "currency";
 
@@ -584,17 +561,17 @@ struct CurrencyValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotString"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
             }};
         }
         auto const str = std::string{f.asString()};
         if (str.empty()) {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "IsEmpty"}
+                rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "IsEmpty"}
             };
         }
-        ripple::Currency currency;
-        if (!ripple::to_currency(currency, str)) {
+        xrpl::Currency currency;
+        if (!xrpl::toCurrency(currency, str)) {
             return std::unexpected{
                 rpc::Status{rpc::ClioError::RpcMalformedCurrency, "malformedCurrency"}
             };
@@ -603,10 +580,6 @@ struct CurrencyValidator {
     }
 };
 
-// Validates an issuer account string (hex or base58).
-// rpcINVALID_PARAMS + "<key>NotString" if not string.
-// rpcINVALID_PARAMS + "Invalid field '<key>', bad issuer." if ripple::to_issuer fails.
-// rpcINVALID_PARAMS + "Invalid field '<key>', bad issuer account one." if noAccount().
 struct IssuerValidator {
     static constexpr std::string_view kNAME = "issuer";
 
@@ -618,19 +591,19 @@ struct IssuerValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotString"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
             }};
         }
-        ripple::AccountID issuer;
-        if (!ripple::to_issuer(issuer, std::string{f.asString()})) {
+        xrpl::AccountID issuer;
+        if (!xrpl::toIssuer(issuer, std::string{f.asString()})) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', bad issuer.", f.key())
             }};
         }
-        if (issuer == ripple::noAccount()) {
+        if (issuer == xrpl::noAccount()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', bad issuer account one.", f.key())
             }};
         }
@@ -638,10 +611,6 @@ struct IssuerValidator {
     }
 };
 
-// Validates a {currency, issuer} object as a ripple::Issue.
-// Mirrors old `currencyIssueValidator`:
-//   - non-object → rpcINVALID_PARAMS + "<key>NotObject"
-//   - any other parse failure → ClioError::RpcMalformedRequest (no message)
 struct CurrencyIssueValidator {
     static constexpr std::string_view kNAME = "currencyIssue";
 
@@ -653,19 +622,19 @@ struct CurrencyIssueValidator {
             return {};
         if (!f.isObject()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotObject"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"
             }};
         }
         auto const currFa = f.child("currency");
         if (!currFa.present() || !currFa.isString()) {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
         }
-        ripple::Currency currency{};
-        if (!ripple::to_currency(currency, std::string{currFa.asString()})) {
+        xrpl::Currency currency{};
+        if (!xrpl::toCurrency(currency, std::string{currFa.asString()})) {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
         }
         auto const issuerFa = f.child("issuer");
-        if (ripple::isXRP(currency)) {
+        if (xrpl::isXRP(currency)) {
             if (issuerFa.present()) {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
@@ -673,8 +642,8 @@ struct CurrencyIssueValidator {
             if (!issuerFa.present() || !issuerFa.isString()) {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
-            ripple::AccountID issuer;
-            if (!ripple::to_issuer(issuer, std::string{issuerFa.asString()})) {
+            xrpl::AccountID issuer;
+            if (!xrpl::toIssuer(issuer, std::string{issuerFa.asString()})) {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
         }
@@ -682,9 +651,6 @@ struct CurrencyIssueValidator {
     }
 };
 
-// Converts a string field to an integer in-place.
-// No-op when field is absent or already an integer.
-// Returns rpcINVALID_PARAMS if the string looks like a float or is not numeric.
 struct ToNumberModifier {
     static constexpr std::string_view kNAME = "toNumber";
 
@@ -696,20 +662,18 @@ struct ToNumberModifier {
             return {};
         auto const sv = f.asString();
         if (sv.find('.') != std::string_view::npos) {
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         int64_t val = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
         if (ec != std::errc() || ptr != sv.data() + sv.size()) {
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         f.set(val);
         return {};
     }
 };
 
-// Validates a credential_type hex string: must be non-empty and <= maxCredentialTypeLength.
-// All errors use ClioError::RpcMalformedAuthorizedCredentials.
 struct CredentialTypeValidator {
     static constexpr std::string_view kNAME = "credentialType";
 
@@ -725,7 +689,7 @@ struct CredentialTypeValidator {
                 std::string{f.key()} + " NotString"
             }};
         }
-        auto const decoded = ripple::strViewUnHex(f.asString());
+        auto const decoded = xrpl::strViewUnHex(f.asString());
         if (!decoded) {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
@@ -738,7 +702,7 @@ struct CredentialTypeValidator {
                 std::string{f.key()} + " is empty"
             }};
         }
-        if (decoded->size() > ripple::maxCredentialTypeLength) {
+        if (decoded->size() > xrpl::kMaxCredentialTypeLength) {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
                 std::string{f.key()} + " greater than max length"
@@ -748,12 +712,6 @@ struct CredentialTypeValidator {
     }
 };
 
-// Validates an authorized_credentials array:
-// - Must be an array: ClioError::RpcMalformedRequest + "<key> not array"
-// - Must be non-empty: ClioError::RpcMalformedAuthorizedCredentials + message
-// - Must be <= maxCredentialsArraySize: ClioError::RpcMalformedAuthorizedCredentials + message
-// - Each element must be an object with "issuer" (required, IssuerValidator) and
-//   "credential_type" (required, CredentialTypeValidator).
 struct AuthorizeCredentialValidator {
     static constexpr std::string_view kNAME = "authorizeCredential";
 
@@ -775,12 +733,12 @@ struct AuthorizeCredentialValidator {
                 "Requires at least one element in authorized_credentials array."
             }};
         }
-        if (sz > ripple::maxCredentialsArraySize) {
+        if (sz > xrpl::kMaxCredentialsArraySize) {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
                 std::format(
                     "Max {} number of credentials in authorized_credentials array",
-                    ripple::maxCredentialsArraySize
+                    xrpl::kMaxCredentialsArraySize
                 )
             }};
         }
@@ -819,9 +777,6 @@ struct AuthorizeCredentialValidator {
     }
 };
 
-// Wraps a callable Fn that takes FA const& and returns MaybeError.
-// The callable is invoked only when the field is present.
-// Fn must be default-constructible and callable with FA const&.
 template <typename Fn>
 struct CustomValidator {
     Fn fn;
@@ -843,8 +798,6 @@ struct CustomValidator {
 template <typename Fn>
 CustomValidator(Fn) -> CustomValidator<Fn>;
 
-// Wraps a callable Fn that takes FA& and returns MaybeError — analogous to CustomValidator
-// but participates in the modifier (modify) phase instead of the requirement (verify) phase.
 template <typename Fn>
 struct CustomModifier {
     Fn fn;
@@ -866,7 +819,6 @@ struct CustomModifier {
 template <typename Fn>
 CustomModifier(Fn) -> CustomModifier<Fn>;
 
-// Rejects the field with rpcNOT_SUPPORTED + "Not supported field '<key>'" if it is present.
 struct NotSupported {
     static constexpr std::string_view kNAME = "notSupported";
 
@@ -876,7 +828,7 @@ struct NotSupported {
     {
         if (f.present()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcNOT_SUPPORTED,
+                rpc::RippledError::RpcNotSupported,
                 "Not supported field '" + std::string{f.key()} + "'"
             }};
         }
@@ -884,9 +836,6 @@ struct NotSupported {
     }
 };
 
-// Rejects the field with rpcNOT_SUPPORTED only when its value equals the configured value.
-// Currently supports bool. Error message:
-// "Not supported field '<key>'s value '<value>'"
 template <typename T>
     requires(std::is_same_v<T, bool>)
 struct NotSupportedIfEqual {
@@ -917,7 +866,7 @@ struct NotSupportedIfEqual {
                 return {};
         }
         return std::unexpected{rpc::Status{
-            rpc::RippledError::rpcNOT_SUPPORTED,
+            rpc::RippledError::RpcNotSupported,
             std::format("Not supported field '{}'s value '{}'", f.key(), value)
         }};
     }
@@ -926,8 +875,6 @@ struct NotSupportedIfEqual {
 template <typename T>
 NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
 
-// Validates that a string field equals one of a fixed set of allowed values.
-// Returns rpcINVALID_PARAMS if the field is not a string or not in the set.
 template <std::size_t N>
 struct OneOfValidator {
     static constexpr std::string_view kNAME = "oneOf";
@@ -948,18 +895,17 @@ struct OneOfValidator {
         if (!f.present())
             return {};
         if (!f.isString()) {
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         auto const sv = f.asString();
         for (auto const& v : values) {
             if (sv == v)
                 return {};
         }
-        return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 };
 
-// Converts a string field to lowercase in-place. No-op when field is absent or non-string.
 struct ToLowerModifier {
     static constexpr std::string_view kNAME = "toLower";
 
@@ -979,8 +925,6 @@ struct ToLowerModifier {
     }
 };
 
-// Validates that a numeric field value is in the inclusive range [lo, hi].
-// Returns rpcINVALID_PARAMS if the value is outside the range.
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Between {
@@ -1009,19 +953,19 @@ struct Between {
             if (!f.isInt64())
                 return {};
             if (f.asInt64() < lo || f.asInt64() > hi) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         } else if constexpr (std::is_same_v<T, uint32_t>) {
             if (!f.isUint32())
                 return {};
             if (f.asUint32() < lo || f.asUint32() > hi) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         } else if constexpr (std::is_same_v<T, double>) {
             if (!f.isDouble())
                 return {};
             if (f.asDouble() < lo || f.asDouble() > hi) {
-                return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         }
         return {};
@@ -1031,9 +975,6 @@ struct Between {
 template <typename T>
 Between(T, T) -> Between<T>;
 
-// Validates that each element of an array field is a valid uint256 hex string.
-// Returns rpcINVALID_PARAMS + "Item is not a valid uint256 type." for any non-string or
-// non-hex element.
 struct Hex256ArrayValidator {
     static constexpr std::string_view kNAME = "hex256Array";
 
@@ -1045,20 +986,20 @@ struct Hex256ArrayValidator {
             return {};
         if (!f.isArray()) {
             // Mirrors old behaviour: a non-array credentials field is rejected by the leading
-            // Type<array> check which produces a plain rpcINVALID_PARAMS ("Invalid parameters.").
-            return std::unexpected{rpc::Status{rpc::RippledError::rpcINVALID_PARAMS}};
+            // Type<array> check which produces a plain RpcInvalidParams ("Invalid parameters.").
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         for (std::size_t i = 0; i < f.arraySize(); ++i) {
             auto const elem = f.element(i);
             if (!elem.isString()) {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::rpcINVALID_PARAMS, "Item is not a valid uint256 type."
+                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."
                 }};
             }
-            ripple::uint256 parsed;
+            xrpl::uint256 parsed;
             if (!parsed.parseHex(std::string{elem.asString()}.c_str())) {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::rpcINVALID_PARAMS, "Item is not a valid uint256 type."
+                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."
                 }};
             }
         }
@@ -1066,9 +1007,6 @@ struct Hex256ArrayValidator {
     }
 };
 
-// Validates a pagination marker string in the format "<hex256>,<uint64>" (e.g. "AABB...,42").
-// Returns rpcINVALID_PARAMS + "<key>NotString" if not a string, or
-// rpcINVALID_PARAMS + "Malformed cursor." if the format is invalid.
 struct AccountMarkerValidator {
     static constexpr std::string_view kNAME = "accountMarker";
 
@@ -1080,14 +1018,14 @@ struct AccountMarkerValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::string{f.key()} + "NotString"
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
             }};
         }
         auto const sv = f.asString();
         auto const commaPos = sv.find(',');
         auto const malformed = [&] {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 "Invalid field '" + std::string{f.key()} + "', not hex string."
             }};
         };
@@ -1095,7 +1033,7 @@ struct AccountMarkerValidator {
             return malformed();
         auto const hexPart = std::string{sv.substr(0, commaPos)};
         auto const hintPart = sv.substr(commaPos + 1);
-        ripple::uint256 index;
+        xrpl::uint256 index;
         if (!index.parseHex(hexPart.c_str()))
             return malformed();
         uint64_t hint = 0;
@@ -1107,9 +1045,6 @@ struct AccountMarkerValidator {
     }
 };
 
-// Validates that a string field names a valid account-owned ledger entry type.
-// Not a string -> rpcINVALID_PARAMS + "Invalid field '<key>', not string."
-// Unknown type -> rpcINVALID_PARAMS + "Invalid field '<key>'."
 struct AccountTypeValidator {
     static constexpr std::string_view kNAME = "accountType";
 
@@ -1121,24 +1056,21 @@ struct AccountTypeValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", f.key())
             }};
         }
         auto const type =
             detail::accountOwnedLedgerTypeFromStr(std::string{f.asString()});
-        if (type == ripple::ltANY) {
+        if (type == xrpl::ltANY) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::format("Invalid field '{}'.", f.key())
+                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())
             }};
         }
         return {};
     }
 };
 
-// Validates that a string field names any valid ledger entry type.
-// Not a string -> rpcINVALID_PARAMS + "Invalid field '<key>', not string."
-// Unknown type -> rpcINVALID_PARAMS + "Invalid field '<key>'."
 struct LedgerEntryTypeValidator {
     static constexpr std::string_view kNAME = "ledgerType";
 
@@ -1150,14 +1082,14 @@ struct LedgerEntryTypeValidator {
             return {};
         if (!f.isString()) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS,
+                rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", f.key())
             }};
         }
         auto const type = detail::ledgerEntryTypeFromStr(std::string{f.asString()});
-        if (type == ripple::ltANY) {
+        if (type == xrpl::ltANY) {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::rpcINVALID_PARAMS, std::format("Invalid field '{}'.", f.key())
+                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())
             }};
         }
         return {};

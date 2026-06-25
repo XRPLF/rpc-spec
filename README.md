@@ -1,8 +1,7 @@
 # xrpl-rpc-spec
 
 A header-only, `consteval` RPC specification DSL for the XRP Ledger, shared by
-[Clio](https://github.com/XRPLF/clio) and [rippled](https://github.com/XRPLF/rippled).
-Repository: <https://github.com/XRPLF/rpc-spec>.
+[Clio](https://github.com/XRPLF/clio) and [xrpld](https://github.com/XRPLF/rippled).
 
 The DSL lets a handler declare its request parameters — types, requirements,
 defaults, modifiers — as a compile-time spec. The framework validates incoming
