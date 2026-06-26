@@ -124,7 +124,9 @@ public:
     {
     }
 
-    /** @brief Attach a pre-deserialization hook; returns the updated spec. */
+    /** @brief Attach a pre-deserialization hook.
+     *  @return the updated spec. 
+     */
     template <SomePreDeserializeHook<Resolved> H>
     [[nodiscard]] consteval auto
     withPreCheck(H hook) const
