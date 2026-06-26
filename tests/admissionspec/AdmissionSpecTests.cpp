@@ -1,5 +1,5 @@
-#include <admissionspec/AdmissionSpec.h>
-#include <admissionspec/Types.h>
+#include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
 #include <array>

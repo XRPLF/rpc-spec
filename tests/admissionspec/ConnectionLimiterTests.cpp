@@ -1,6 +1,6 @@
-#include <admissionspec/AdmissionSpec.h>
-#include <admissionspec/ConnectionLimiter.h>
-#include <admissionspec/Types.h>
+#include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -65,8 +65,7 @@ TEST(ConnectionLimiterTests, RateLimit)
     {
         // Verify that a droppable pre condition drops the admission
         auto tooLarge = std::array<std::byte, (64 * 1024) + 1>{};
-        auto decision =
-            limiter.admitPre<FooMessage>(0uz, tooLarge, start);
+        auto decision = limiter.admitPre<FooMessage>(0uz, tooLarge, start);
         EXPECT_EQ(decision.tokenCost, 10.0);
         EXPECT_EQ(decision.reason, "payload exceeds max bytes for this type");
         EXPECT_FALSE(decision.admitted());

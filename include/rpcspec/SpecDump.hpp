@@ -26,7 +26,7 @@ concept HasWrapped = requires(T const &t) {
 
 template <typename T>
 concept HasKName = requires {
-  { T::kNAME };
+  { T::kName };
 };
 
 template <typename T, typename Writer>
@@ -43,19 +43,19 @@ void dumpRpcSpec(SpecDumpWriter &w, RpcSpec<Fields...> const &spec);
 
 template <typename Item> void dumpItem(SpecDumpWriter &w, Item const &item) {
   if constexpr (HasSubFields<Item>) {
-    w.bulletGroup(Item::kNAME, [&] {
+    w.bulletGroup(Item::kName, [&] {
       std::apply([&](auto const &...sf) { (dumpFieldSpec(w, sf), ...); },
                  item.subFields);
     });
   } else if constexpr (HasSubItems<Item>) {
-    w.bulletGroup(Item::kNAME, [&] {
+    w.bulletGroup(Item::kName, [&] {
       if constexpr (HasDescribeParams<Item, SpecDumpWriter>)
         item.describeParams(w);
       std::apply([&](auto const &...it) { (dumpItem(w, it), ...); },
                  item.subItems);
     });
   } else if constexpr (HasWrapped<Item>) {
-    w.bulletGroup(Item::kNAME, [&] {
+    w.bulletGroup(Item::kName, [&] {
       auto const msg = item.message();
       if (!msg.empty())
         w.param("message", msg);
@@ -63,9 +63,9 @@ template <typename Item> void dumpItem(SpecDumpWriter &w, Item const &item) {
     });
   } else if constexpr (HasKName<Item>) {
     if constexpr (HasDescribeParams<Item, SpecDumpWriter>) {
-      w.bulletGroup(Item::kNAME, [&] { item.describeParams(w); });
+      w.bulletGroup(Item::kName, [&] { item.describeParams(w); });
     } else {
-      w.bullet(Item::kNAME, [] {});
+      w.bullet(Item::kName, [] {});
     }
   } else {
     w.bullet("custom", [] {});

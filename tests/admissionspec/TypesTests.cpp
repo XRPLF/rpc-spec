@@ -1,4 +1,4 @@
-#include <admissionspec/Types.h>
+#include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -85,7 +85,7 @@ TEST(TypesTests, Tunable)
     constexpr auto t1 = admission::spec::tunable<"max_bytes">(10000ull, "test.max_bytes");
     EXPECT_EQ(t1.defaultValue, 10000ull);
     EXPECT_EQ(t1.configKey, "test.max_bytes");
-    EXPECT_EQ(decltype(t1)::kNAME, "max_bytes");
+    EXPECT_EQ(decltype(t1)::kName, "max_bytes");
     EXPECT_EQ(t1.defaultValue, admission::spec::toResolved(t1.defaultValue));
     if constexpr (!std::is_same_v<
                       decltype(t1)::ValueType,
@@ -97,7 +97,7 @@ TEST(TypesTests, Tunable)
     constexpr auto t2 = admission::spec::tunable<"max_requests">(42.5, "test.max_requests");
     EXPECT_EQ(t2.defaultValue, 42.5);
     EXPECT_EQ(t2.configKey, "test.max_requests");
-    EXPECT_EQ(decltype(t2)::kNAME, "max_requests");
+    EXPECT_EQ(decltype(t2)::kName, "max_requests");
     EXPECT_EQ(t2.defaultValue, admission::spec::toResolved(t2.defaultValue));
     if constexpr (!std::is_same_v<
                       decltype(t2)::ValueType,
@@ -115,7 +115,7 @@ TEST(TypesTests, Tunable)
     constexpr auto t3 = admission::spec::tunable<"max_bytes_2">(ramp, "test.max_bytes_2");
     EXPECT_EQ(t3.defaultValue, ramp);
     EXPECT_EQ(t3.configKey, "test.max_bytes_2");
-    EXPECT_EQ(decltype(t3)::kNAME, "max_bytes_2");
+    EXPECT_EQ(decltype(t3)::kName, "max_bytes_2");
     auto resolved = std::vector<admission::spec::SizeTier>(
         t3.defaultValue.tiers.begin(), t3.defaultValue.tiers.end());
     EXPECT_EQ(resolved, admission::spec::toResolved(t3.defaultValue));

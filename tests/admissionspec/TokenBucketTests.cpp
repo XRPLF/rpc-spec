@@ -1,4 +1,4 @@
-#include <admissionspec/TokenBucket.h>
+#include <admissionspec/TokenBucket.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>
