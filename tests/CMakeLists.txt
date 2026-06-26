@@ -6,9 +6,11 @@ find_package(GTest REQUIRED)
 
 add_executable(
     rpcspec_tests
-    AdmissionSpecTests.cpp
-    ConnectionLimiterTests.cpp
-    ResolverTests.cpp
+    admissionspec/AdmissionSpecTests.cpp
+    admissionspec/ConnectionLimiterTests.cpp
+    admissionspec/ResolverTests.cpp
+    admissionspec/TokenBucketTests.cpp
+    admissionspec/TypesTests.cpp
     RpcSpec.cpp
     StatusPrinter.cpp
     SpecCoreTests.cpp
@@ -16,8 +18,6 @@ add_executable(
     SpecMockBackendTests.cpp
     SpecModifierTests.cpp
     SpecValidatorTests.cpp
-    TokenBucketTests.cpp
-    TypesTests.cpp
 )
 
 target_link_libraries(

@@ -9,7 +9,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <thread>
 #include <type_traits>
 
 struct FooMessage
@@ -59,11 +58,15 @@ TEST(ConnectionLimiterTests, RateLimit)
         admission::spec::BucketSettings{.capacity = 50, .refillRatePerSecond = 10};
     auto limiter = admission::spec::ConnectionLimiter<std::size_t>{bucketSettings, 5};
 
+    // The limiter takes the current time point on every call, so we can advance a fabricated clock
+    // instead of sleeping — keeping the refill assertion deterministic and instant.
+    auto const start = std::chrono::steady_clock::now();
+
     {
         // Verify that a droppable pre condition drops the admission
         auto tooLarge = std::array<std::byte, (64 * 1024) + 1>{};
         auto decision =
-            limiter.admitPre<FooMessage>(0uz, tooLarge, std::chrono::steady_clock::now());
+            limiter.admitPre<FooMessage>(0uz, tooLarge, start);
         EXPECT_EQ(decision.tokenCost, 10.0);
         EXPECT_EQ(decision.reason, "payload exceeds max bytes for this type");
         EXPECT_FALSE(decision.admitted());
@@ -78,7 +81,7 @@ TEST(ConnectionLimiterTests, RateLimit)
         // Verify that a droppable post condition drops the admission
         auto foo = FooMessage{};
         foo.foo = 1000;
-        auto decision = limiter.admitPost(0uz, foo, std::chrono::steady_clock::now());
+        auto decision = limiter.admitPost(0uz, foo, start);
         EXPECT_EQ(decision.tokenCost, 25.0);
         EXPECT_EQ(decision.reason, "foo value is invalid");
         EXPECT_FALSE(decision.admitted());
@@ -94,7 +97,7 @@ TEST(ConnectionLimiterTests, RateLimit)
         for (auto i = 0uz; i < 10; ++i)
         {
             auto foo = FooMessage{};
-            auto decision = limiter.admitPost(i, foo, std::chrono::steady_clock::now());
+            auto decision = limiter.admitPost(i, foo, start);
             EXPECT_EQ(decision.tokenCost, 0.0);
             EXPECT_TRUE(decision.admitted());
             EXPECT_FALSE(decision.dropped());
@@ -105,11 +108,10 @@ TEST(ConnectionLimiterTests, RateLimit)
 
     {
         // Try a "DoS attack"
-        auto buffer = std::array<std::byte, 1025>{};  // This cost 10 tokens
+        auto buffer = std::array<std::byte, 1025>{};  // This costs 10 tokens
         for (auto i = 0uz; i < 6; ++i)
         {
-            auto decision =
-                limiter.admitPre<FooMessage>(0uz, buffer, std::chrono::steady_clock::now());
+            auto decision = limiter.admitPre<FooMessage>(0uz, buffer, start);
             if (i < 5)
             {
                 // These should be admitted
@@ -121,8 +123,9 @@ TEST(ConnectionLimiterTests, RateLimit)
                 EXPECT_TRUE(decision.dropped());
             }
         }
-        std::this_thread::sleep_for(std::chrono::seconds{6});
-        auto decision = limiter.admitPre<FooMessage>(0uz, buffer, std::chrono::steady_clock::now());
+
+        auto const refilled = start + std::chrono::seconds{6};
+        auto decision = limiter.admitPre<FooMessage>(0uz, buffer, refilled);
         // Should succeed after being rate limited and the bucket refilling
         EXPECT_TRUE(decision.admitted());
     }
