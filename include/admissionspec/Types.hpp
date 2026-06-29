@@ -26,8 +26,9 @@ enum class AdmissionAction { Admit, Drop };
  * empty when admitted. Stages never debit a bucket themselves — they only compute the cost — so
  * bucket exhaustion is a separate drop applied at the call site.
  */
-struct AdmissionDecision
+class AdmissionDecision
 {
+public:
     AdmissionAction action{AdmissionAction::Admit};
     double tokenCost{0.0};
     std::string_view reason;
@@ -72,8 +73,9 @@ struct AdmissionDecision
  * @brief A compile-time string usable as a non-type template parameter (for naming tunables).
  */
 template <std::size_t N>
-struct FixedString
+class FixedString
 {
+public:
     char value[N]{};
 
     consteval FixedString(char const (&str)[N]) noexcept
@@ -100,8 +102,9 @@ FixedString(char const (&)[N]) -> FixedString<N>;
 /**
  * @brief One step of a size→cost ramp: payloads up to @c upToBytes cost @c cost tokens.
  */
-struct SizeTier
+class SizeTier
 {
+public:
     std::uint64_t upToBytes{};  ///< inclusive upper bound, in bytes, for this tier
     double cost{};              ///< tokens charged for a payload whose size falls in this tier
 
@@ -117,8 +120,9 @@ struct SizeTier
  * replace the whole ramp, tier count and all.
  */
 template <std::size_t N>
-struct SizeCostRamp
+class SizeCostRamp
 {
+public:
     std::array<SizeTier, N> tiers{};
 
     SizeCostRamp() = default;
@@ -176,8 +180,9 @@ costFor(std::span<SizeTier const> tiers, std::uint64_t bytes) noexcept
  * @tparam T Default value type.
  */
 template <FixedString Name, typename T>
-struct Tunable
+class Tunable
 {
+public:
     using ValueType = T;
     static constexpr std::string_view kName = Name.view();
 
@@ -259,7 +264,7 @@ tunableIndex() noexcept
  * @tparam Tunables The @ref Tunable types the owning spec declared.
  */
 template <typename... Tunables>
-struct ResolvedTunables
+class ResolvedTunables
 {
 public:
     constexpr explicit ResolvedTunables(ResolvedTypeOfT<typename Tunables::ValueType>... vals)

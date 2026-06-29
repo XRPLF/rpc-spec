@@ -113,7 +113,7 @@ evaluation
 spec.
  */
 template <typename T, typename TunablesTuple, typename PreHook = NoHook, typename PostHook = NoHook>
-struct AdmissionSpec
+class AdmissionSpec
 {
 public:
     using Type = T;
