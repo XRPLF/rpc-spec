@@ -5,9 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
-class Config
+struct Config
 {
-public:
     using ConfigValue =
         std::variant<std::uint64_t, double, std::string, std::vector<std::pair<uint64_t, double>>>;
 
