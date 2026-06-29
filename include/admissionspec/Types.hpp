@@ -259,7 +259,7 @@ tunableIndex() noexcept
  * @tparam Tunables The @ref Tunable types the owning spec declared.
  */
 template <typename... Tunables>
-struct ResolvedTunables
+class ResolvedTunables
 {
 public:
     constexpr explicit ResolvedTunables(ResolvedTypeOfT<typename Tunables::ValueType>... vals)

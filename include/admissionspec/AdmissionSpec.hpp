@@ -113,7 +113,7 @@ evaluation
 spec.
  */
 template <typename T, typename TunablesTuple, typename PreHook = NoHook, typename PostHook = NoHook>
-struct AdmissionSpec
+class AdmissionSpec
 {
 public:
     using Type = T;
@@ -125,7 +125,7 @@ public:
     }
 
     /** @brief Attach a pre-deserialization hook.
-     *  @return the updated spec. 
+     *  @return the updated spec.
      */
     template <SomePreDeserializeHook<Resolved> H>
     [[nodiscard]] consteval auto

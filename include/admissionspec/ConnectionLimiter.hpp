@@ -32,7 +32,7 @@ namespace admission::spec {
  * @tparam ConnId The caller's connection identifier (must be hashable and equality-comparable).
  */
 template <typename ConnId>
-struct ConnectionLimiter
+class ConnectionLimiter
 {
 public:
     using Clock = TokenBucket::Clock;
