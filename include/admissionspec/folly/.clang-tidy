@@ -1,0 +1,4 @@
+# Vendored third-party code (folly). Kept verbatim to ease re-syncing with
+# upstream, so it is exempt from this repo's clang-tidy rules.
+Checks: "-*"
+InheritParentConfig: false

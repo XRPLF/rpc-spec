@@ -32,7 +32,7 @@
 namespace rpc::spec {
 
 struct Required {
-    static constexpr std::string_view kNAME = "required";
+    static constexpr std::string_view kName = "required";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -53,7 +53,7 @@ struct Type;
 
 template <>
 struct Type<int64_t> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -76,7 +76,7 @@ struct Type<int64_t> {
 
 template <>
 struct Type<bool> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -99,7 +99,7 @@ struct Type<bool> {
 
 template <>
 struct Type<std::string> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -122,7 +122,7 @@ struct Type<std::string> {
 
 template <>
 struct Type<double> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -145,7 +145,7 @@ struct Type<double> {
 
 template <>
 struct Type<uint32_t> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -168,7 +168,7 @@ struct Type<uint32_t> {
 
 template <>
 struct Type<JsonObject> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -191,7 +191,7 @@ struct Type<JsonObject> {
 
 template <>
 struct Type<JsonArray> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -215,7 +215,7 @@ struct Type<JsonArray> {
 // OR-semantics: accepts any of the listed types. Returns RpcInvalidParams if none match.
 template <typename T1, typename T2, typename... Rest>
 struct Type<T1, T2, Rest...> {
-    static constexpr std::string_view kNAME = "type";
+    static constexpr std::string_view kName = "type";
 
     template <typename Writer>
     void
@@ -244,7 +244,7 @@ struct Type<T1, T2, Rest...> {
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Min {
-    static constexpr std::string_view kNAME = "min";
+    static constexpr std::string_view kName = "min";
 
     T bound;
     consteval explicit Min(T v) : bound{v}
@@ -293,7 +293,7 @@ Min(T) -> Min<T>;
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Clamp {
-    static constexpr std::string_view kNAME = "clamp";
+    static constexpr std::string_view kName = "clamp";
 
     T lo, hi;
     consteval Clamp(T l, T h) : lo{l}, hi{h}
@@ -337,7 +337,7 @@ Clamp(T, T) -> Clamp<T>;
 template <typename Target>
     requires std::integral<Target> && (!std::is_same_v<Target, bool>)
 struct ClampAs {
-    static constexpr std::string_view kNAME = "clampAs";
+    static constexpr std::string_view kName = "clampAs";
 
     template <typename Writer>
     void
@@ -382,7 +382,7 @@ struct ClampAs {
 };
 
 struct Deprecated {
-    static constexpr std::string_view kNAME = "deprecated";
+    static constexpr std::string_view kName = "deprecated";
 
     template <SomeFieldView FA>
     [[nodiscard]] static std::optional<Warning>
@@ -400,7 +400,7 @@ struct Deprecated {
 };
 
 struct AccountFormat {
-    static constexpr std::string_view kNAME = "account";
+    static constexpr std::string_view kName = "account";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -426,7 +426,7 @@ class TimeFormatValidator final {
     std::string_view format_;
 
 public:
-    static constexpr std::string_view kNAME = "timeFormat";
+    static constexpr std::string_view kName = "timeFormat";
 
     consteval explicit TimeFormatValidator(std::string_view format) noexcept : format_{format}
     {
@@ -467,7 +467,7 @@ template <typename HexType>
         std::is_same_v<HexType, xrpl::uint256>
     )
 struct HexStringValidator {
-    static constexpr std::string_view kNAME = []() {
+    static constexpr std::string_view kName = []() {
         if constexpr (std::is_same_v<HexType, xrpl::uint256>) {
             return std::string_view{"uint256Hex"};
         } else if constexpr (std::is_same_v<HexType, xrpl::uint192>) {
@@ -505,7 +505,7 @@ using Uint192HexStringValidator = HexStringValidator<xrpl::uint192>;
 using Uint160HexStringValidator = HexStringValidator<xrpl::uint160>;
 
 struct LedgerIndexValidator {
-    static constexpr std::string_view kNAME = "ledgerIndex";
+    static constexpr std::string_view kName = "ledgerIndex";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -529,7 +529,7 @@ struct LedgerIndexValidator {
 };
 
 struct AccountBase58Validator {
-    static constexpr std::string_view kNAME = "accountBase58";
+    static constexpr std::string_view kName = "accountBase58";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -551,7 +551,7 @@ struct AccountBase58Validator {
 };
 
 struct CurrencyValidator {
-    static constexpr std::string_view kNAME = "currency";
+    static constexpr std::string_view kName = "currency";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -581,7 +581,7 @@ struct CurrencyValidator {
 };
 
 struct IssuerValidator {
-    static constexpr std::string_view kNAME = "issuer";
+    static constexpr std::string_view kName = "issuer";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -612,7 +612,7 @@ struct IssuerValidator {
 };
 
 struct CurrencyIssueValidator {
-    static constexpr std::string_view kNAME = "currencyIssue";
+    static constexpr std::string_view kName = "currencyIssue";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -652,7 +652,7 @@ struct CurrencyIssueValidator {
 };
 
 struct ToNumberModifier {
-    static constexpr std::string_view kNAME = "toNumber";
+    static constexpr std::string_view kName = "toNumber";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -675,7 +675,7 @@ struct ToNumberModifier {
 };
 
 struct CredentialTypeValidator {
-    static constexpr std::string_view kNAME = "credentialType";
+    static constexpr std::string_view kName = "credentialType";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -713,7 +713,7 @@ struct CredentialTypeValidator {
 };
 
 struct AuthorizeCredentialValidator {
-    static constexpr std::string_view kNAME = "authorizeCredential";
+    static constexpr std::string_view kName = "authorizeCredential";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -820,7 +820,7 @@ template <typename Fn>
 CustomModifier(Fn) -> CustomModifier<Fn>;
 
 struct NotSupported {
-    static constexpr std::string_view kNAME = "notSupported";
+    static constexpr std::string_view kName = "notSupported";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -839,7 +839,7 @@ struct NotSupported {
 template <typename T>
     requires(std::is_same_v<T, bool>)
 struct NotSupportedIfEqual {
-    static constexpr std::string_view kNAME = "notSupportedIf";
+    static constexpr std::string_view kName = "notSupportedIf";
 
     T value;
     consteval explicit NotSupportedIfEqual(T v) : value{v}
@@ -877,7 +877,7 @@ NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
 
 template <std::size_t N>
 struct OneOfValidator {
-    static constexpr std::string_view kNAME = "oneOf";
+    static constexpr std::string_view kName = "oneOf";
 
     std::array<std::string_view, N> values;
 
@@ -907,7 +907,7 @@ struct OneOfValidator {
 };
 
 struct ToLowerModifier {
-    static constexpr std::string_view kNAME = "toLower";
+    static constexpr std::string_view kName = "toLower";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -928,7 +928,7 @@ struct ToLowerModifier {
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Between {
-    static constexpr std::string_view kNAME = "between";
+    static constexpr std::string_view kName = "between";
 
     T lo, hi;
     consteval Between(T l, T h) : lo{l}, hi{h}
@@ -976,7 +976,7 @@ template <typename T>
 Between(T, T) -> Between<T>;
 
 struct Hex256ArrayValidator {
-    static constexpr std::string_view kNAME = "hex256Array";
+    static constexpr std::string_view kName = "hex256Array";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -1008,7 +1008,7 @@ struct Hex256ArrayValidator {
 };
 
 struct AccountMarkerValidator {
-    static constexpr std::string_view kNAME = "accountMarker";
+    static constexpr std::string_view kName = "accountMarker";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -1046,7 +1046,7 @@ struct AccountMarkerValidator {
 };
 
 struct AccountTypeValidator {
-    static constexpr std::string_view kNAME = "accountType";
+    static constexpr std::string_view kName = "accountType";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
@@ -1072,7 +1072,7 @@ struct AccountTypeValidator {
 };
 
 struct LedgerEntryTypeValidator {
-    static constexpr std::string_view kNAME = "ledgerType";
+    static constexpr std::string_view kName = "ledgerType";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
