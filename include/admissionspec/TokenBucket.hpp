@@ -26,7 +26,7 @@ namespace admission::spec {
  * @note A meaningful rate limiter has @c refillRatePerSecond > 0. folly models token count purely
  * as elapsed-time × rate, so a zero rate yields a permanently empty bucket.
  */
-struct TokenBucket
+class TokenBucket
 {
 public:
     using Clock = std::chrono::steady_clock;
