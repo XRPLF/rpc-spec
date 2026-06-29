@@ -5,10 +5,7 @@
 
 #include <cstddef>
 #include <tuple>
-
-namespace xrpl {
-struct BasicConfig;
-}
+#include <vector>
 
 namespace admission::spec {
 
@@ -16,34 +13,34 @@ namespace detail {
 
 /** @brief Resolve one scalar tunable: use the config override if the key is present, else the
  * default. */
-template <FixedString Name, typename T>
+template <typename Config, FixedString Name, typename T>
 [[nodiscard]] T
-resolveOne(xrpl::BasicConfig const& config, Tunable<Name, T> const& t)
+resolveOne(Config const& config, Tunable<Name, T> const& t)
 {
-    // if (config.contains(t.configKey)) {
-    //     if (auto const v = config.maybeValue<T>(t.configKey))
-    //         return *v;
-    // }
+    if (auto const v = config.template maybeValue<T>(t.configKey))
+    {
+        return *v;
+    }
     return t.defaultValue;
 }
 
 /** @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
  * the default.
  */
-template <FixedString Name, std::size_t N>
-[[nodiscard]] std::vector<SizeTier>
-resolveOne(xrpl::BasicConfig const& config, Tunable<Name, SizeCostRamp<N>> const& t)
+template <typename Config, FixedString Name, std::size_t N>
+[[nodiscard]] std::vector<admission::spec::SizeTier>
+resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& t)
 {
-    std::vector<SizeTier> tiers;
-    // if (config.contains(t.configKey)) {
-    //     auto const arr = config.getArray(t.configKey);
-    //     tiers.reserve(arr.size());
-    //     for (std::size_t i = 0; i < arr.size(); ++i) {
-    //         auto const obj = arr.objectAt(i);
-    //         tiers.push_back(SizeTier{obj.template get<std::uint64_t>("up_to_bytes"), obj.template
-    //         get<double>("cost")});
-    //     }
-    // }
+    std::vector<admission::spec::SizeTier> tiers;
+    if (auto const arr =
+            config.template maybeValue<std::vector<std::pair<uint64_t, double>>>(t.configKey))
+    {
+        tiers.reserve((*arr).size());
+        for (auto const& obj : *arr)
+        {
+            tiers.push_back(admission::spec::SizeTier{obj.first, obj.second});
+        }
+    }
     if (tiers.empty())
     {
         tiers.assign(std::begin(t.defaultValue.tiers), std::end(t.defaultValue.tiers));
@@ -51,9 +48,9 @@ resolveOne(xrpl::BasicConfig const& config, Tunable<Name, SizeCostRamp<N>> const
     return tiers;
 }
 
-template <typename... Tunables>
+template <typename Config, typename... Tunables>
 [[nodiscard]] ResolvedTunables<Tunables...>
-resolveTuple(std::tuple<Tunables...> const& tunables, xrpl::BasicConfig const& config)
+resolveTuple(std::tuple<Tunables...> const& tunables, Config const& config)
 {
     return std::apply(
         [&](Tunables const&... t) {
@@ -77,9 +74,9 @@ resolveTuple(std::tuple<Tunables...> const& tunables, xrpl::BasicConfig const& c
  * schema simply fall back to the spec default. See @ref BucketParams for the connection-scoped
  * bucket settings, which are resolved separately and handed to @ref ConnectionLimiter.
  */
-template <typename Spec>
+template <typename Spec, typename Config>
 [[nodiscard]] typename Spec::Resolved
-resolve(Spec const& spec, xrpl::BasicConfig const& config)
+resolve(Spec const& spec, Config const& config)
 {
     return detail::resolveTuple(spec.tunables(), config);
 }
