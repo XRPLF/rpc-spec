@@ -35,7 +35,7 @@ resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& t)
     if (auto const arr =
             config.template maybeValue<std::vector<std::pair<uint64_t, double>>>(t.configKey))
     {
-        tiers.reserve((*arr).size());
+        tiers.reserve(arr->size());
         for (auto const& obj : *arr)
         {
             tiers.push_back(admission::spec::SizeTier{obj.first, obj.second});
