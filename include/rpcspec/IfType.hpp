@@ -22,7 +22,7 @@ namespace rpc::spec {
  * needed.
  */
 template <typename T, SomeProcessor... SubItems> struct IfType {
-  static constexpr std::string_view kNAME = "ifType";
+  static constexpr std::string_view kName = "ifType";
   static constexpr std::string_view kBRANCH_TYPE = typeNameOf<T>();
 
   std::tuple<SubItems...> subItems;

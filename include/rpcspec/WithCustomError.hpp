@@ -28,7 +28,7 @@ class WithCustomError {
     std::string_view message_;  // empty -> use Status{code} only
 
 public:
-    static constexpr std::string_view kNAME = "withCustomError";
+    static constexpr std::string_view kName = "withCustomError";
 
     /**
      * @brief Constructs a WithCustomError wrapper.

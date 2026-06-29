@@ -26,7 +26,7 @@ namespace rpc::spec {
  *   ))
  */
 template <typename... SubFields> struct Section {
-  static constexpr std::string_view kNAME = "section";
+  static constexpr std::string_view kName = "section";
 
   std::tuple<SubFields...> subFields;
 
