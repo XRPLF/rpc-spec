@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
-
-#include <xrpl/protocol/AccountID.h>
 
 #include <cstdint>
 #include <optional>
@@ -18,7 +18,8 @@ namespace rpc::spec::handlers::account_info {
  * `queue` is not available in Reporting mode
  * `ident` is deprecated, keep it for now, in line with rippled
  */
-struct Input {
+struct Input
+{
     std::optional<xrpl::AccountID> account;
     std::optional<xrpl::AccountID> ident;
     LedgerSpecifier ledger;

@@ -22,7 +22,8 @@ namespace rpc::spec {
  *       - type
  *           of: bool
  */
-class SpecDumpWriter {
+class SpecDumpWriter
+{
     std::ostream* os_;
     int indent_ = 0;
 
@@ -123,7 +124,8 @@ public:
         writeIndent();
         *os_ << key << ": [";
         bool first = true;
-        for (auto const& v : values) {
+        for (auto const& v : values)
+        {
             if (!first)
                 *os_ << ", ";
             writeScalar(v);
@@ -169,14 +171,18 @@ private:
     writeScalar(T const& v) const
     {
         using D = std::decay_t<T>;
-        if constexpr (std::is_same_v<D, bool>) {
+        if constexpr (std::is_same_v<D, bool>)
+        {
             *os_ << (v ? "true" : "false");
-        } else if constexpr (
+        }
+        else if constexpr (
             std::is_same_v<D, std::string_view> || std::is_same_v<D, std::string> ||
-            std::is_same_v<D, char const*>
-        ) {
+            std::is_same_v<D, char const*>)
+        {
             *os_ << '"' << v << '"';
-        } else {
+        }
+        else
+        {
             *os_ << v;
         }
     }

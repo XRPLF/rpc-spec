@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -19,11 +19,12 @@ inline constexpr uint32_t kLimitDefault = 50;
 /**
  * @brief Input for the 'mpt_holders' RPC command.
  */
-struct Input {
-  xrpl::uint192 mptID;
-  LedgerSpecifier ledger;
-  std::optional<xrpl::AccountID> marker;
-  uint32_t limit = kLimitDefault;
+struct Input
+{
+    xrpl::uint192 mptID;
+    LedgerSpecifier ledger;
+    std::optional<xrpl::AccountID> marker;
+    uint32_t limit = kLimitDefault;
 };
 
-} // namespace rpc::spec::handlers::mpt_holders
+}  // namespace rpc::spec::handlers::mpt_holders

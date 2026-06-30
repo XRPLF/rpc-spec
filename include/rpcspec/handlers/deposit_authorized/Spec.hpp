@@ -3,6 +3,8 @@
 // Shared constexpr spec for the 'deposit_authorized' RPC command.
 // Single source of truth — both Clio and rippled include this file.
 
+#include <xrpl/basics/base_uint.h>
+
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Converters.hpp>
@@ -12,8 +14,6 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
-#include <xrpl/basics/base_uint.h>
-
 #include <cstddef>
 #include <optional>
 #include <string>
@@ -21,7 +21,8 @@
 
 namespace rpc::spec::handlers::deposit_authorized {
 
-struct CredentialsArrayConverter {
+struct CredentialsArrayConverter
+{
     static constexpr std::string_view kName = "credentialsArray";
     using ValueType = std::optional<std::vector<xrpl::uint256>>;
 
@@ -35,7 +36,8 @@ struct CredentialsArrayConverter {
         // string, so parseHex here cannot fail.
         std::vector<xrpl::uint256> out;
         out.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             xrpl::uint256 hash;
             hash.parseHex(std::string{f.element(i).asString()}.c_str());
             out.push_back(hash);
@@ -50,7 +52,6 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("source_account", &Input::sourceAccount, required, accountId),
     field("destination_account", &Input::destinationAccount, required, accountId),
-    field("credentials", &Input::credentials, hex256Array, credentialsArrayConv)
-);
+    field("credentials", &Input::credentials, hex256Array, credentialsArrayConv));
 
-} // namespace rpc::spec::handlers::deposit_authorized
+}  // namespace rpc::spec::handlers::deposit_authorized

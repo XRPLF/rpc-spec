@@ -1,9 +1,9 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -18,7 +18,8 @@ inline constexpr uint32_t kLimitDefault = 300;
 /**
  * @brief Input for the 'noripple_check' RPC command.
  */
-struct Input {
+struct Input
+{
     xrpl::AccountID account;
     bool roleGateway = false;
     LedgerSpecifier ledger;
@@ -26,4 +27,4 @@ struct Input {
     bool transactions = false;
 };
 
-} // namespace rpc::spec::handlers::noripple_check
+}  // namespace rpc::spec::handlers::noripple_check

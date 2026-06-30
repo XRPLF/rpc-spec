@@ -3,16 +3,16 @@
 // Shared constexpr spec for the 'mpt_holders' RPC command.
 // Single source of truth — both Clio and rippled include this file.
 
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/basics/strHex.h>
+#include <xrpl/protocol/AccountID.h>
+
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
-
-#include <xrpl/basics/base_uint.h>
-#include <xrpl/basics/strHex.h>
-#include <xrpl/protocol/AccountID.h>
 
 #include <cstdint>
 #include <expected>
@@ -21,7 +21,8 @@
 
 namespace rpc::spec::handlers::mpt_holders {
 
-struct Uint192Converter {
+struct Uint192Converter
+{
     static constexpr std::string_view kName = "uint192Hex";
     using ValueType = xrpl::uint192;
 
@@ -32,8 +33,7 @@ struct Uint192Converter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -44,7 +44,8 @@ struct Uint192Converter {
     }
 };
 
-struct AccountIdHexConverter {
+struct AccountIdHexConverter
+{
     static constexpr std::string_view kName = "uint160Hex";
     using ValueType = xrpl::AccountID;
 
@@ -55,8 +56,7 @@ struct AccountIdHexConverter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -82,8 +82,6 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    )
-);
+        asUint32));
 
-} // namespace rpc::spec::handlers::mpt_holders
+}  // namespace rpc::spec::handlers::mpt_holders

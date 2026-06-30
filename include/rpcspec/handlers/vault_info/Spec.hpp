@@ -17,7 +17,8 @@
 
 namespace rpc::spec::handlers::vault_info {
 
-struct VaultIdConverter {
+struct VaultIdConverter
+{
     static constexpr std::string_view kName = "uint256Hex";
     using ValueType = xrpl::uint256;
 
@@ -34,7 +35,8 @@ struct VaultIdConverter {
     }
 };
 
-struct OwnerConverter {
+struct OwnerConverter
+{
     static constexpr std::string_view kName = "account";
     using ValueType = xrpl::AccountID;
 
@@ -42,11 +44,13 @@ struct OwnerConverter {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if (f.isString()) {
+        if (f.isString())
+        {
             if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
                 return *id;
         }
-        return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest, "OwnerNotHexString"}};
+        return std::unexpected{
+            rpc::Status{rpc::ClioError::RpcMalformedRequest, "OwnerNotHexString"}};
     }
 };
 
@@ -59,7 +63,10 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("vault_id", &Input::vaultID, vaultIdConv),
     field("owner", &Input::owner, ownerConv),
-    field("seq", &Input::tnxSequence, withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest), asUint32)
-);
+    field(
+        "seq",
+        &Input::tnxSequence,
+        withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest),
+        asUint32));
 
-} // namespace rpc::spec::handlers::vault_info
+}  // namespace rpc::spec::handlers::vault_info

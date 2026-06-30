@@ -10,8 +10,6 @@
 
 namespace rpc::spec::handlers::book_changes {
 
-inline constexpr auto kInputSpec = spec<Input>(
-    ledgerSelector(&Input::ledger)
-);
+inline constexpr auto kInputSpec = spec<Input>(ledgerSelector(&Input::ledger));
 
-} // namespace rpc::spec::handlers::book_changes
+}  // namespace rpc::spec::handlers::book_changes

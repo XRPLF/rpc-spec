@@ -18,10 +18,8 @@ inline constexpr auto kInputSpec = spec<Input>(
         "tx_hash",
         &Input::txHash,
         withCustomError(required, ClioError::RpcFieldNotFoundTransaction),
-        asUint256
-    )
-);
+        asUint256));
 
 inline constexpr auto& kSpec = kInputSpec;
 
-} // namespace rpc::spec::handlers::transaction_entry
+}  // namespace rpc::spec::handlers::transaction_entry

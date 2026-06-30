@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/LedgerFormats.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -31,13 +31,14 @@ using MarkerValue = std::variant<xrpl::uint256, uint32_t>;
  *       a uint32_t (integer sequence for out-of-order / diff traversal). Use
  *       std::holds_alternative / std::get to distinguish in the handler.
  */
-struct Input {
+struct Input
+{
     LedgerSpecifier ledger;
     bool binary = false;
-    uint32_t limit = kLimitJson;  // max 256 for json ; 2048 for binary
+    uint32_t limit = kLimitJson;        // max 256 for json ; 2048 for binary
     std::optional<MarkerValue> marker;  // nullopt = no marker; uint256 = normal; uint32 = diff/OOO
     bool outOfOrder = false;
     xrpl::LedgerEntryType type = xrpl::LedgerEntryType::ltANY;
 };
 
-} // namespace rpc::spec::handlers::ledger_data
+}  // namespace rpc::spec::handlers::ledger_data

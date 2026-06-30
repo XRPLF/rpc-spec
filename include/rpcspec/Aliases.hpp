@@ -27,7 +27,8 @@ inline constexpr auto account = AccountFormat{};
  *
  * @tparam Ts The set of acceptable types (e.g. `type<std::string>`, `type<bool, std::string>`).
  */
-template <typename... Ts> inline constexpr auto type = Type<Ts...>{};
+template <typename... Ts>
+inline constexpr auto type = Type<Ts...>{};
 // NOLINTEND(readability-identifier-naming)
 
 /**
@@ -37,7 +38,12 @@ template <typename... Ts> inline constexpr auto type = Type<Ts...>{};
  * @param v  The inclusive lower bound.
  * @return   A `Min` validator configured with @p v.
  */
-template <typename T> consteval auto min(T v) { return Min{v}; }
+template <typename T>
+consteval auto
+min(T v)
+{
+    return Min{v};
+}
 
 /**
  * @brief Clamps a numeric field value to the closed interval [@p lo, @p hi].
@@ -47,7 +53,12 @@ template <typename T> consteval auto min(T v) { return Min{v}; }
  * @param hi Inclusive upper bound.
  * @return   A `Clamp` modifier configured with the given bounds.
  */
-template <typename T> consteval auto clamp(T lo, T hi) { return Clamp{lo, hi}; }
+template <typename T>
+consteval auto
+clamp(T lo, T hi)
+{
+    return Clamp{lo, hi};
+}
 
 // NOLINTNEXTLINE(readability-identifier-naming)
 /**
@@ -55,7 +66,8 @@ template <typename T> consteval auto clamp(T lo, T hi) { return Clamp{lo, hi}; }
  *
  * @tparam Target The numeric type to which the clamped value is converted.
  */
-template <typename Target> inline constexpr auto clampAs = ClampAs<Target>{};
+template <typename Target>
+inline constexpr auto clampAs = ClampAs<Target>{};
 
 /**
  * @brief Applies sub-processors only when the field's runtime JSON type is @p T.
@@ -66,8 +78,10 @@ template <typename Target> inline constexpr auto clampAs = ClampAs<Target>{};
  * @return          An `IfType` modifier.
  */
 template <typename T, SomeProcessor... SubItems>
-consteval auto ifType(SubItems... items) {
-  return IfType<T, SubItems...>{items...};
+consteval auto
+ifType(SubItems... items)
+{
+    return IfType<T, SubItems...>{items...};
 }
 
 /**
@@ -80,9 +94,10 @@ consteval auto ifType(SubItems... items) {
  * @return          A `WithCustomError` wrapper.
  */
 template <typename Wrapped>
-consteval auto withCustomError(Wrapped w, rpc::CombinedError code,
-                               std::string_view message = {}) {
-  return WithCustomError<Wrapped>{w, code, message};
+consteval auto
+withCustomError(Wrapped w, rpc::CombinedError code, std::string_view message = {})
+{
+    return WithCustomError<Wrapped>{w, code, message};
 }
 
 /**
@@ -91,8 +106,10 @@ consteval auto withCustomError(Wrapped w, rpc::CombinedError code,
  * @param format The expected date/time format string.
  * @return       A `TimeFormatValidator` configured with @p format.
  */
-consteval auto timeFormat(std::string_view format) {
-  return TimeFormatValidator{format};
+consteval auto
+timeFormat(std::string_view format)
+{
+    return TimeFormatValidator{format};
 }
 
 /**
@@ -102,8 +119,11 @@ consteval auto timeFormat(std::string_view format) {
  * @param  sf        The sub-field specs to apply.
  * @return           A `Section` modifier.
  */
-template <typename... SubFields> consteval auto section(SubFields... sf) {
-  return Section<SubFields...>{sf...};
+template <typename... SubFields>
+consteval auto
+section(SubFields... sf)
+{
+    return Section<SubFields...>{sf...};
 }
 
 /**
@@ -115,8 +135,11 @@ template <typename... SubFields> consteval auto section(SubFields... sf) {
  * @param  vs The processors to run in Clio builds.
  * @return    An `IfServerClioValidator` wrapper.
  */
-template <typename... Vs> consteval auto ifServerClio(Vs... vs) {
-  return IfServerClioValidator<Vs...>{vs...};
+template <typename... Vs>
+consteval auto
+ifServerClio(Vs... vs)
+{
+    return IfServerClioValidator<Vs...>{vs...};
 }
 
 /**
@@ -128,12 +151,16 @@ template <typename... Vs> consteval auto ifServerClio(Vs... vs) {
  * @param  vs The processors to run in rippled builds.
  * @return    An `IfServerRippledValidator` wrapper.
  */
-template <typename... Vs> consteval auto ifServerRippled(Vs... vs) {
-  return IfServerRippledValidator<Vs...>{vs...};
+template <typename... Vs>
+consteval auto
+ifServerRippled(Vs... vs)
+{
+    return IfServerRippledValidator<Vs...>{vs...};
 }
 
 // NOLINTBEGIN(readability-identifier-naming)
-/** @brief Validates that a field contains a valid ledger index (integer or "current"/"closed"/"validated"). */
+/** @brief Validates that a field contains a valid ledger index (integer or
+ * "current"/"closed"/"validated"). */
 inline constexpr auto ledgerIndex = LedgerIndexValidator{};
 /** @brief Validates that a field contains a base58-encoded XRPL account address. */
 inline constexpr auto accountBase58 = AccountBase58Validator{};
@@ -165,8 +192,11 @@ inline constexpr auto notSupported = NotSupported{};
  * @param  value The specific value that triggers the not-supported error.
  * @return     A `NotSupportedIfEqual` validator.
  */
-template <typename T> consteval auto notSupportedIf(T value) {
-  return NotSupportedIfEqual{value};
+template <typename T>
+consteval auto
+notSupportedIf(T value)
+{
+    return NotSupportedIfEqual{value};
 }
 
 /** @brief Modifier that converts a string field value to lowercase in place. */
@@ -190,10 +220,11 @@ inline constexpr auto ledgerType = LedgerEntryTypeValidator{};
  * @return         A `OneOfValidator` configured with @p vals.
  */
 template <typename T = std::string, typename... Strings>
-consteval auto oneOf(Strings... vals) {
-  return OneOfValidator<sizeof...(Strings)>{
-      std::array<std::string_view, sizeof...(Strings)>{
-          std::string_view{vals}...}};
+consteval auto
+oneOf(Strings... vals)
+{
+    return OneOfValidator<sizeof...(Strings)>{
+        std::array<std::string_view, sizeof...(Strings)>{std::string_view{vals}...}};
 }
 
 /**
@@ -206,8 +237,11 @@ consteval auto oneOf(Strings... vals) {
  * @param  hi Inclusive upper bound.
  * @return    A `Between` validator configured with the given bounds.
  */
-template <typename T> consteval auto between(T lo, T hi) {
-  return Between{lo, hi};
+template <typename T>
+consteval auto
+between(T lo, T hi)
+{
+    return Between{lo, hi};
 }
 
 /**
@@ -217,8 +251,11 @@ template <typename T> consteval auto between(T lo, T hi) {
  * @param  f  The callable to invoke during the modify phase.
  * @return    A `CustomModifier` wrapping @p f.
  */
-template <typename Fn> consteval auto customModifier(Fn f) {
-  return CustomModifier<Fn>{f};
+template <typename Fn>
+consteval auto
+customModifier(Fn f)
+{
+    return CustomModifier<Fn>{f};
 }
 
-} // namespace rpc::spec
+}  // namespace rpc::spec

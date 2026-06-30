@@ -30,7 +30,8 @@ static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeEr
     if (!f.isArray() || f.arraySize() == 0 || f.arraySize() > kORACLES_MAX)
         return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-    for (std::size_t i = 0; i < f.arraySize(); ++i) {
+    for (std::size_t i = 0; i < f.arraySize(); ++i)
+    {
         auto elem = f.element(i);
         if (!elem.isObject())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
@@ -68,16 +69,15 @@ inline constexpr auto kSpec = RpcSpec{
     // usually Clio returns RpcMalformedCurrency , return InvalidParam here just to mimic
     // rippled
     field("base_asset", required, withCustomError(currency, RippledError::RpcInvalidParams)),
-    field(
-        "quote_asset", required, withCustomError(currency, RippledError::RpcInvalidParams)
-    ),
+    field("quote_asset", required, withCustomError(currency, RippledError::RpcInvalidParams)),
     field("oracles", required, kORACLES_VALIDATOR),
     // note: Unlike `rippled`, Clio only supports UInt as input, no string, no `null`, etc.
     field("time_threshold", type<uint32_t>),
     field("trim", type<uint32_t>, between(uint32_t{1}, uint32_t{25})),
 };
 
-struct OraclesConverter {
+struct OraclesConverter
+{
     static constexpr std::string_view kName = "oracles";
     using ValueType = std::vector<Oracle>;
 
@@ -87,7 +87,8 @@ struct OraclesConverter {
     {
         ValueType result;
         result.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const elem = f.element(i);
             auto const docId = elem.child("oracle_document_id");
             auto const account = elem.child("account");
@@ -95,16 +96,18 @@ struct OraclesConverter {
             auto id = detail::accountFromStringStrict(std::string{account.asString()});
             if (!id)
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            result.push_back(Oracle{
-                .documentId = docId.asUint32(),
-                .account = *id,
-            });
+            result.push_back(
+                Oracle{
+                    .documentId = docId.asUint32(),
+                    .account = *id,
+                });
         }
         return result;
     }
 };
 
-struct Uint8Converter {
+struct Uint8Converter
+{
     static constexpr std::string_view kName = "uint8";
     using ValueType = uint8_t;
 
@@ -118,7 +121,8 @@ struct Uint8Converter {
     }
 };
 
-struct CurrencyConverter {
+struct CurrencyConverter
+{
     static constexpr std::string_view kName = "currency";
     using ValueType = xrpl::Currency;
 
@@ -148,18 +152,15 @@ inline constexpr auto kInputSpec = spec<Input>(
         &Input::baseAsset,
         required,
         withCustomError(currency, RippledError::RpcInvalidParams),
-        currencyConv
-    ),
+        currencyConv),
     field(
         "quote_asset",
         &Input::quoteAsset,
         required,
         withCustomError(currency, RippledError::RpcInvalidParams),
-        currencyConv
-    ),
+        currencyConv),
     field("oracles", &Input::oracles, required, kORACLES_VALIDATOR, oraclesConv),
     field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),
-    field("trim", &Input::trim, type<uint32_t>, between(uint32_t{1}, uint32_t{25}), uint8Conv)
-);
+    field("trim", &Input::trim, type<uint32_t>, between(uint32_t{1}, uint32_t{25}), uint8Conv));
 
-} // namespace rpc::spec::handlers::get_aggregate_price
+}  // namespace rpc::spec::handlers::get_aggregate_price

@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
-
-#include <xrpl/basics/base_uint.h>
 
 #include <cstdint>
 #include <optional>
@@ -20,7 +20,8 @@ inline constexpr uint32_t kLimitDefault = 50;
  * @brief A struct to hold the marker data
  */
 // TODO: this marker is same as account_tx, reuse in future
-struct Marker {
+struct Marker
+{
     uint32_t ledger;
     uint32_t seq;
 };
@@ -28,7 +29,8 @@ struct Marker {
 /**
  * @brief Input for the 'nft_history' RPC command.
  */
-struct Input {
+struct Input
+{
     xrpl::uint256 nftID;
     // You must use at least one of the following fields in your request:
     // ledger_index, ledger_hash, ledger_index_min, or ledger_index_max.
@@ -43,4 +45,4 @@ struct Input {
     std::optional<Marker> marker;
 };
 
-} // namespace rpc::spec::handlers::nft_history
+}  // namespace rpc::spec::handlers::nft_history

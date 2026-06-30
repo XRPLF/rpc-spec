@@ -22,7 +22,8 @@ namespace rpc::spec {
  */
 template <typename Wrapped>
     requires SomeRequirement<Wrapped> || SomeModifier<Wrapped>
-class WithCustomError {
+class WithCustomError
+{
     Wrapped wrapped_;
     rpc::CombinedError code_;
     std::string_view message_;  // empty -> use Status{code} only

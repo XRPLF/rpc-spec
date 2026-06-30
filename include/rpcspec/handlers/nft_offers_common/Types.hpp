@@ -1,9 +1,9 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/basics/base_uint.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -17,10 +17,11 @@ inline constexpr uint32_t kLimitDefault = 250;
 /**
  * @brief Input for the 'nft_buy_offers' / 'nft_sell_offers' RPC commands.
  */
-struct Input {
+struct Input
+{
     xrpl::uint256 nftID;
     LedgerSpecifier ledger;
-    uint32_t limit = kLimitDefault;  /**< Clamped to [kLimitMin, kLimitMax] */
+    uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };
 

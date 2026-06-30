@@ -14,8 +14,9 @@ namespace rpc::spec::handlers::book_changes {
  *
  * @note Clio does not implement `deletion_blockers_only`
  */
-struct Input {
-  LedgerSpecifier ledger;
+struct Input
+{
+    LedgerSpecifier ledger;
 };
 
-} // namespace rpc::spec::handlers::book_changes
+}  // namespace rpc::spec::handlers::book_changes

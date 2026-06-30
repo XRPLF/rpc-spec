@@ -24,9 +24,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
-    field("marker", &Input::marker, accountMarker, asString)
-);
+        asUint32),
+    field("marker", &Input::marker, accountMarker, asString));
 
-} // namespace rpc::spec::handlers::account_channels
+}  // namespace rpc::spec::handlers::account_channels

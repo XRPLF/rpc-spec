@@ -1,18 +1,17 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Errors.hpp>
-#include <rpcspec/Concepts.hpp>
-#include <rpcspec/Types.hpp>
-#include <rpcspec/detail/XrplParse.hpp>
-
-#include <format>
 #include <xrpl/basics/StringUtilities.h>
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/LedgerFormats.h>
 #include <xrpl/protocol/Protocol.h>
 #include <xrpl/protocol/UintTypes.h>
+
+#include <rpcspec/Concepts.hpp>
+#include <rpcspec/Errors.hpp>
+#include <rpcspec/Types.hpp>
+#include <rpcspec/detail/XrplParse.hpp>
 
 #include <algorithm>
 #include <array>
@@ -21,6 +20,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <format>
 #include <initializer_list>
 #include <limits>
 #include <optional>
@@ -36,18 +36,19 @@ namespace rpc::spec {
  *
  * Returns `RpcInvalidParams` with a descriptive message if the field is absent.
  */
-struct Required {
+struct Required
+{
     static constexpr std::string_view kName = "required";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
     verify(FA const& f)
     {
-        if (!f.present()) {
+        if (!f.present())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Required field '" + std::string{f.key()} + "' missing"
-            }};
+                "Required field '" + std::string{f.key()} + "' missing"}};
         }
         return {};
     }
@@ -68,7 +69,8 @@ template <typename... Ts>
 struct Type;
 
 template <>
-struct Type<int64_t> {
+struct Type<int64_t>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -91,7 +93,8 @@ struct Type<int64_t> {
 };
 
 template <>
-struct Type<bool> {
+struct Type<bool>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -114,7 +117,8 @@ struct Type<bool> {
 };
 
 template <>
-struct Type<std::string> {
+struct Type<std::string>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -137,7 +141,8 @@ struct Type<std::string> {
 };
 
 template <>
-struct Type<double> {
+struct Type<double>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -160,7 +165,8 @@ struct Type<double> {
 };
 
 template <>
-struct Type<uint32_t> {
+struct Type<uint32_t>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -183,7 +189,8 @@ struct Type<uint32_t> {
 };
 
 template <>
-struct Type<JsonObject> {
+struct Type<JsonObject>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -206,7 +213,8 @@ struct Type<JsonObject> {
 };
 
 template <>
-struct Type<JsonArray> {
+struct Type<JsonArray>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -230,7 +238,8 @@ struct Type<JsonArray> {
 
 // OR-semantics: accepts any of the listed types. Returns RpcInvalidParams if none match.
 template <typename T1, typename T2, typename... Rest>
-struct Type<T1, T2, Rest...> {
+struct Type<T1, T2, Rest...>
+{
     static constexpr std::string_view kName = "type";
 
     template <typename Writer>
@@ -240,9 +249,7 @@ struct Type<T1, T2, Rest...> {
         w.paramList(
             "oneOf",
             std::initializer_list<std::string_view>{
-                typeNameOf<T1>(), typeNameOf<T2>(), typeNameOf<Rest>()...
-            }
-        );
+                typeNameOf<T1>(), typeNameOf<T2>(), typeNameOf<Rest>()...});
     }
 
     template <SomeFieldView FA>
@@ -267,7 +274,8 @@ struct Type<T1, T2, Rest...> {
  */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
-struct Min {
+struct Min
+{
     static constexpr std::string_view kName = "min";
 
     T bound;
@@ -288,22 +296,30 @@ struct Min {
     {
         if (!f.present())
             return {};
-        if constexpr (std::is_same_v<T, int64_t>) {
+        if constexpr (std::is_same_v<T, int64_t>)
+        {
             if (!f.isInt64())
                 return {};
-            if (f.asInt64() < bound) {
+            if (f.asInt64() < bound)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
+        }
+        else if constexpr (std::is_same_v<T, uint32_t>)
+        {
             if (!f.isUint32())
                 return {};
-            if (f.asUint32() < bound) {
+            if (f.asUint32() < bound)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
-        } else if constexpr (std::is_same_v<T, double>) {
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
             if (!f.isDouble())
                 return {};
-            if (f.asDouble() < bound) {
+            if (f.asDouble() < bound)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         }
@@ -323,7 +339,8 @@ Min(T) -> Min<T>;
  */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
-struct Clamp {
+struct Clamp
+{
     static constexpr std::string_view kName = "clamp";
 
     T lo, hi;
@@ -345,15 +362,20 @@ struct Clamp {
     {
         if (!f.present())
             return {};
-        if constexpr (std::is_same_v<T, int64_t>) {
+        if constexpr (std::is_same_v<T, int64_t>)
+        {
             if (!f.isInt64())
                 return {};
             f.set(std::clamp(f.asInt64(), lo, hi));
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
+        }
+        else if constexpr (std::is_same_v<T, uint32_t>)
+        {
             if (!f.isUint32())
                 return {};
             f.set(static_cast<uint32_t>(std::clamp(f.asUint32(), lo, hi)));
-        } else if constexpr (std::is_same_v<T, double>) {
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
             if (!f.isDouble())
                 return {};
             f.set(std::clamp(f.asDouble(), lo, hi));
@@ -366,7 +388,8 @@ template <typename T>
 Clamp(T, T) -> Clamp<T>;
 
 /**
- * @brief Modifier that clamps an `int64_t` or `uint32_t` field to the representable range of `Target`.
+ * @brief Modifier that clamps an `int64_t` or `uint32_t` field to the representable range of
+ * `Target`.
  *
  * Useful for safely narrowing a wider integer field to a smaller integral type before
  * downstream processing. Negative values are floored to zero for unsigned `Target` types.
@@ -376,7 +399,8 @@ Clamp(T, T) -> Clamp<T>;
  */
 template <typename Target>
     requires std::integral<Target> && (!std::is_same_v<Target, bool>)
-struct ClampAs {
+struct ClampAs
+{
     static constexpr std::string_view kName = "clampAs";
 
     template <typename Writer>
@@ -396,23 +420,31 @@ struct ClampAs {
         constexpr auto kHI = static_cast<int64_t>(std::numeric_limits<Target>::max());
         constexpr auto kLO = static_cast<int64_t>(std::numeric_limits<Target>::min());
 
-        if (f.isInt64()) {
+        if (f.isInt64())
+        {
             auto v = std::clamp(f.asInt64(), kLO, kHI);
-            if constexpr (std::is_unsigned_v<Target>) {
+            if constexpr (std::is_unsigned_v<Target>)
+            {
                 if (v < 0)
                     v = 0;
                 f.set(static_cast<uint32_t>(v));
-            } else {
+            }
+            else
+            {
                 f.set(v);
             }
             return {};
         }
 
-        if (f.isUint32()) {
-            if constexpr (std::is_unsigned_v<Target>) {
+        if (f.isUint32())
+        {
+            if constexpr (std::is_unsigned_v<Target>)
+            {
                 auto const u = f.asUint32();
                 f.set(static_cast<uint32_t>(std::min<int64_t>(static_cast<int64_t>(u), kHI)));
-            } else {
+            }
+            else
+            {
                 auto const v = std::min<int64_t>(static_cast<int64_t>(f.asUint32()), kHI);
                 f.set(v);
             }
@@ -426,19 +458,20 @@ struct ClampAs {
  *
  * Does not reject the request; the warning is advisory only.
  */
-struct Deprecated {
+struct Deprecated
+{
     static constexpr std::string_view kName = "deprecated";
 
     template <SomeFieldView FA>
     [[nodiscard]] static std::optional<Warning>
     check(FA const& f)
     {
-        if (f.present()) {
+        if (f.present())
+        {
             return Warning{
                 .code = rpc::WarningCode::WarnRpcDeprecated,
                 .field = std::string{f.key()},
-                .message = std::format("Field '{}' is deprecated.", f.key())
-            };
+                .message = std::format("Field '{}' is deprecated.", f.key())};
         }
         return std::nullopt;
     }
@@ -450,7 +483,8 @@ struct Deprecated {
  * Returns `RpcInvalidParams` with `<key>NotString` if the field is not a string, or
  * `RpcActMalformed` with `<key>Malformed` if the string cannot be parsed as an account.
  */
-struct AccountFormat {
+struct AccountFormat
+{
     static constexpr std::string_view kName = "account";
 
     template <SomeFieldView FA>
@@ -459,15 +493,15 @@ struct AccountFormat {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
-        if (!detail::accountFromStringStrict(std::string{f.asString()})) {
-            return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}
-            };
+        if (!detail::accountFromStringStrict(std::string{f.asString()}))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}};
         }
         return {};
     }
@@ -479,7 +513,8 @@ struct AccountFormat {
  * The expected format pattern is provided at construction time (e.g. `"%Y-%m-%dT%H:%M:%S"`).
  * Returns `RpcInvalidParams` if the field is not a string or does not parse against the format.
  */
-class TimeFormatValidator final {
+class TimeFormatValidator final
+{
     std::string_view format_;
 
 public:
@@ -535,15 +570,20 @@ checkIsU32Numeric(std::string_view sv)
 template <typename HexType>
     requires(
         std::is_same_v<HexType, xrpl::uint160> || std::is_same_v<HexType, xrpl::uint192> ||
-        std::is_same_v<HexType, xrpl::uint256>
-    )
-struct HexStringValidator {
+        std::is_same_v<HexType, xrpl::uint256>)
+struct HexStringValidator
+{
     static constexpr std::string_view kName = []() {
-        if constexpr (std::is_same_v<HexType, xrpl::uint256>) {
+        if constexpr (std::is_same_v<HexType, xrpl::uint256>)
+        {
             return std::string_view{"uint256Hex"};
-        } else if constexpr (std::is_same_v<HexType, xrpl::uint192>) {
+        }
+        else if constexpr (std::is_same_v<HexType, xrpl::uint192>)
+        {
             return std::string_view{"uint192Hex"};
-        } else {
+        }
+        else
+        {
             return std::string_view{"uint160Hex"};
         }
     }();
@@ -554,18 +594,18 @@ struct HexStringValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         }
         HexType parsed;
-        if (!parsed.parseHex(std::string{f.asString()}.c_str())) {
+        if (!parsed.parseHex(std::string{f.asString()}.c_str()))
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         }
         return {};
     }
@@ -593,7 +633,8 @@ using Uint160HexStringValidator = HexStringValidator<xrpl::uint160>;
  * `"closed"`, `"current"`, or a string containing a decimal `uint32_t`. Returns
  * `RpcInvalidParams` for any other value.
  */
-struct LedgerIndexValidator {
+struct LedgerIndexValidator
+{
     static constexpr std::string_view kName = "ledgerIndex";
 
     template <SomeFieldView FA>
@@ -604,7 +645,8 @@ struct LedgerIndexValidator {
             return {};
         if (f.isInt64() || f.isUint32())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         auto const sv = f.asString();
@@ -612,8 +654,7 @@ struct LedgerIndexValidator {
             return {};
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
-            "Invalid field 'ledger_index', not string or number."
-        }};
+            "Invalid field 'ledger_index', not string or number."}};
     }
 };
 
@@ -623,7 +664,8 @@ struct LedgerIndexValidator {
  * Returns `RpcInvalidParams` if the field is not a string, or `RpcMalformedAddress`
  * if the base58 decode fails or yields the zero account.
  */
-struct AccountBase58Validator {
+struct AccountBase58Validator
+{
     static constexpr std::string_view kName = "accountBase58";
 
     template <SomeFieldView FA>
@@ -632,13 +674,14 @@ struct AccountBase58Validator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
         auto const account = detail::parseBase58Wrapper<xrpl::AccountID>(std::string{f.asString()});
-        if (!account || account->isZero()) {
+        if (!account || account->isZero())
+        {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedAddress}};
         }
         return {};
@@ -651,7 +694,8 @@ struct AccountBase58Validator {
  * Returns `RpcInvalidParams` for non-string or empty values, and `RpcMalformedCurrency`
  * when `xrpl::toCurrency` cannot parse the string.
  */
-struct CurrencyValidator {
+struct CurrencyValidator
+{
     static constexpr std::string_view kName = "currency";
 
     template <SomeFieldView FA>
@@ -660,22 +704,22 @@ struct CurrencyValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
         auto const str = std::string{f.asString()};
-        if (str.empty()) {
+        if (str.empty())
+        {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "IsEmpty"}
-            };
+                rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "IsEmpty"}};
         }
         xrpl::Currency currency;
-        if (!xrpl::toCurrency(currency, str)) {
+        if (!xrpl::toCurrency(currency, str))
+        {
             return std::unexpected{
-                rpc::Status{rpc::ClioError::RpcMalformedCurrency, "malformedCurrency"}
-            };
+                rpc::Status{rpc::ClioError::RpcMalformedCurrency, "malformedCurrency"}};
         }
         return {};
     }
@@ -687,7 +731,8 @@ struct CurrencyValidator {
  * Returns `RpcInvalidParams` if the field is not a string, cannot be parsed by
  * `xrpl::toIssuer`, or resolves to the reserved `noAccount()` sentinel.
  */
-struct IssuerValidator {
+struct IssuerValidator
+{
     static constexpr std::string_view kName = "issuer";
 
     template <SomeFieldView FA>
@@ -696,23 +741,23 @@ struct IssuerValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
         xrpl::AccountID issuer;
-        if (!xrpl::toIssuer(issuer, std::string{f.asString()})) {
+        if (!xrpl::toIssuer(issuer, std::string{f.asString()}))
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', bad issuer.", f.key())
-            }};
+                std::format("Invalid field '{}', bad issuer.", f.key())}};
         }
-        if (issuer == xrpl::noAccount()) {
+        if (issuer == xrpl::noAccount())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', bad issuer account one.", f.key())
-            }};
+                std::format("Invalid field '{}', bad issuer account one.", f.key())}};
         }
         return {};
     }
@@ -725,7 +770,8 @@ struct IssuerValidator {
  * be absent; for non-XRP currencies a valid `"issuer"` string is required. Returns
  * `RpcMalformedRequest` on any structural or value violation.
  */
-struct CurrencyIssueValidator {
+struct CurrencyIssueValidator
+{
     static constexpr std::string_view kName = "currencyIssue";
 
     template <SomeFieldView FA>
@@ -734,30 +780,38 @@ struct CurrencyIssueValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isObject()) {
+        if (!f.isObject())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"}};
         }
         auto const currFa = f.child("currency");
-        if (!currFa.present() || !currFa.isString()) {
+        if (!currFa.present() || !currFa.isString())
+        {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
         }
         xrpl::Currency currency{};
-        if (!xrpl::toCurrency(currency, std::string{currFa.asString()})) {
+        if (!xrpl::toCurrency(currency, std::string{currFa.asString()}))
+        {
             return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
         }
         auto const issuerFa = f.child("issuer");
-        if (xrpl::isXRP(currency)) {
-            if (issuerFa.present()) {
+        if (xrpl::isXRP(currency))
+        {
+            if (issuerFa.present())
+            {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
-        } else {
-            if (!issuerFa.present() || !issuerFa.isString()) {
+        }
+        else
+        {
+            if (!issuerFa.present() || !issuerFa.isString())
+            {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
             xrpl::AccountID issuer;
-            if (!xrpl::toIssuer(issuer, std::string{issuerFa.asString()})) {
+            if (!xrpl::toIssuer(issuer, std::string{issuerFa.asString()}))
+            {
                 return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
             }
         }
@@ -771,7 +825,8 @@ struct CurrencyIssueValidator {
  * Only operates when the field is present and is a string. Rejects strings that contain a
  * decimal point or cannot be fully parsed as `int64_t`, returning `RpcInvalidParams`.
  */
-struct ToNumberModifier {
+struct ToNumberModifier
+{
     static constexpr std::string_view kName = "toNumber";
 
     template <SomeFieldView FA>
@@ -781,12 +836,14 @@ struct ToNumberModifier {
         if (!f.present() || !f.isString())
             return {};
         auto const sv = f.asString();
-        if (sv.find('.') != std::string_view::npos) {
+        if (sv.find('.') != std::string_view::npos)
+        {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         int64_t val = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
-        if (ec != std::errc() || ptr != sv.data() + sv.size()) {
+        if (ec != std::errc() || ptr != sv.data() + sv.size())
+        {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         f.set(val);
@@ -795,12 +852,14 @@ struct ToNumberModifier {
 };
 
 /**
- * @brief Validates that a string field is a non-empty hex-encoded credential type within the maximum allowed length.
+ * @brief Validates that a string field is a non-empty hex-encoded credential type within the
+ * maximum allowed length.
  *
  * Returns `RpcMalformedAuthorizedCredentials` if the field is not a string, is not valid hex,
  * is empty after decoding, or exceeds `xrpl::kMaxCredentialTypeLength` bytes.
  */
-struct CredentialTypeValidator {
+struct CredentialTypeValidator
+{
     static constexpr std::string_view kName = "credentialType";
 
     template <SomeFieldView FA>
@@ -809,44 +868,46 @@ struct CredentialTypeValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " NotString"
-            }};
+                std::string{f.key()} + " NotString"}};
         }
         auto const decoded = xrpl::strViewUnHex(f.asString());
-        if (!decoded) {
+        if (!decoded)
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " NotHexString"
-            }};
+                std::string{f.key()} + " NotHexString"}};
         }
-        if (decoded->empty()) {
+        if (decoded->empty())
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " is empty"
-            }};
+                std::string{f.key()} + " is empty"}};
         }
-        if (decoded->size() > xrpl::kMaxCredentialTypeLength) {
+        if (decoded->size() > xrpl::kMaxCredentialTypeLength)
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " greater than max length"
-            }};
+                std::string{f.key()} + " greater than max length"}};
         }
         return {};
     }
 };
 
 /**
- * @brief Validates an array of authorized-credential objects, each containing `"issuer"` and `"credential_type"`.
+ * @brief Validates an array of authorized-credential objects, each containing `"issuer"` and
+ * `"credential_type"`.
  *
  * Enforces that the field is a non-empty array with at most `xrpl::kMaxCredentialsArraySize`
  * elements, and that each element is an object passing both `IssuerValidator` and
  * `CredentialTypeValidator`. Returns `RpcMalformedRequest` or `RpcMalformedAuthorizedCredentials`
  * on any violation.
  */
-struct AuthorizeCredentialValidator {
+struct AuthorizeCredentialValidator
+{
     static constexpr std::string_view kName = "authorizeCredential";
 
     template <SomeFieldView FA>
@@ -855,55 +916,56 @@ struct AuthorizeCredentialValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isArray()) {
+        if (!f.isArray())
+        {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedRequest, std::string{f.key()} + " not array"
-            }};
+                rpc::ClioError::RpcMalformedRequest, std::string{f.key()} + " not array"}};
         }
         auto const sz = f.arraySize();
-        if (sz == 0) {
+        if (sz == 0)
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                "Requires at least one element in authorized_credentials array."
-            }};
+                "Requires at least one element in authorized_credentials array."}};
         }
-        if (sz > xrpl::kMaxCredentialsArraySize) {
+        if (sz > xrpl::kMaxCredentialsArraySize)
+        {
             return std::unexpected{rpc::Status{
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
                 std::format(
                     "Max {} number of credentials in authorized_credentials array",
-                    xrpl::kMaxCredentialsArraySize
-                )
-            }};
+                    xrpl::kMaxCredentialsArraySize)}};
         }
-        for (std::size_t i = 0; i < sz; ++i) {
+        for (std::size_t i = 0; i < sz; ++i)
+        {
             auto const elem = f.element(i);
-            if (!elem.isObject()) {
+            if (!elem.isObject())
+            {
                 return std::unexpected{rpc::Status{
                     rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                    "authorized_credentials elements in array are not objects."
-                }};
+                    "authorized_credentials elements in array are not objects."}};
             }
             auto const issuerFa = elem.child("issuer");
-            if (!issuerFa.present()) {
+            if (!issuerFa.present())
+            {
                 return std::unexpected{rpc::Status{
                     rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                    "Field 'Issuer' is required but missing."
-                }};
+                    "Field 'Issuer' is required but missing."}};
             }
-            if (auto err = IssuerValidator::verify(issuerFa); !err) {
+            if (auto err = IssuerValidator::verify(issuerFa); !err)
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::ClioError::RpcMalformedAuthorizedCredentials, "issuer NotString"
-                }};
+                    rpc::ClioError::RpcMalformedAuthorizedCredentials, "issuer NotString"}};
             }
             auto const credFa = elem.child("credential_type");
-            if (!credFa.present()) {
+            if (!credFa.present())
+            {
                 return std::unexpected{rpc::Status{
                     rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                    "Field 'CredentialType' is required but missing."
-                }};
+                    "Field 'CredentialType' is required but missing."}};
             }
-            if (auto err = CredentialTypeValidator::verify(credFa); !err) {
+            if (auto err = CredentialTypeValidator::verify(credFa); !err)
+            {
                 return err;
             }
         }
@@ -920,7 +982,8 @@ struct AuthorizeCredentialValidator {
  * @tparam Fn A callable type with signature `MaybeError(FA const&)`.
  */
 template <typename Fn>
-struct CustomValidator {
+struct CustomValidator
+{
     Fn fn;
 
     consteval explicit CustomValidator(Fn f) : fn{f}
@@ -949,7 +1012,8 @@ CustomValidator(Fn) -> CustomValidator<Fn>;
  * @tparam Fn A callable type with signature `MaybeError(FA&)`.
  */
 template <typename Fn>
-struct CustomModifier {
+struct CustomModifier
+{
     Fn fn;
 
     consteval explicit CustomModifier(Fn f) : fn{f}
@@ -974,18 +1038,19 @@ CustomModifier(Fn) -> CustomModifier<Fn>;
  *
  * Returns `RpcNotSupported` with a descriptive message when the field is present.
  */
-struct NotSupported {
+struct NotSupported
+{
     static constexpr std::string_view kName = "notSupported";
 
     template <SomeFieldView FA>
     [[nodiscard]] static MaybeError
     verify(FA const& f)
     {
-        if (f.present()) {
+        if (f.present())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcNotSupported,
-                "Not supported field '" + std::string{f.key()} + "'"
-            }};
+                "Not supported field '" + std::string{f.key()} + "'"}};
         }
         return {};
     }
@@ -1001,7 +1066,8 @@ struct NotSupported {
  */
 template <typename T>
     requires(std::is_same_v<T, bool>)
-struct NotSupportedIfEqual {
+struct NotSupportedIfEqual
+{
     static constexpr std::string_view kName = "notSupportedIf";
 
     T value;
@@ -1022,7 +1088,8 @@ struct NotSupportedIfEqual {
     {
         if (!f.present())
             return {};
-        if constexpr (std::is_same_v<T, bool>) {
+        if constexpr (std::is_same_v<T, bool>)
+        {
             if (!f.isBool())
                 return {};
             if (f.asBool() != value)
@@ -1030,8 +1097,7 @@ struct NotSupportedIfEqual {
         }
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcNotSupported,
-            std::format("Not supported field '{}'s value '{}'", f.key(), value)
-        }};
+            std::format("Not supported field '{}'s value '{}'", f.key(), value)}};
     }
 };
 
@@ -1047,7 +1113,8 @@ NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
  * @tparam N Number of allowed string values in the set.
  */
 template <std::size_t N>
-struct OneOfValidator {
+struct OneOfValidator
+{
     static constexpr std::string_view kName = "oneOf";
 
     std::array<std::string_view, N> values;
@@ -1065,11 +1132,13 @@ struct OneOfValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         auto const sv = f.asString();
-        for (auto const& v : values) {
+        for (auto const& v : values)
+        {
             if (sv == v)
                 return {};
         }
@@ -1082,7 +1151,8 @@ struct OneOfValidator {
  *
  * Silently skips absent fields and non-string fields.
  */
-struct ToLowerModifier {
+struct ToLowerModifier
+{
     static constexpr std::string_view kName = "toLower";
 
     template <SomeFieldView FA>
@@ -1111,7 +1181,8 @@ struct ToLowerModifier {
  */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
-struct Between {
+struct Between
+{
     static constexpr std::string_view kName = "between";
 
     T lo, hi;
@@ -1133,22 +1204,30 @@ struct Between {
     {
         if (!f.present())
             return {};
-        if constexpr (std::is_same_v<T, int64_t>) {
+        if constexpr (std::is_same_v<T, int64_t>)
+        {
             if (!f.isInt64())
                 return {};
-            if (f.asInt64() < lo || f.asInt64() > hi) {
+            if (f.asInt64() < lo || f.asInt64() > hi)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
-        } else if constexpr (std::is_same_v<T, uint32_t>) {
+        }
+        else if constexpr (std::is_same_v<T, uint32_t>)
+        {
             if (!f.isUint32())
                 return {};
-            if (f.asUint32() < lo || f.asUint32() > hi) {
+            if (f.asUint32() < lo || f.asUint32() > hi)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
-        } else if constexpr (std::is_same_v<T, double>) {
+        }
+        else if constexpr (std::is_same_v<T, double>)
+        {
             if (!f.isDouble())
                 return {};
-            if (f.asDouble() < lo || f.asDouble() > hi) {
+            if (f.asDouble() < lo || f.asDouble() > hi)
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             }
         }
@@ -1165,7 +1244,8 @@ Between(T, T) -> Between<T>;
  * Returns `RpcInvalidParams` if the field is not an array, or if any element is not a
  * string or fails `xrpl::uint256::parseHex`.
  */
-struct Hex256ArrayValidator {
+struct Hex256ArrayValidator
+{
     static constexpr std::string_view kName = "hex256Array";
 
     template <SomeFieldView FA>
@@ -1174,23 +1254,25 @@ struct Hex256ArrayValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isArray()) {
+        if (!f.isArray())
+        {
             // Mirrors old behaviour: a non-array credentials field is rejected by the leading
             // Type<array> check which produces a plain RpcInvalidParams ("Invalid parameters.").
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const elem = f.element(i);
-            if (!elem.isString()) {
+            if (!elem.isString())
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."
-                }};
+                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
             }
             xrpl::uint256 parsed;
-            if (!parsed.parseHex(std::string{elem.asString()}.c_str())) {
+            if (!parsed.parseHex(std::string{elem.asString()}.c_str()))
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."
-                }};
+                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
             }
         }
         return {};
@@ -1203,7 +1285,8 @@ struct Hex256ArrayValidator {
  * The string must contain a comma separating a valid `uint256` hex prefix from a decimal
  * `uint64` page-hint suffix. Returns `RpcInvalidParams` for any structural or parse failure.
  */
-struct AccountMarkerValidator {
+struct AccountMarkerValidator
+{
     static constexpr std::string_view kName = "accountMarker";
 
     template <SomeFieldView FA>
@@ -1212,18 +1295,17 @@ struct AccountMarkerValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
         auto const sv = f.asString();
         auto const commaPos = sv.find(',');
         auto const malformed = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (commaPos == std::string_view::npos)
             return malformed();
@@ -1247,7 +1329,8 @@ struct AccountMarkerValidator {
  * Returns `RpcInvalidParams` if the field is not a string or the string does not map to a
  * known ledger type (i.e. would resolve to `xrpl::ltANY`).
  */
-struct AccountTypeValidator {
+struct AccountTypeValidator
+{
     static constexpr std::string_view kName = "accountType";
 
     template <SomeFieldView FA>
@@ -1256,18 +1339,17 @@ struct AccountTypeValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', not string.", f.key())
-            }};
+                std::format("Invalid field '{}', not string.", f.key())}};
         }
-        auto const type =
-            detail::accountOwnedLedgerTypeFromStr(std::string{f.asString()});
-        if (type == xrpl::ltANY) {
+        auto const type = detail::accountOwnedLedgerTypeFromStr(std::string{f.asString()});
+        if (type == xrpl::ltANY)
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())
-            }};
+                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())}};
         }
         return {};
     }
@@ -1279,7 +1361,8 @@ struct AccountTypeValidator {
  * Returns `RpcInvalidParams` if the field is not a string or the string does not map to a
  * known ledger entry type (i.e. would resolve to `xrpl::ltANY`).
  */
-struct LedgerEntryTypeValidator {
+struct LedgerEntryTypeValidator
+{
     static constexpr std::string_view kName = "ledgerType";
 
     template <SomeFieldView FA>
@@ -1288,17 +1371,17 @@ struct LedgerEntryTypeValidator {
     {
         if (!f.present())
             return {};
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', not string.", f.key())
-            }};
+                std::format("Invalid field '{}', not string.", f.key())}};
         }
         auto const type = detail::ledgerEntryTypeFromStr(std::string{f.asString()});
-        if (type == xrpl::ltANY) {
+        if (type == xrpl::ltANY)
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())
-            }};
+                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())}};
         }
         return {};
     }

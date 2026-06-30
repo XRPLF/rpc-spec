@@ -22,9 +22,9 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("ident", &Input::ident) | deprecated | accountId,
     field("signer_lists", &Input::signerLists, jsonBool),
     field("ledger", deprecated),
-    field("strict", deprecated)
-);
+    field("strict", deprecated));
 
-inline constexpr auto kInputSpecV2 = extend(kInputSpecV1, field("signer_lists", &Input::signerLists, jsonBoolStrict));
+inline constexpr auto kInputSpecV2 =
+    extend(kInputSpecV1, field("signer_lists", &Input::signerLists, jsonBoolStrict));
 
 }  // namespace rpc::spec::handlers::account_info

@@ -1,12 +1,12 @@
-#include <rpcspec/Errors.hpp>
+#include <boost/json/parse.hpp>
+
+#include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
-
-#include <boost/json/parse.hpp>
-#include <gtest/gtest.h>
 
 #include <cstdint>
 #include <string>
@@ -353,8 +353,7 @@ TEST(RpcSpecDSL_HexString, Uint256AcceptsValidHex)
         field("hash", uint256Hex),
     };
     auto good = boost::json::parse(
-        R"JSON({ "hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" })JSON"
-    );
+        R"JSON({ "hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" })JSON");
     EXPECT_TRUE(kSPEC.process(good).has_value());
 }
 
@@ -400,8 +399,7 @@ TEST(RpcSpecDSL_Hex256Array, ValidArrayPasses)
         R"JSON({ "credentials": [
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
             "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-        ] })JSON"
-    );
+        ] })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
 
@@ -679,8 +677,7 @@ TEST(RpcSpecDSL_AccountMarker, ValidMarkerPasses)
 {
     static constexpr auto kSPEC = RpcSpec{field("marker", accountMarker)};
     auto request = boost::json::parse(
-        R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0" })JSON"
-    );
+        R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,0" })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
 
@@ -723,8 +720,7 @@ TEST(RpcSpecDSL_AccountMarker, BadHintPartFails)
 {
     static constexpr auto kSPEC = RpcSpec{field("marker", accountMarker)};
     auto bad = boost::json::parse(
-        R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,notanumber" })JSON"
-    );
+        R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,notanumber" })JSON");
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error().message, "Invalid field 'marker', not hex string.");
@@ -790,19 +786,15 @@ TEST(RpcSpecDSL_Integration, RippleStatePattern)
             "ripple_state",
             type<JsonObject>,
             section(
-                field("currency", required, currency), field("account", required, accountBase58)
-            )
-        ),
+                field("currency", required, currency), field("account", required, accountBase58))),
     };
 
     auto good = boost::json::parse(
-        R"JSON({ "ripple_state": { "currency": "USD", "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON"
-    );
+        R"JSON({ "ripple_state": { "currency": "USD", "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON");
     EXPECT_TRUE(kSPEC.process(good).has_value());
 
     auto missingCurrency = boost::json::parse(
-        R"JSON({ "ripple_state": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON"
-    );
+        R"JSON({ "ripple_state": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON");
     auto const r = kSPEC.process(missingCurrency);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error().message, "Required field 'currency' missing");
@@ -817,19 +809,16 @@ TEST(RpcSpecDSL_Integration, StringOrObjectPattern)
             type<std::string, JsonObject>,
             ifType<std::string>(uint256Hex),
             ifType<JsonObject>(section(
-                field("account", required, accountBase58), field("seq", required, type<uint32_t>)
-            ))
-        ),
+                field("account", required, accountBase58),
+                field("seq", required, type<uint32_t>)))),
     };
 
     auto hex = boost::json::parse(
-        R"JSON({ "offer": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" })JSON"
-    );
+        R"JSON({ "offer": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" })JSON");
     EXPECT_TRUE(kSPEC.process(hex).has_value());
 
     auto obj = boost::json::parse(
-        R"JSON({ "offer": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "seq": 1 } })JSON"
-    );
+        R"JSON({ "offer": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "seq": 1 } })JSON");
     EXPECT_TRUE(kSPEC.process(obj).has_value());
 
     auto badType = boost::json::parse(R"JSON({ "offer": 42 })JSON");

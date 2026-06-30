@@ -25,11 +25,16 @@ template <typename Item, typename FA>
 MaybeError
 callIfProcessor(Item const& item, FA& fa)
 {
-    if constexpr (SomeRequirement<Item>) {
+    if constexpr (SomeRequirement<Item>)
+    {
         return item.verify(fa);
-    } else if constexpr (SomeModifier<Item>) {
+    }
+    else if constexpr (SomeModifier<Item>)
+    {
         return item.modify(fa);
-    } else {
+    }
+    else
+    {
         return {};
     }
 }
@@ -49,7 +54,8 @@ template <typename Item, typename FA>
 void
 callIfChecker(Item const& item, FA const& fa, Warnings& out)
 {
-    if constexpr (SomeCheck<Item>) {
+    if constexpr (SomeCheck<Item>)
+    {
         if (auto w = item.check(fa))
             out.push_back(std::move(*w));
     }
@@ -66,7 +72,8 @@ callIfChecker(Item const& item, FA const& fa, Warnings& out)
  * @tparam Items Zero or more field-item types (requirements, modifiers, checks).
  */
 template <SomeFieldItem... Items>
-struct FieldSpec {
+struct FieldSpec
+{
     std::string_view key;
     std::tuple<Items...> items;
 
@@ -89,8 +96,7 @@ struct FieldSpec {
             [&](auto const&... existing) {
                 return FieldSpec<Items..., Item>{key, existing..., item};
             },
-            items
-        );
+            items);
     }
 
     /**
@@ -113,8 +119,7 @@ struct FieldSpec {
             [&](auto const&... item) {
                 (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
             },
-            items
-        );
+            items);
         return result;
     }
 
@@ -154,8 +159,7 @@ struct FieldSpec {
             [&](auto const&... item) {
                 (void)((result = callIfProcessor(item, childFa), result.has_value()) && ...);
             },
-            items
-        );
+            items);
         return result;
     }
 

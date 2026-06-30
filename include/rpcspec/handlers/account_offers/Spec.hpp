@@ -3,6 +3,8 @@
 // Shared constexpr spec for the 'account_offers' RPC command.
 // Single source of truth — both Clio and rippled include this file.
 
+#include <xrpl/basics/base_uint.h>
+
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
@@ -16,11 +18,10 @@
 #include <string>
 #include <string_view>
 
-#include <xrpl/basics/base_uint.h>
-
 namespace rpc::spec::handlers::account_offers {
 
-struct AccountMarkerStrConverter {
+struct AccountMarkerStrConverter
+{
     static constexpr std::string_view kName = "accountMarker";
     using ValueType = std::string;
 
@@ -28,17 +29,16 @@ struct AccountMarkerStrConverter {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
         }
         auto const sv = f.asString();
         auto const malformed = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         auto const commaPos = sv.find(',');
         if (commaPos == std::string_view::npos)
@@ -69,13 +69,11 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field("marker", &Input::marker, accountMarkerStr),
     field("ledger", deprecated),
-    field("strict", deprecated)
-);
+    field("strict", deprecated));
 
 inline constexpr auto kInputSpecV2 = kInputSpecV1;
 
-} // namespace rpc::spec::handlers::account_offers
+}  // namespace rpc::spec::handlers::account_offers

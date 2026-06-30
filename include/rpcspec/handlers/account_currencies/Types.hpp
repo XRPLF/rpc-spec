@@ -1,9 +1,9 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -14,7 +14,8 @@ namespace rpc::spec::handlers::account_currencies {
 /**
  * @brief Input for the 'account_currencies' RPC command.
  */
-struct Input {
+struct Input
+{
     xrpl::AccountID account;
     LedgerSpecifier ledger;
 };

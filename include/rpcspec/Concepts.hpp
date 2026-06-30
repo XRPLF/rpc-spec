@@ -57,7 +57,8 @@ namespace detail {
 // Archetype satisfying SomeFieldView. Used as the witness type for
 // validator/modifier/checker concepts so they aren't coupled to any backend.
 // Never instantiated; declarations only.
-struct FieldViewArchetype {
+struct FieldViewArchetype
+{
     [[nodiscard]] std::string_view
     key() const noexcept;
     [[nodiscard]] bool
@@ -129,7 +130,8 @@ namespace detail {
 
 // Archetype satisfying SomeObjectView. Used as the witness type for spec-level
 // concepts so they aren't coupled to any backend. Never instantiated.
-struct ObjectViewArchetype {
+struct ObjectViewArchetype
+{
     [[nodiscard]] bool
     isObject() const noexcept;
     [[nodiscard]] bool

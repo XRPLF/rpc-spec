@@ -17,7 +17,8 @@
 namespace rpc::spec::handlers::ledger_index {
 
 // Parses the (already format-validated) UTC date string into a time_point.
-struct DateConverter {
+struct DateConverter
+{
     static constexpr std::string_view kName = "utcDate";
     using ValueType = std::chrono::system_clock::time_point;
 
@@ -33,8 +34,7 @@ struct DateConverter {
 // NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr auto dateConv = DateConverter{};
 
-inline constexpr auto kInputSpec = spec<Input>(
-    field("date", &Input::date, timeFormat(kDateFormat), dateConv)
-);
+inline constexpr auto kInputSpec =
+    spec<Input>(field("date", &Input::date, timeFormat(kDateFormat), dateConv));
 
-} // namespace rpc::spec::handlers::ledger_index
+}  // namespace rpc::spec::handlers::ledger_index

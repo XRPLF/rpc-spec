@@ -3,6 +3,8 @@
 // Shared constexpr spec for the 'nft_history' RPC command.
 // Single source of truth — both Clio and rippled include this file.
 
+#include <xrpl/basics/base_uint.h>
+
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
@@ -10,8 +12,6 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/handlers/nft_history/Types.hpp>
-
-#include <xrpl/basics/base_uint.h>
 
 #include <charconv>
 #include <cstdint>
@@ -22,7 +22,8 @@
 
 namespace rpc::spec::handlers::nft_history {
 
-struct Uint256Converter {
+struct Uint256Converter
+{
     static constexpr std::string_view kName = "uint256";
     using ValueType = xrpl::uint256;
 
@@ -33,8 +34,7 @@ struct Uint256Converter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -45,7 +45,8 @@ struct Uint256Converter {
     }
 };
 
-struct Int32BoundConverter {
+struct Int32BoundConverter
+{
     static constexpr std::string_view kName = "int32";
     using ValueType = std::optional<int32_t>;
 
@@ -60,7 +61,8 @@ struct Int32BoundConverter {
     }
 };
 
-struct MarkerConverter {
+struct MarkerConverter
+{
     static constexpr std::string_view kName = "marker";
     using ValueType = Marker;
 
@@ -89,26 +91,22 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field(
         "marker",
         &Input::marker,
         withCustomError(type<JsonObject>, rpc::RippledError::RpcInvalidParams, "invalidMarker"),
         ifType<JsonObject>(section(
-            field("ledger", required, type<uint32_t>), field("seq", required, type<uint32_t>)
-        )),
-        markerConv
-    ),
+            field("ledger", required, type<uint32_t>),
+            field("seq", required, type<uint32_t>))),
+        markerConv),
     // binary/forward exist on Input for both versions; V1 coerces leniently, V2 retightens below.
     field("binary", &Input::binary, jsonBool),
-    field("forward", &Input::forward, jsonBool)
-);
+    field("forward", &Input::forward, jsonBool));
 
 inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
     field("binary", &Input::binary, jsonBoolStrict),
-    field("forward", &Input::forward, jsonBoolStrict)
-);
+    field("forward", &Input::forward, jsonBoolStrict));
 
-} // namespace rpc::spec::handlers::nft_history
+}  // namespace rpc::spec::handlers::nft_history

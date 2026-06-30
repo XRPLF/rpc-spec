@@ -17,7 +17,8 @@
 
 namespace rpc::spec::handlers::account_objects {
 
-struct AccountOwnedTypeConverter {
+struct AccountOwnedTypeConverter
+{
     static constexpr std::string_view kName = "accountOwnedType";
     using ValueType = xrpl::LedgerEntryType;
 
@@ -25,24 +26,25 @@ struct AccountOwnedTypeConverter {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if (!f.isString()) {
+        if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not string."}};
         }
         auto const t = detail::accountOwnedLedgerTypeFromStr(std::string{f.asString()});
-        if (t == xrpl::ltANY) {
+        if (t == xrpl::ltANY)
+        {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "'."
-            }};
+                "Invalid field '" + std::string{f.key()} + "'."}};
         }
         return t;
     }
 };
 
-struct MarkerStringConverter {
+struct MarkerStringConverter
+{
     static constexpr std::string_view kName = "markerString";
     using ValueType = std::string;
 
@@ -68,11 +70,9 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field("type", &Input::type, accountOwnedTypeConv),
     field("marker", &Input::marker, accountMarker, markerStringConv),
-    field("deletion_blockers_only", &Input::deletionBlockersOnly, jsonBoolStrict)
-);
+    field("deletion_blockers_only", &Input::deletionBlockersOnly, jsonBoolStrict));
 
 }  // namespace rpc::spec::handlers::account_objects

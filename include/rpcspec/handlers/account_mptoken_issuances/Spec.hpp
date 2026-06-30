@@ -23,10 +23,8 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field("marker", &Input::marker, accountMarker, asString),
-    field("ledger", deprecated)
-);
+    field("ledger", deprecated));
 
-} // namespace rpc::spec::handlers::account_mptoken_issuances
+}  // namespace rpc::spec::handlers::account_mptoken_issuances

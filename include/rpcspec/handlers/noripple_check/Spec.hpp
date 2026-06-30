@@ -18,7 +18,8 @@
 
 namespace rpc::spec::handlers::noripple_check {
 
-struct RoleGatewayConverter {
+struct RoleGatewayConverter
+{
     static constexpr std::string_view kName = "role";
     using ValueType = bool;
 
@@ -44,24 +45,18 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         withCustomError(
             oneOf<std::string>("gateway", "user"),
             rpc::RippledError::RpcInvalidParams,
-            "role field is invalid"
-        ),
-        roleGateway
-    ),
+            "role field is invalid"),
+        roleGateway),
     field(
         "limit",
         &Input::limit,
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
-    field("transactions", &Input::transactions, jsonBool)
-);
+        asUint32),
+    field("transactions", &Input::transactions, jsonBool));
 
-inline constexpr auto kInputSpecV2 = extend(
-    kInputSpecV1,
-    field("transactions", &Input::transactions, jsonBoolStrict)
-);
+inline constexpr auto kInputSpecV2 =
+    extend(kInputSpecV1, field("transactions", &Input::transactions, jsonBoolStrict));
 
-} // namespace rpc::spec::handlers::noripple_check
+}  // namespace rpc::spec::handlers::noripple_check

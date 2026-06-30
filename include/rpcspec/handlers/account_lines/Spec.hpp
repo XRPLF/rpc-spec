@@ -8,8 +8,8 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
-#include <rpcspec/handlers/account_lines/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
+#include <rpcspec/handlers/account_lines/Types.hpp>
 
 #include <cstdint>
 #include <expected>
@@ -18,7 +18,8 @@
 
 namespace rpc::spec::handlers::account_lines {
 
-struct AccountIdActMalformedConverter {
+struct AccountIdActMalformedConverter
+{
     static constexpr std::string_view kName = "accountActMalformed";
     using ValueType = xrpl::AccountID;
 
@@ -35,7 +36,8 @@ struct AccountIdActMalformedConverter {
     }
 };
 
-struct AsBoolConverter {
+struct AsBoolConverter
+{
     static constexpr std::string_view kName = "bool";
     using ValueType = bool;
 
@@ -65,11 +67,9 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field("marker", &Input::marker, accountMarker, asString),
     field("ledger", deprecated),
-    field("peer_index", deprecated)
-);
+    field("peer_index", deprecated));
 
 }  // namespace rpc::spec::handlers::account_lines

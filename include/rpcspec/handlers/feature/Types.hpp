@@ -12,9 +12,12 @@ namespace rpc::spec::handlers::feature {
 /**
  * @brief Input for the 'feature' RPC command.
  */
-struct Input {
+struct Input
+{
     LedgerSpecifier ledger;
-    std::optional<std::string> feature;  /**< Either an amendment name or a hex amendment id — an opaque passthrough with no single strong type; resolved by the (admin) handler. */
+    std::optional<std::string>
+        feature; /**< Either an amendment name or a hex amendment id — an opaque passthrough with no
+                    single strong type; resolved by the (admin) handler. */
 };
 
-} // namespace rpc::spec::handlers::feature
+}  // namespace rpc::spec::handlers::feature

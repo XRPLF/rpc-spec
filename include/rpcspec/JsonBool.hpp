@@ -19,7 +19,8 @@ namespace rpc::spec {
  * Used by handler Input structs that accept the V1 API's lenient bool fields
  * (e.g. account_info's `signer_lists`).
  */
-struct JsonBool {
+struct JsonBool
+{
     bool value = false;
 
     /** @cond */
@@ -40,7 +41,8 @@ inline JsonBool
 // NOLINTNEXTLINE(readability-identifier-naming)
 tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const& jsonValue)
 {
-    switch (jsonValue.kind()) {
+    switch (jsonValue.kind())
+    {
         case boost::json::kind::null:
             return JsonBool{false};
         case boost::json::kind::bool_:

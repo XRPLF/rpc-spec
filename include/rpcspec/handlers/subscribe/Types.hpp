@@ -21,17 +21,19 @@ enum class StreamType {
     BookChanges,
     Manifests,
     Validations,
-    Server,       ///< rippled only (admin-gated downstream); not served by Clio.
-    PeerStatus,   ///< rippled only (admin-gated downstream); not served by Clio.
-    Consensus,    ///< rippled only; not served by Clio.
+    Server,      ///< rippled only (admin-gated downstream); not served by Clio.
+    PeerStatus,  ///< rippled only (admin-gated downstream); not served by Clio.
+    Consensus,   ///< rippled only; not served by Clio.
 };
 
 /**
  * @brief A struct to hold the data for one order book
  */
-struct OrderBook {
+struct OrderBook
+{
     xrpl::Book book;
-    std::optional<std::string> taker;  /**< Optional account used only as an order-book filter; kept as a passthrough string. */
+    std::optional<std::string> taker; /**< Optional account used only as an order-book filter; kept
+                                         as a passthrough string. */
     bool snapshot = false;
     bool both = false;
 };
@@ -39,11 +41,12 @@ struct OrderBook {
 /**
  * @brief Input for the 'subscribe' RPC command.
  */
-struct Input {
+struct Input
+{
     std::optional<std::vector<xrpl::AccountID>> accounts;
     std::optional<std::vector<StreamType>> streams;
     std::optional<std::vector<xrpl::AccountID>> accountsProposed;
     std::optional<std::vector<OrderBook>> books;
 };
 
-} // namespace rpc::spec::handlers::subscribe
+}  // namespace rpc::spec::handlers::subscribe

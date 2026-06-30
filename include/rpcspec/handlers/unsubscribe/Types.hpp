@@ -1,12 +1,12 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Book.h>
+
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <xrpl/protocol/AccountID.h>
-#include <xrpl/protocol/Book.h>
 
 namespace rpc::spec::handlers::unsubscribe {
 
@@ -21,15 +21,16 @@ enum class StreamType {
     BookChanges,
     Manifests,
     Validations,
-    Server,       ///< rippled only (admin-gated downstream); not served by Clio.
-    PeerStatus,   ///< rippled only (admin-gated downstream); not served by Clio.
-    Consensus,    ///< rippled only; not served by Clio.
+    Server,      ///< rippled only (admin-gated downstream); not served by Clio.
+    PeerStatus,  ///< rippled only (admin-gated downstream); not served by Clio.
+    Consensus,   ///< rippled only; not served by Clio.
 };
 
 /**
  * @brief A struct to hold one order book
  */
-struct OrderBook {
+struct OrderBook
+{
     xrpl::Book book;
     bool both = false;
 };
@@ -37,11 +38,12 @@ struct OrderBook {
 /**
  * @brief Input for the 'unsubscribe' RPC command.
  */
-struct Input {
+struct Input
+{
     std::optional<std::vector<xrpl::AccountID>> accounts;
     std::optional<std::vector<StreamType>> streams;
     std::optional<std::vector<xrpl::AccountID>> accountsProposed;
     std::optional<std::vector<OrderBook>> books;
 };
 
-} // namespace rpc::spec::handlers::unsubscribe
+}  // namespace rpc::spec::handlers::unsubscribe

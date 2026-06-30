@@ -17,90 +17,106 @@ namespace rpc::spec {
 
 namespace impl {
 
-template <std::size_t N> struct OverridePlan {
-  std::array<bool, N> shouldRun;
-  std::array<std::size_t, N> effectiveIdx;
+template <std::size_t N>
+struct OverridePlan
+{
+    std::array<bool, N> shouldRun;
+    std::array<std::size_t, N> effectiveIdx;
 };
 
 template <std::size_t N>
 constexpr OverridePlan<N>
-buildOverridePlan(std::array<std::string_view, N> const &keys) {
-  OverridePlan<N> plan{};
-  for (std::size_t i = 0; i < N; ++i) {
-    bool isFirst = true;
-    for (std::size_t j = 0; j < i; ++j) {
-      if (keys[j] == keys[i]) {
-        isFirst = false;
-        break;
-      }
+buildOverridePlan(std::array<std::string_view, N> const& keys)
+{
+    OverridePlan<N> plan{};
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        bool isFirst = true;
+        for (std::size_t j = 0; j < i; ++j)
+        {
+            if (keys[j] == keys[i])
+            {
+                isFirst = false;
+                break;
+            }
+        }
+        plan.shouldRun[i] = isFirst;
+        if (isFirst)
+        {
+            std::size_t last = i;
+            for (std::size_t j = i + 1; j < N; ++j)
+            {
+                if (keys[j] == keys[i])
+                    last = j;
+            }
+            plan.effectiveIdx[i] = last;
+        }
     }
-    plan.shouldRun[i] = isFirst;
-    if (isFirst) {
-      std::size_t last = i;
-      for (std::size_t j = i + 1; j < N; ++j) {
-        if (keys[j] == keys[i])
-          last = j;
-      }
-      plan.effectiveIdx[i] = last;
-    }
-  }
-  return plan;
+    return plan;
 }
 
 template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
-[[nodiscard]] MaybeError process(FieldsTuple const &fields, Root &root,
-                                 std::index_sequence<Is...>) {
-  if constexpr (sizeof...(Is) == 0) {
-    return {};
-  } else {
-    constexpr auto kN = sizeof...(Is);
-    std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-    auto const plan = buildOverridePlan(keys);
+[[nodiscard]] MaybeError
+process(FieldsTuple const& fields, Root& root, std::index_sequence<Is...>)
+{
+    if constexpr (sizeof...(Is) == 0)
+    {
+        return {};
+    }
+    else
+    {
+        constexpr auto kN = sizeof...(Is);
+        std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
+        auto const plan = buildOverridePlan(keys);
 
-    using DispatchFn = MaybeError (*)(FieldsTuple const &, Root &);
-    static constexpr std::array<DispatchFn, kN> kDISPATCH{
-        +[](FieldsTuple const &t, Root &r) -> MaybeError {
-          return std::get<Is>(t).process(r);
-        }...};
+        using DispatchFn = MaybeError (*)(FieldsTuple const&, Root&);
+        static constexpr std::array<DispatchFn, kN> kDISPATCH{
+            +[](FieldsTuple const& t, Root& r) -> MaybeError {
+                return std::get<Is>(t).process(r);
+            }...};
 
-    MaybeError result{};
-    for (std::size_t i = 0; i < kN; ++i) {
-      if (!plan.shouldRun[i])
-        continue;
-      result = kDISPATCH[plan.effectiveIdx[i]](fields, root);
-      if (!result.has_value())
+        MaybeError result{};
+        for (std::size_t i = 0; i < kN; ++i)
+        {
+            if (!plan.shouldRun[i])
+                continue;
+            result = kDISPATCH[plan.effectiveIdx[i]](fields, root);
+            if (!result.has_value())
+                return result;
+        }
         return result;
     }
-    return result;
-  }
 }
 
 template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
-[[nodiscard]] Warnings check(FieldsTuple const &fields, Root const &root,
-                             std::index_sequence<Is...>) {
-  Warnings out;
-  if constexpr (sizeof...(Is) > 0) {
-    constexpr auto kN = sizeof...(Is);
-    std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-    auto const plan = buildOverridePlan(keys);
+[[nodiscard]] Warnings
+check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...>)
+{
+    Warnings out;
+    if constexpr (sizeof...(Is) > 0)
+    {
+        constexpr auto kN = sizeof...(Is);
+        std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
+        auto const plan = buildOverridePlan(keys);
 
-    using DispatchFn = Warnings (*)(FieldsTuple const &, Root const &);
-    static constexpr std::array<DispatchFn, kN> kDISPATCH{
-        +[](FieldsTuple const &t, Root const &r) -> Warnings {
-          return std::get<Is>(t).check(r);
-        }...};
+        using DispatchFn = Warnings (*)(FieldsTuple const&, Root const&);
+        static constexpr std::array<DispatchFn, kN> kDISPATCH{
+            +[](FieldsTuple const& t, Root const& r) -> Warnings {
+                return std::get<Is>(t).check(r);
+            }...};
 
-    for (std::size_t i = 0; i < kN; ++i) {
-      if (!plan.shouldRun[i])
-        continue;
-      auto w = kDISPATCH[plan.effectiveIdx[i]](fields, root);
-      out.insert(out.end(), w.begin(), w.end());
+        for (std::size_t i = 0; i < kN; ++i)
+        {
+            if (!plan.shouldRun[i])
+                continue;
+            auto w = kDISPATCH[plan.effectiveIdx[i]](fields, root);
+            out.insert(out.end(), w.begin(), w.end());
+        }
     }
-  }
-  return out;
+    return out;
 }
 
-} // namespace impl
+}  // namespace impl
 
 /**
  * @brief Compile-time RPC request validator composed of typed field specs.
@@ -112,67 +128,79 @@ template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
  *
  * @tparam Fields Zero or more field types (e.g. `FieldSpec<...>`).
  */
-template <typename... Fields> struct RpcSpec {
-  using FieldsTuple = std::tuple<Fields...>;
-  FieldsTuple fields;
+template <typename... Fields>
+struct RpcSpec
+{
+    using FieldsTuple = std::tuple<Fields...>;
+    FieldsTuple fields;
 
-  consteval RpcSpec(Fields... f) : fields{f...} {}
+    consteval RpcSpec(Fields... f) : fields{f...}
+    {
+    }
 
-  /**
-   * @brief Validate @p root, running all field requirements and modifiers.
-   *
-   * @tparam Root An object-view type satisfying `SomeObjectView`.
-   * @param root  Mutable root object view (modifiers may write back into it).
-   * @return An error on the first failing field; empty on success.
-   */
-  template <SomeObjectView Root>
-  [[nodiscard]] MaybeError process(Root &root) const {
-    return impl::process(fields, root, std::index_sequence_for<Fields...>{});
-  }
+    /**
+     * @brief Validate @p root, running all field requirements and modifiers.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Mutable root object view (modifiers may write back into it).
+     * @return An error on the first failing field; empty on success.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] MaybeError
+    process(Root& root) const
+    {
+        return impl::process(fields, root, std::index_sequence_for<Fields...>{});
+    }
 
-  /**
-   * @brief Collect all warnings emitted by check items across all fields.
-   *
-   * @tparam Root An object-view type satisfying `SomeObjectView`.
-   * @param root  Const root object view.
-   * @return All warnings produced by check items.
-   */
-  template <SomeObjectView Root>
-  [[nodiscard]] Warnings check(Root const &root) const {
-    return impl::check(fields, root, std::index_sequence_for<Fields...>{});
-  }
+    /**
+     * @brief Collect all warnings emitted by check items across all fields.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Const root object view.
+     * @return All warnings produced by check items.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] Warnings
+    check(Root const& root) const
+    {
+        return impl::check(fields, root, std::index_sequence_for<Fields...>{});
+    }
 
-  /**
-   * @brief `process()` overload accepting any value constructible into an `ObjectView`.
-   *
-   * @tparam V A value type convertible to `ObjectView` (e.g. `boost::json::value`).
-   * @param v  Mutable value to validate.
-   * @return An error on the first failing field; empty on success.
-   */
-  template <typename V>
-    requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V &>
-  [[nodiscard]] MaybeError process(V &v) const {
-    ObjectView root{v};
-    return process(root);
-  }
+    /**
+     * @brief `process()` overload accepting any value constructible into an `ObjectView`.
+     *
+     * @tparam V A value type convertible to `ObjectView` (e.g. `boost::json::value`).
+     * @param v  Mutable value to validate.
+     * @return An error on the first failing field; empty on success.
+     */
+    template <typename V>
+        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V&>
+    [[nodiscard]] MaybeError
+    process(V& v) const
+    {
+        ObjectView root{v};
+        return process(root);
+    }
 
-  /**
-   * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
-   *
-   * @tparam V A value type convertible to `ObjectView const`.
-   * @param v  Const value to check.
-   * @return All warnings produced by check items.
-   */
-  template <typename V>
-    requires(!SomeObjectView<V>) &&
-            std::constructible_from<ObjectView, V const &>
-  [[nodiscard]] Warnings check(V const &v) const {
-    ObjectView const root{v};
-    return check(root);
-  }
+    /**
+     * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+     *
+     * @tparam V A value type convertible to `ObjectView const`.
+     * @param v  Const value to check.
+     * @return All warnings produced by check items.
+     */
+    template <typename V>
+        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V const&>
+    [[nodiscard]] Warnings
+    check(V const& v) const
+    {
+        ObjectView const root{v};
+        return check(root);
+    }
 };
 
-template <typename... Fs> RpcSpec(Fs...) -> RpcSpec<Fs...>;
+template <typename... Fs>
+RpcSpec(Fs...) -> RpcSpec<Fs...>;
 
 /**
  * @brief Derive a new `RpcSpec` from @p base by appending extra fields.
@@ -187,11 +215,11 @@ template <typename... Fs> RpcSpec(Fs...) -> RpcSpec<Fs...>;
  * @return A new `RpcSpec` combining base and extra fields.
  */
 template <typename... Existing, typename... Extra>
-[[nodiscard]] consteval auto extend(RpcSpec<Existing...> const &base,
-                                    Extra... extra) {
-  return std::apply(
-      [&](auto const &...existing) { return RpcSpec{existing..., extra...}; },
-      base.fields);
+[[nodiscard]] consteval auto
+extend(RpcSpec<Existing...> const& base, Extra... extra)
+{
+    return std::apply(
+        [&](auto const&... existing) { return RpcSpec{existing..., extra...}; }, base.fields);
 }
 
 /**
@@ -204,9 +232,10 @@ template <typename... Existing, typename... Extra>
  * @return A new `RpcSpec` with @p extra appended.
  */
 template <typename... Existing, typename... NewItems>
-[[nodiscard]] consteval auto operator+(RpcSpec<Existing...> const &base,
-                                       FieldSpec<NewItems...> extra) {
-  return extend(base, extra);
+[[nodiscard]] consteval auto
+operator+(RpcSpec<Existing...> const& base, FieldSpec<NewItems...> extra)
+{
+    return extend(base, extra);
 }
 
-} // namespace rpc::spec
+}  // namespace rpc::spec

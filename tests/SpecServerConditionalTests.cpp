@@ -5,6 +5,9 @@
 // complementary rippled branch is covered by RpcSpecDSL_ServerConditional in
 // SpecValidatorTests.cpp.
 
+#include <boost/json/parse.hpp>
+
+#include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/FieldSpec.hpp>
@@ -14,10 +17,6 @@
 #include <rpcspec/handlers/subscribe/Types.hpp>
 #include <rpcspec/handlers/unsubscribe/Spec.hpp>
 #include <rpcspec/handlers/unsubscribe/Types.hpp>
-
-#include <boost/json/parse.hpp>
-
-#include <gtest/gtest.h>
 
 #include <sstream>
 #include <string>
@@ -101,7 +100,7 @@ TEST(SubscribeDumpClio, DumpContainsNotSupportedAndServerStream)
 
     static constexpr auto npos = std::string::npos;
     EXPECT_NE(s.find("notSupported"), npos) << "missing: notSupported";
-    EXPECT_NE(s.find("server"), npos)       << "missing: server";
+    EXPECT_NE(s.find("server"), npos) << "missing: server";
 }
 
 // ---------------------------------------------------------------------------

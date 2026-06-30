@@ -16,7 +16,8 @@
 
 namespace rpc::spec::handlers::tx {
 
-struct ToUpperModifier {
+struct ToUpperModifier
+{
     static constexpr std::string_view kName = "toUpper";
 
     template <SomeFieldView FA>
@@ -44,12 +45,12 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("ctid", &Input::ctid, toUpper, asString),
     field("binary", &Input::binary, jsonBool),
     field("min_ledger", &Input::minLedger, asUint32),
-    field("max_ledger", &Input::maxLedger, asUint32)
-);
+    field("max_ledger", &Input::maxLedger, asUint32));
 
-inline constexpr auto kInputSpecV2 = extend(kInputSpecV1, field("binary", &Input::binary, jsonBoolStrict));
+inline constexpr auto kInputSpecV2 =
+    extend(kInputSpecV1, field("binary", &Input::binary, jsonBoolStrict));
 
 inline constexpr auto& kSpecV1 = kInputSpecV1;
 inline constexpr auto& kSpecV2 = kInputSpecV2;
 
-} // namespace rpc::spec::handlers::tx
+}  // namespace rpc::spec::handlers::tx

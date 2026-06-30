@@ -1,12 +1,11 @@
-#include <rpcspec/Errors.hpp>
+#include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Concepts.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
-
-#include <gtest/gtest.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -29,11 +28,13 @@ namespace rpc::spec {
 
 using MockValue = std::variant<int64_t, uint32_t, bool, std::string, double>;
 
-struct MockObject {
+struct MockObject
+{
     std::map<std::string, MockValue> fields;
 };
 
-class MockFieldView {
+class MockFieldView
+{
     MockValue const* readValue_;
     MockValue* writeValue_;
     std::string_view key_;
@@ -136,10 +137,12 @@ public:
     is() const noexcept
     {
         if constexpr (
-            std::is_same_v<T, rpc::spec::JsonObject> || std::is_same_v<T, rpc::spec::JsonArray>
-        ) {
+            std::is_same_v<T, rpc::spec::JsonObject> || std::is_same_v<T, rpc::spec::JsonArray>)
+        {
             return false;
-        } else {
+        }
+        else
+        {
             return readValue_ != nullptr && std::holds_alternative<T>(*readValue_);
         }
     }
@@ -184,7 +187,8 @@ public:
 
 static_assert(SomeFieldView<MockFieldView>);
 
-class MockObjectView {
+class MockObjectView
+{
     MockObject const* readObj_;
     MockObject* writeObj_;
 
@@ -210,7 +214,8 @@ public:
     [[nodiscard]] MockFieldView
     child(std::string_view key) noexcept
     {
-        if (writeObj_ != nullptr) {
+        if (writeObj_ != nullptr)
+        {
             auto it = writeObj_->fields.find(std::string{key});
             return it != writeObj_->fields.end()
                 ? MockFieldView{&it->second, key}
@@ -245,9 +250,8 @@ TEST(RpcSpecDSL_MockBackend, ValidRequestPasses)
 
     MockObject obj{
         .fields = {
-            {"account", std::string{"rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"}}, {"limit", int64_t{10}}
-        }
-    };
+            {"account", std::string{"rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"}},
+            {"limit", int64_t{10}}}};
     MockObjectView root{obj};
     EXPECT_TRUE(kSPEC.process(root).has_value());
 }
@@ -337,9 +341,7 @@ TEST(RpcSpecDSL_MockBackend, DeprecatedFieldProducesWarning)
     MockObject const obj{
         .fields = {
             {"account", std::string{"rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"}},
-            {"ident", std::string{"old"}}
-        }
-    };
+            {"ident", std::string{"old"}}}};
     MockObjectView const root{obj};
     auto const warnings = kSPEC.check(root);
     ASSERT_EQ(warnings.size(), 1u);

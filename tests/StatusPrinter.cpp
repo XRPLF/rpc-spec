@@ -18,9 +18,7 @@ namespace rpc {
 std::ostream&
 operator<<(std::ostream& stream, Status const& status)
 {
-    std::visit(
-        [&stream](auto code) { stream << "Code: " << static_cast<int>(code); }, status.code
-    );
+    std::visit([&stream](auto code) { stream << "Code: " << static_cast<int>(code); }, status.code);
     if (!status.error.empty())
         stream << ", Error: " << status.error;
     if (!status.message.empty())

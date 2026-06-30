@@ -28,20 +28,22 @@ namespace rpc::spec::handlers::account_tx {
 // CustomValidator lambda rather than the consteval spec::oneOf factory.
 // Returns the same error shape as the old validation::OneOf: "Invalid field '<key>'."
 inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> MaybeError {
-    if (!f.isString()) {
+    if (!f.isString())
+    {
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
     auto const& validTypes = detail::txTypesInLowercase();
     auto const sv = f.asString();
-    if (!validTypes.contains(std::string{sv})) {
+    if (!validTypes.contains(std::string{sv}))
+    {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."
-        }};
+            rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."}};
     }
     return {};
 }};
 
-struct Int32BoundConverter {
+struct Int32BoundConverter
+{
     static constexpr std::string_view kName = "int32";
     using ValueType = std::optional<int32_t>;
 
@@ -56,7 +58,8 @@ struct Int32BoundConverter {
     }
 };
 
-struct MarkerConverter {
+struct MarkerConverter
+{
     static constexpr std::string_view kName = "marker";
     using ValueType = Marker;
 
@@ -85,28 +88,24 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32
-    ),
+        asUint32),
     field(
         "marker",
         &Input::marker,
         withCustomError(type<JsonObject>, rpc::RippledError::RpcInvalidParams, "invalidMarker"),
         ifType<JsonObject>(section(
-            field("ledger", required, type<uint32_t>), field("seq", required, type<uint32_t>)
-        )),
-        markerConv
-    ),
+            field("ledger", required, type<uint32_t>),
+            field("seq", required, type<uint32_t>))),
+        markerConv),
     // binary/forward exist on Input for both versions; V1 coerces leniently (they are
     // not part of the V1 schema), V2 retightens them to a strict bool below.
     field("binary", &Input::binary, jsonBool),
     field("forward", &Input::forward, jsonBool),
-    field("tx_type", &Input::transactionTypeInLowercase, toLower, kTxTypeValidator, asString)
-);
+    field("tx_type", &Input::transactionTypeInLowercase, toLower, kTxTypeValidator, asString));
 
 inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
     field("binary", &Input::binary, jsonBoolStrict),
-    field("forward", &Input::forward, jsonBoolStrict)
-);
+    field("forward", &Input::forward, jsonBoolStrict));
 
-} // namespace rpc::spec::handlers::account_tx
+}  // namespace rpc::spec::handlers::account_tx

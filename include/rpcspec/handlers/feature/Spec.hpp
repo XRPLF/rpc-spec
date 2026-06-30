@@ -21,9 +21,6 @@ inline constexpr auto kInputSpec = spec<Input>(
         withCustomError(
             notSupported,
             RippledError::RpcNoPermission,
-            "The admin portion of feature API is not available through Clio."
-        )
-    )
-);
+            "The admin portion of feature API is not available through Clio.")));
 
-} // namespace rpc::spec::handlers::feature
+}  // namespace rpc::spec::handlers::feature

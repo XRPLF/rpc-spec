@@ -16,7 +16,6 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
     field("account_index", deprecated),
-    field("strict", deprecated)
-);
+    field("strict", deprecated));
 
 }  // namespace rpc::spec::handlers::account_currencies

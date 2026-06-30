@@ -11,8 +11,7 @@
 
 namespace rpc::spec::handlers::server_info {
 
-inline constexpr auto kInputSpec = spec<Input>(
-    field(kBackendCountersKey, &Input::backendCounters, jsonBool)
-);
+inline constexpr auto kInputSpec =
+    spec<Input>(field(kBackendCountersKey, &Input::backendCounters, jsonBool));
 
-} // namespace rpc::spec::handlers::server_info
+}  // namespace rpc::spec::handlers::server_info

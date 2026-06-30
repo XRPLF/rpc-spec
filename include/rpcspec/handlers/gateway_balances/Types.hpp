@@ -1,9 +1,9 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -15,10 +15,11 @@ namespace rpc::spec::handlers::gateway_balances {
 /**
  * @brief Input for the 'gateway_balances' RPC command.
  */
-struct Input {
+struct Input
+{
     xrpl::AccountID account;
     std::set<xrpl::AccountID> hotWallets;
     LedgerSpecifier ledger;
 };
 
-} // namespace rpc::spec::handlers::gateway_balances
+}  // namespace rpc::spec::handlers::gateway_balances

@@ -21,17 +21,18 @@ namespace rpc::spec::detail {
 [[nodiscard]] inline std::unordered_set<std::string> const&
 txTypesInLowercase()
 {
-  static std::unordered_set<std::string> const kTYPES = []() {
-    std::unordered_set<std::string> keys;
-    for (auto const &item : xrpl::TxFormats::getInstance()) {
-      std::string name{item.getName()};
-      for (auto &c : name)
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-      keys.insert(std::move(name));
-    }
-    return keys;
-  }();
-  return kTYPES;
+    static std::unordered_set<std::string> const kTYPES = []() {
+        std::unordered_set<std::string> keys;
+        for (auto const& item : xrpl::TxFormats::getInstance())
+        {
+            std::string name{item.getName()};
+            for (auto& c : name)
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            keys.insert(std::move(name));
+        }
+        return keys;
+    }();
+    return kTYPES;
 }
 
-} // namespace rpc::spec::detail
+}  // namespace rpc::spec::detail

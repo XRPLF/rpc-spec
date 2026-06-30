@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/UintTypes.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -15,7 +15,8 @@ namespace rpc::spec::handlers::get_aggregate_price {
 /**
  * @brief A struct to hold the input oracle data
  */
-struct Oracle {
+struct Oracle
+{
     std::uint32_t documentId{0};
     xrpl::AccountID account;
 };
@@ -23,7 +24,8 @@ struct Oracle {
 /**
  * @brief Input for the 'get_aggregate_price' RPC command.
  */
-struct Input {
+struct Input
+{
     LedgerSpecifier ledger;
     std::vector<Oracle> oracles;  // valid range is 1-200
     xrpl::Currency baseAsset;
@@ -32,4 +34,4 @@ struct Input {
     std::optional<std::uint8_t> trim;  // valid range is 1-25
 };
 
-} // namespace rpc::spec::handlers::get_aggregate_price
+}  // namespace rpc::spec::handlers::get_aggregate_price

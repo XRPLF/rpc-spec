@@ -1,10 +1,10 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Ledger.hpp>
-
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Issue.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -15,7 +15,8 @@ namespace rpc::spec::handlers::amm_info {
 /**
  * @brief Input for the 'amm_info' RPC command.
  */
-struct Input {
+struct Input
+{
     std::optional<xrpl::AccountID> accountID;
     std::optional<xrpl::AccountID> ammAccount;
     xrpl::Issue issue1 = xrpl::noIssue();
@@ -23,4 +24,4 @@ struct Input {
     LedgerSpecifier ledger;
 };
 
-} // namespace rpc::spec::handlers::amm_info
+}  // namespace rpc::spec::handlers::amm_info
