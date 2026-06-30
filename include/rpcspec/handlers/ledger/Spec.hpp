@@ -1,10 +1,9 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'ledger' RPC command.
-// Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/ledger/Types.hpp>
@@ -12,8 +11,7 @@
 namespace rpc::spec::handlers::ledger {
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    ledgerSelector(&Input::ledger),
     field("transactions", &Input::transactions, type<bool>, jsonBool),
     field("expand", &Input::expand, type<bool>, jsonBool),
     field("binary", &Input::binary, type<bool>, jsonBool),

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <rpcspec/JsonBool.hpp>
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -13,8 +14,7 @@ namespace rpc::spec::handlers::ledger {
  * @brief Input for the 'ledger' RPC command.
  */
 struct Input {
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     JsonBool binary{false};
     JsonBool expand{false};
     JsonBool ownerFunds{false};

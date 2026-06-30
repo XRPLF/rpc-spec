@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/basics/base_uint.h>
 
 #include <cstdint>
@@ -17,8 +19,7 @@ inline constexpr uint32_t kLimitDefault = 250;
  */
 struct Input {
     xrpl::uint256 nftID;
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     uint32_t limit = kLimitDefault;  /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };

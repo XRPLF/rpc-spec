@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/nft_offers_common/Types.hpp>
@@ -44,9 +45,8 @@ inline constexpr auto asUint256 = Uint256Converter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("nft_id", &Input::nftID, required, asUint256),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field(
         "limit",
         &Input::limit,

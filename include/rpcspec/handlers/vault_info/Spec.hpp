@@ -6,6 +6,7 @@
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
@@ -55,10 +56,10 @@ inline constexpr auto ownerConv = OwnerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("vault_id", &Input::vaultID, vaultIdConv),
     field("owner", &Input::owner, ownerConv),
-    field("seq", &Input::tnxSequence, withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest), asUint32),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt)
+    field("seq", &Input::tnxSequence, withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest), asUint32)
 );
 
 } // namespace rpc::spec::handlers::vault_info

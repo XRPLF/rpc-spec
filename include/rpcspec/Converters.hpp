@@ -90,6 +90,35 @@ struct LedgerHashConverter {
 };
 
 /**
+ * @brief Validates a uint256 hex field and yields it as a strong xrpl::uint256.
+ *
+ * Like LedgerHashConverter, but produces the strong type so the handler receives
+ * a ready hash and never re-parses the string.
+ */
+struct Uint256HexConverter {
+    static constexpr std::string_view kName = "uint256Hex";
+    using ValueType = xrpl::uint256;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        auto const err = [&] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams,
+                "Invalid field '" + std::string{f.key()} + "', not hex string."
+            }};
+        };
+        if (!f.isString())
+            return err();
+        xrpl::uint256 parsed;
+        if (!parsed.parseHex(std::string{f.asString()}.c_str()))
+            return err();
+        return parsed;
+    }
+};
+
+/**
  * @brief Converts a ledger_index field into an optional<uint32_t>.
  *
  * Mirrors util::getLedgerIndex semantics: the sentinels "validated"/"closed"/
@@ -239,6 +268,8 @@ inline constexpr auto asUint32 = Uint32Converter{};
 inline constexpr auto asString = StringConverter{};
 /** @brief Converter instance: validates and decodes a hex-encoded uint256 field into a std::string. */
 inline constexpr auto ledgerHashHex = LedgerHashConverter{};
+/** @brief Converter instance: validates a hex-encoded uint256 field and yields a strong xrpl::uint256. */
+inline constexpr auto asUint256 = Uint256HexConverter{};
 /** @brief Converter instance: decodes a ledger_index field into an optional uint32 (nullopt for sentinel strings). */
 inline constexpr auto ledgerIndexOpt = LedgerIndexOptConverter{};
 /** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API semantics). */

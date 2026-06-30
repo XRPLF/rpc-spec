@@ -45,36 +45,64 @@ inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Current
 /**
  * @brief The ledger a request selects, as a single strong value.
  *
- * Exactly one of three states, unified from the legacy ledger_hash +
+ * Exactly one of four states, unified from the legacy ledger_hash +
  * ledger_index pair:
- *   - a shortcut (validated / current / closed),
- *   - a concrete ledger hash,
+ *   - unspecified (`std::monostate`) — the request named no ledger;
+ *   - a shortcut (validated / current / closed);
+ *   - a concrete ledger hash;
  *   - a concrete ledger sequence.
  *
- * Default-constructs to @ref kDefaultLedgerShortcut, so a request that specifies
- * no ledger yields the server's default with no extra handler logic. An omitted
- * ledger and an explicit shortcut equal to the default are deliberately
- * indistinguishable: both servers treat them identically.
+ * Default-constructs to the unspecified state. The server's default ledger is
+ * NOT baked in here: a handler resolves it via @ref resolved() (or by checking
+ * @ref isUnspecified()), which is what lets handlers that also accept a
+ * ledger_index range (account_tx, nft_history) tell "no ledger given" apart from
+ * an explicit shortcut.
  */
 struct LedgerSpecifier {
-    std::variant<LedgerShortcut, xrpl::uint256, uint32_t> value{kDefaultLedgerShortcut};
+    std::variant<std::monostate, LedgerShortcut, xrpl::uint256, uint32_t> value{};
 
+    /** @brief True when the request named no ledger (neither hash nor index). */
+    [[nodiscard]] bool
+    isUnspecified() const noexcept
+    {
+        return std::holds_alternative<std::monostate>(value);
+    }
+
+    /** @brief True when the value is a shortcut (validated / current / closed). */
     [[nodiscard]] bool
     isShortcut() const noexcept
     {
         return std::holds_alternative<LedgerShortcut>(value);
     }
 
+    /** @brief True when the value is a concrete ledger hash. */
     [[nodiscard]] bool
     isHash() const noexcept
     {
         return std::holds_alternative<xrpl::uint256>(value);
     }
 
+    /** @brief True when the value is a concrete ledger sequence. */
     [[nodiscard]] bool
     isSequence() const noexcept
     {
         return std::holds_alternative<uint32_t>(value);
+    }
+
+    /**
+     * @brief This specifier, with an unspecified value replaced by the
+     * compile-time server default (@ref kDefaultLedgerShortcut).
+     *
+     * A concrete hash/sequence/shortcut is returned unchanged.
+     *
+     * @return A specifier whose value is never unspecified.
+     */
+    [[nodiscard]] LedgerSpecifier
+    resolved() const
+    {
+        if (isUnspecified())
+            return LedgerSpecifier{kDefaultLedgerShortcut};
+        return *this;
     }
 
     friend bool
@@ -102,7 +130,7 @@ ledgerSpecifierFromIndex(FA const& f)
 
     auto const sv = f.asString();
     if (sv.empty())
-        return LedgerSpecifier{kDefaultLedgerShortcut};
+        return LedgerSpecifier{};  // unspecified; the handler applies its default
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
     if (sv == "current")
@@ -142,10 +170,13 @@ ledgerSpecifierFromHash(FA const& f)
  * single LedgerSpecifier Input member.
  *
  * Unlike an ordinary bound field (one JSON key, one converter) this reads both
- * root keys, enforces that at most one is given, and produces the unified value.
- * It duck-types as a bound field (exposes @c kIsBound, @c key, @c parseInto,
- * @c check and @c dump) so TypedSpec dispatches and counts it like any other.
- * The bound key is "ledger_index"; a spec using this must not also bind that key.
+ * root keys and produces the unified value. ledger_hash takes precedence over
+ * ledger_index when both are present (mirroring the historical
+ * getLedgerHeaderFromHashOrSeq contract — the two are NOT mutually exclusive),
+ * and naming neither leaves the member unspecified. It duck-types as a bound
+ * field (exposes @c kIsBound, @c key, @c parseInto, @c check and @c dump) so
+ * TypedSpec dispatches and counts it like any other. The bound key is
+ * "ledger_index"; a spec using this must not also bind that key.
  */
 template <typename InputT, typename Member>
 struct LedgerSelectorField {
@@ -170,11 +201,8 @@ struct LedgerSelectorField {
         auto const hashFa = root.child("ledger_hash");
         auto const indexFa = root.child("ledger_index");
 
-        if (hashFa.present() && indexFa.present())
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, "Cannot specify both 'ledger_hash' and 'ledger_index'."
-            }};
-
+        // ledger_hash takes precedence over ledger_index (the two are not
+        // mutually exclusive — accepting both preserves the existing contract).
         if (hashFa.present()) {
             auto res = detail::ledgerSpecifierFromHash(hashFa);
             if (!res.has_value())

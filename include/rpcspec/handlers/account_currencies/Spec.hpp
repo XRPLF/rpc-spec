@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_currencies/Types.hpp>
@@ -12,9 +13,8 @@
 namespace rpc::spec::handlers::account_currencies {
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("account_index", deprecated),
     field("strict", deprecated)
 );

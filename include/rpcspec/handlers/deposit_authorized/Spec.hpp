@@ -6,19 +6,24 @@
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
-#include <boost/json/array.hpp>
-#include <boost/json/value.hpp>
+#include <xrpl/basics/base_uint.h>
+
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <vector>
 
 namespace rpc::spec::handlers::deposit_authorized {
 
 struct CredentialsArrayConverter {
     static constexpr std::string_view kName = "credentialsArray";
-    using ValueType = std::optional<boost::json::array>;
+    using ValueType = std::optional<std::vector<xrpl::uint256>>;
 
     template <SomeFieldView FA>
     [[nodiscard]] Parsed<ValueType>
@@ -26,21 +31,25 @@ struct CredentialsArrayConverter {
     {
         if (!f.present())
             return std::nullopt;
-        boost::json::array arr;
-        arr.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
-            arr.push_back(boost::json::value{std::string{f.element(i).asString()}});
-        return arr;
+        // hex256Array already validated each element is a well-formed uint256 hex
+        // string, so parseHex here cannot fail.
+        std::vector<xrpl::uint256> out;
+        out.reserve(f.arraySize());
+        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+            xrpl::uint256 hash;
+            hash.parseHex(std::string{f.element(i).asString()}.c_str());
+            out.push_back(hash);
+        }
+        return out;
     }
 };
 
 inline constexpr auto credentialsArrayConv = CredentialsArrayConverter{};
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("source_account", &Input::sourceAccount, required, accountId),
     field("destination_account", &Input::destinationAccount, required, accountId),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("credentials", &Input::credentials, hex256Array, credentialsArrayConv)
 );
 

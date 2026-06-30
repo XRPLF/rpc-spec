@@ -9,6 +9,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
@@ -138,9 +139,8 @@ inline constexpr auto hotWalletConv = HotWalletConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("hotwallet", &Input::hotWallets, kHOT_WALLET_V1, hotWalletConv)
 );
 

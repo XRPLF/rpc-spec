@@ -36,7 +36,7 @@ target_include_directories(rpcspec_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_D
 # without the Conan toolchain.
 target_compile_definitions(rpcspec_tests PRIVATE RPCSPEC_IS_RIPPLED=1)
 
-add_executable(rpcspec_clio_tests SpecLedgerClioTests.cpp)
+add_executable(rpcspec_clio_tests SpecServerConditionalTests.cpp StatusPrinter.cpp)
 target_link_libraries(rpcspec_clio_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)
 target_include_directories(rpcspec_clio_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs)
 target_compile_definitions(rpcspec_clio_tests PRIVATE RPCSPEC_IS_CLIO=1)

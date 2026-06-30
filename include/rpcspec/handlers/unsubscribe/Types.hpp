@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Book.h>
 
 namespace rpc::spec::handlers::unsubscribe {
@@ -21,9 +22,9 @@ struct OrderBook {
  * @brief Input for the 'unsubscribe' RPC command.
  */
 struct Input {
-    std::optional<std::vector<std::string>> accounts;
+    std::optional<std::vector<xrpl::AccountID>> accounts;
     std::optional<std::vector<std::string>> streams;
-    std::optional<std::vector<std::string>> accountsProposed;
+    std::optional<std::vector<xrpl::AccountID>> accountsProposed;
     std::optional<std::vector<OrderBook>> books;
 };
 

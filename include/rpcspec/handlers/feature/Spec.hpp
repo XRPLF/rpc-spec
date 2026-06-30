@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/feature/Types.hpp>
@@ -13,9 +14,8 @@ namespace rpc::spec::handlers::feature {
 
 // `vetoed` is validate-only (always rejected via notSupported); no Input member.
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("feature", &Input::feature, asString),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field(
         "vetoed",
         withCustomError(

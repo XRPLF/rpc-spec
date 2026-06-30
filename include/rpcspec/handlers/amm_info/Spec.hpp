@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/amm_info/Types.hpp>
@@ -71,8 +72,7 @@ struct IssueConverter {
 inline constexpr auto issueConv = IssueConverter{};
 
 inline constexpr auto kInputSpec = spec<Input>(
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    ledgerSelector(&Input::ledger),
     field(
         "asset",
         &Input::issue1,

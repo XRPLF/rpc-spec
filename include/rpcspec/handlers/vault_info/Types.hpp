@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
 
@@ -16,7 +18,7 @@ struct Input {
     std::optional<xrpl::uint256> vaultID;
     std::optional<xrpl::AccountID> owner;
     std::optional<uint32_t> tnxSequence;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
 };
 
 } // namespace rpc::spec::handlers::vault_info

@@ -36,26 +36,39 @@ parseLedger(char const* json)
 
 }  // namespace
 
-TEST(LedgerSpecifier, DefaultConstructsToServerDefault)
+TEST(LedgerSpecifier, DefaultConstructsToUnspecified)
 {
     LedgerSpecifier const def{};
-    EXPECT_TRUE(def.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(def.value), kDefaultLedgerShortcut);
-    EXPECT_EQ(std::get<LedgerShortcut>(def.value), LedgerShortcut::Current);  // rippled build
+    EXPECT_TRUE(def.isUnspecified());
+    EXPECT_FALSE(def.isShortcut());
 }
 
-TEST(LedgerSelector, NeitherFieldYieldsServerDefault)
+TEST(LedgerSpecifier, ResolvedAppliesServerDefault)
+{
+    auto const r = LedgerSpecifier{}.resolved();
+    ASSERT_TRUE(r.isShortcut());
+    EXPECT_EQ(std::get<LedgerShortcut>(r.value), kDefaultLedgerShortcut);
+    EXPECT_EQ(std::get<LedgerShortcut>(r.value), LedgerShortcut::Current);  // rippled build
+}
+
+TEST(LedgerSpecifier, ResolvedLeavesConcreteValueUnchanged)
+{
+    LedgerSpecifier const seq{uint32_t{42}};
+    EXPECT_EQ(seq.resolved(), seq);
+}
+
+TEST(LedgerSelector, NeitherFieldYieldsUnspecified)
 {
     auto const led = parseLedger(R"JSON({})JSON");
-    ASSERT_TRUE(led.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(led.value), LedgerShortcut::Current);
+    EXPECT_TRUE(led.isUnspecified());
+    // The server default is applied only on resolution.
+    EXPECT_EQ(std::get<LedgerShortcut>(led.resolved().value), LedgerShortcut::Current);
 }
 
-TEST(LedgerSelector, EmptyIndexStringYieldsServerDefault)
+TEST(LedgerSelector, EmptyIndexStringYieldsUnspecified)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": "" })JSON");
-    ASSERT_TRUE(led.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(led.value), kDefaultLedgerShortcut);
+    EXPECT_TRUE(led.isUnspecified());
 }
 
 TEST(LedgerSelector, ShortcutValidated)
@@ -149,14 +162,17 @@ TEST(LedgerSelector, NonStringHashFails)
     EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, BothHashAndIndexFails)
+// Not mutually exclusive: when both are present, ledger_hash wins (mirrors the
+// historical getLedgerHeaderFromHashOrSeq contract). This must NOT error.
+TEST(LedgerSelector, BothHashAndIndexPrefersHash)
 {
-    auto value = boost::json::parse(
+    auto const led = parseLedger(
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": 5 })JSON"
     );
-    auto const r = kLEDGER_SPEC.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    ASSERT_TRUE(led.isHash());
+    xrpl::uint256 expected;
+    ASSERT_TRUE(expected.parseHex(kHASH64));
+    EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 
 namespace {
@@ -180,13 +196,12 @@ TEST(LedgerSelector, ComposesAlongsideOtherFields)
     EXPECT_EQ(std::get<LedgerShortcut>(r->ledger.value), LedgerShortcut::Validated);
 }
 
-TEST(LedgerSelector, ComposedSpecDefaultsLedgerWhenAbsent)
+TEST(LedgerSelector, ComposedSpecLeavesLedgerUnspecifiedWhenAbsent)
 {
     auto value = boost::json::parse(R"JSON({ "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" })JSON");
     auto const r = kACCT_LEDGER_SPEC.parse(value);
     ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->ledger.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(r->ledger.value), LedgerShortcut::Current);
+    EXPECT_TRUE(r->ledger.isUnspecified());
 }
 
 TEST(LedgerSelector, SpecIsConstantEvaluable)

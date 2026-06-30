@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_mptoken_issuances/Types.hpp>
@@ -14,8 +15,8 @@
 namespace rpc::spec::handlers::account_mptoken_issuances {
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountIdActMalformed),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
     field(
         "limit",
         &Input::limit,
@@ -24,7 +25,6 @@ inline constexpr auto kInputSpec = spec<Input>(
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
         asUint32
     ),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("marker", &Input::marker, accountMarker, asString),
     field("ledger", deprecated)
 );

@@ -1,9 +1,12 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
+#include <xrpl/basics/base_uint.h>
+
 #include <cstdint>
 #include <optional>
-#include <string>
 
 namespace rpc::spec::handlers::transaction_entry {
 
@@ -11,9 +14,8 @@ namespace rpc::spec::handlers::transaction_entry {
  * @brief Input for the 'transaction_entry' RPC command.
  */
 struct Input {
-  std::string txHash;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
+  xrpl::uint256 txHash;
+  LedgerSpecifier ledger;
 };
 
 } // namespace rpc::spec::handlers::transaction_entry

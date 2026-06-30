@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/basics/base_uint.h>
 
 #include <cstdint>
@@ -14,8 +16,7 @@ namespace rpc::spec::handlers::nft_info {
  */
 struct Input {
     xrpl::uint256 nftID;
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
 };
 
 }  // namespace rpc::spec::handlers::nft_info

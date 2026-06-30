@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/nfts_by_issuer/Types.hpp>
@@ -44,10 +45,9 @@ inline constexpr auto asUint256 = Uint256Converter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("issuer", &Input::issuer, required, accountId),
     field("nft_taxon", &Input::nftTaxon, type<uint32_t>, asUint32),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field(
         "limit",
         &Input::limit,

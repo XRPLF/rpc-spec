@@ -2,6 +2,7 @@
 #pragma once
 
 #include <rpcspec/JsonBool.hpp>
+#include <rpcspec/Ledger.hpp>
 
 #include <xrpl/protocol/AccountID.h>
 
@@ -20,8 +21,7 @@ namespace rpc::spec::handlers::account_info {
 struct Input {
     std::optional<xrpl::AccountID> account;
     std::optional<xrpl::AccountID> ident;
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     JsonBool signerLists{false};
 };
 

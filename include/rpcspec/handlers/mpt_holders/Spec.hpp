@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
@@ -72,9 +73,8 @@ inline constexpr auto accountIdHex = AccountIdHexConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("mpt_issuance_id", &Input::mptID, required, uint192Conv),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("marker", &Input::marker, accountIdHex),
     field(
         "limit",

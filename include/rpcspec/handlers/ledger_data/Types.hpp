@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/LedgerFormats.h>
 
@@ -30,8 +32,7 @@ using MarkerValue = std::variant<xrpl::uint256, uint32_t>;
  *       std::holds_alternative / std::get to distinguish in the handler.
  */
 struct Input {
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     bool binary = false;
     uint32_t limit = kLimitJson;  // max 256 for json ; 2048 for binary
     std::optional<MarkerValue> marker;  // nullopt = no marker; uint256 = normal; uint32 = diff/OOO

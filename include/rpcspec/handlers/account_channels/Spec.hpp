@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_channels/Types.hpp>
@@ -14,9 +15,9 @@
 namespace rpc::spec::handlers::account_channels {
 
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
     field("destination_account", &Input::destinationAccount, type<std::string>, accountId),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
     field(
         "limit",
         &Input::limit,
@@ -25,7 +26,6 @@ inline constexpr auto kInputSpec = spec<Input>(
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
         asUint32
     ),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("marker", &Input::marker, accountMarker, asString)
 );
 

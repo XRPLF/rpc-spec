@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
@@ -54,9 +55,8 @@ inline constexpr auto asBool = AsBoolConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountIdActMalformed),
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("peer", &Input::peer, accountIdActMalformed),
     field("ignore_default", &Input::ignoreDefault, type<bool>, asBool),
     field(

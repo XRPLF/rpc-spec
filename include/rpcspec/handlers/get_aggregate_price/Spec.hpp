@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
@@ -117,42 +118,44 @@ struct Uint8Converter {
     }
 };
 
-struct CurrencyStringConverter {
-    static constexpr std::string_view kName = "currencyString";
-    using ValueType = std::string;
+struct CurrencyConverter {
+    static constexpr std::string_view kName = "currency";
+    using ValueType = xrpl::Currency;
 
     template <SomeFieldView FA>
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if (!f.isString())
+        // The `currency` validator already confirmed the field is a valid currency
+        // code string; decode it into the strong type.
+        xrpl::Currency currency;
+        if (!f.isString() || !xrpl::toCurrency(currency, std::string{f.asString()}))
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return std::string{f.asString()};
+        return currency;
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
 inline constexpr auto oraclesConv = OraclesConverter{};
 inline constexpr auto uint8Conv = Uint8Converter{};
-inline constexpr auto currencyString = CurrencyStringConverter{};
+inline constexpr auto currencyConv = CurrencyConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    ledgerSelector(&Input::ledger),
     field(
         "base_asset",
         &Input::baseAsset,
         required,
         withCustomError(currency, RippledError::RpcInvalidParams),
-        currencyString
+        currencyConv
     ),
     field(
         "quote_asset",
         &Input::quoteAsset,
         required,
         withCustomError(currency, RippledError::RpcInvalidParams),
-        currencyString
+        currencyConv
     ),
     field("oracles", &Input::oracles, required, kORACLES_VALIDATOR, oraclesConv),
     field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),

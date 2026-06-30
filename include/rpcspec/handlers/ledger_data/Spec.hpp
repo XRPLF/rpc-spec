@@ -5,6 +5,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
@@ -80,8 +81,7 @@ inline constexpr auto ledgerEntryTypeConv = LedgerEntryTypeConverter{};
 // marker and diffMarker are unified into a single optional<MarkerValue> member;
 // cross-field validation (outOfOrder + marker type) stays in process().
 inline constexpr auto kInputSpec = spec<Input>(
-    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
-    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, jsonBoolStrict),
     field(
         "limit",

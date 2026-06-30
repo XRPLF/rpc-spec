@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/LedgerFormats.h>
 
@@ -19,8 +21,7 @@ inline constexpr uint32_t kLimitDefault = 200;
  */
 struct Input {
     xrpl::AccountID account;
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     uint32_t limit = kLimitDefault;  // [kLimitMin, kLimitMax]
     std::optional<std::string> marker;
     std::optional<xrpl::LedgerEntryType> type;

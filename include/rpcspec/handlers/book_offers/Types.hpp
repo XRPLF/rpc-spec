@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
@@ -22,8 +24,7 @@ inline constexpr uint32_t kLimitDefault = 60;
  * offers regardless of the funding status
  */
 struct Input {
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    LedgerSpecifier ledger;
     uint32_t limit = kLimitDefault;
     std::optional<xrpl::AccountID> taker;
     xrpl::Issue takerPays;

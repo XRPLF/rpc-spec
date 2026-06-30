@@ -40,7 +40,7 @@ inline constexpr auto toUpper = ToUpperModifier{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    field("transaction", &Input::transaction, ledgerHashHex),
+    field("transaction", &Input::transaction, asUint256),
     field("ctid", &Input::ctid, toUpper, asString),
     field("binary", &Input::binary, jsonBool),
     field("min_ledger", &Input::minLedger, asUint32),
