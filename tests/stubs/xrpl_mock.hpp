@@ -264,6 +264,7 @@ struct STXChainBridge {
 struct Book {
     Issue in;
     Issue out;
+    std::optional<uint256> domain;  // libxrpl's Book carries an optional permissioned-domain id
     bool operator==(Book const&) const noexcept = default;
 };
 

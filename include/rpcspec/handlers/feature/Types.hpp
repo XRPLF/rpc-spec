@@ -14,7 +14,7 @@ namespace rpc::spec::handlers::feature {
  */
 struct Input {
     LedgerSpecifier ledger;
-    std::optional<std::string> feature;
+    std::optional<std::string> feature;  /**< Either an amendment name or a hex amendment id — an opaque passthrough with no single strong type; resolved by the (admin) handler. */
 };
 
 } // namespace rpc::spec::handlers::feature

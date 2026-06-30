@@ -16,9 +16,11 @@
 #include <xrpl/protocol/Book.h>
 #include <xrpl/protocol/UintTypes.h>
 
+#include <array>
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -61,29 +63,64 @@ static constexpr auto kSUBSCRIBE_ACCOUNTS_VALIDATOR =
     }};
 
 // Validates the streams field: must be an array of known stream name strings.
-// Errors mirror subscribeStreamValidator from the old system exactly:
-//   - not array → RpcInvalidParams + key + "NotArray"
-//   - element not string → RpcInvalidParams + "streamNotString"
-//   - element in NOT_SUPPORT set → RpcNotSupported
-//   - element not in VALID set → RpcStreamMalformed
-static constexpr auto kSUBSCRIBE_STREAM_VALIDATOR =
-    CustomValidator{[](auto const& f) -> MaybeError {
+// The accepted set is server-conditional (the spec is shared):
+//   - both servers serve the six common streams below;
+//   - rippled additionally accepts `server`/`peer_status`/`consensus` (the admin
+//     role for the first two is enforced later, not here) and the deprecated
+//     `rt_transactions` alias of `transactions_proposed`;
+//   - Clio does not serve those, so it rejects them with RpcNotSupported.
+// Errors otherwise mirror the old subscribeStreamValidator: not array →
+// "<key>NotArray"; element not string → "streamNotString"; unknown → RpcStreamMalformed.
+// A dedicated validator (rather than a CustomValidator lambda) so the accepted
+// stream values are exposed to the schema dump via describeParams().
+struct StreamsValidator {
+    static constexpr std::string_view kName = "streams";
+
+    // Streams both servers serve.
+    static constexpr std::array<std::string_view, 6> kCommon{
+        "ledger", "transactions", "transactions_proposed", "book_changes", "manifests", "validations"
+    };
+#if RPCSPEC_IS_CLIO
+    // Clio does not serve these live streams.
+    static constexpr std::array<std::string_view, 3> kNotSupported{"server", "peer_status", "consensus"};
+#else
+    // rippled also accepts these (admin role enforced later); rt_transactions is a
+    // deprecated alias for transactions_proposed.
+    static constexpr std::array<std::string_view, 4> kRippledExtra{
+        "server", "peer_status", "consensus", "rt_transactions"
+    };
+#endif
+
+    static constexpr bool
+    contains(auto const& arr, std::string_view s)
+    {
+        for (auto const& v : arr)
+            if (v == s)
+                return true;
+        return false;
+    }
+
+    template <typename Writer>
+    void
+    describeParams(Writer& w) const
+    {
+        w.paramList("oneOf", kCommon);
+#if RPCSPEC_IS_CLIO
+        w.paramList("notSupported", kNotSupported);
+#else
+        w.paramList("alsoAllowed", kRippledExtra);
+#endif
+    }
+
+    template <SomeFieldView FA>
+    [[nodiscard]] MaybeError
+    verify(FA const& f) const
+    {
         if (!f.isArray()) {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"
             }};
         }
-        static std::unordered_set<std::string> const kVALID_STREAMS = {
-            "ledger",
-            "transactions",
-            "transactions_proposed",
-            "book_changes",
-            "manifests",
-            "validations"
-        };
-        static std::unordered_set<std::string> const kNOT_SUPPORT_STREAMS = {
-            "peer_status", "consensus", "server"
-        };
         for (std::size_t i = 0; i < f.arraySize(); ++i) {
             auto const elem = f.element(i);
             if (!elem.isString()) {
@@ -91,16 +128,23 @@ static constexpr auto kSUBSCRIBE_STREAM_VALIDATOR =
                     rpc::Status{rpc::RippledError::RpcInvalidParams, "streamNotString"}
                 };
             }
-            auto const str = std::string{elem.asString()};
-            if (kNOT_SUPPORT_STREAMS.contains(str)) {
+            auto const str = elem.asString();
+#if RPCSPEC_IS_CLIO
+            if (contains(kNotSupported, str))
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcNotSupported}};
-            }
-            if (!kVALID_STREAMS.contains(str)) {
+            if (!contains(kCommon, str))
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcStreamMalformed}};
-            }
+#else
+            if (!contains(kCommon, str) && !contains(kRippledExtra, str))
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcStreamMalformed}};
+#endif
         }
         return {};
-    }};
+    }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr auto kSUBSCRIBE_STREAM_VALIDATOR = StreamsValidator{};
 
 // Validates the books field: must be an array of valid book objects.
 // Errors mirror the old kBOOKS_VALIDATOR lambda exactly (including all parseBook errors).
@@ -270,19 +314,40 @@ static constexpr auto kBOOKS_VALIDATOR =
         return {};
     }};
 
-struct StringVecConverter {
-    static constexpr std::string_view kName = "stringVec";
-    using ValueType = std::optional<std::vector<std::string>>;
+struct StreamVecConverter {
+    static constexpr std::string_view kName = "streamVec";
+    using ValueType = std::optional<std::vector<StreamType>>;
 
     template <SomeFieldView FA>
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        std::vector<std::string> result;
+        // The streams validator already rejected unknown/unsupported names, so each
+        // element here is an accepted stream for this server build.
+        std::vector<StreamType> result;
         result.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
-            result.push_back(std::string{f.element(i).asString()});
-        return std::optional<std::vector<std::string>>{std::move(result)};
+        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+            auto const s = f.element(i).asString();
+            if (s == "ledger")
+                result.push_back(StreamType::Ledger);
+            else if (s == "transactions")
+                result.push_back(StreamType::Transactions);
+            else if (s == "transactions_proposed" || s == "rt_transactions")  // rt_transactions: deprecated alias
+                result.push_back(StreamType::TransactionsProposed);
+            else if (s == "book_changes")
+                result.push_back(StreamType::BookChanges);
+            else if (s == "manifests")
+                result.push_back(StreamType::Manifests);
+            else if (s == "validations")
+                result.push_back(StreamType::Validations);
+            else if (s == "server")
+                result.push_back(StreamType::Server);
+            else if (s == "peer_status")
+                result.push_back(StreamType::PeerStatus);
+            else  // "consensus"
+                result.push_back(StreamType::Consensus);
+        }
+        return std::optional<std::vector<StreamType>>{std::move(result)};
     }
 };
 
@@ -369,13 +434,13 @@ struct UnsubscribeBooksConverter {
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
-inline constexpr auto stringVecConv = StringVecConverter{};
+inline constexpr auto streamVecConv = StreamVecConverter{};
 inline constexpr auto accountIdVecConv = AccountIdVecConverter{};
 inline constexpr auto unsubscribeBooksConv = UnsubscribeBooksConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
-    field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, stringVecConv),
+    field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, streamVecConv),
     field("accounts", &Input::accounts, kSUBSCRIBE_ACCOUNTS_VALIDATOR, accountIdVecConv),
     field("accounts_proposed", &Input::accountsProposed, kSUBSCRIBE_ACCOUNTS_VALIDATOR, accountIdVecConv),
     field("books", &Input::books, kBOOKS_VALIDATOR, unsubscribeBooksConv),

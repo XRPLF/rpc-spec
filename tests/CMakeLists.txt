@@ -15,9 +15,11 @@ add_executable(
     StatusPrinter.cpp
     SpecCoreTests.cpp
     SpecFieldViewTests.cpp
+    SpecLedgerEntryTests.cpp
     SpecLedgerTests.cpp
     SpecMockBackendTests.cpp
     SpecModifierTests.cpp
+    SpecSubscribeTests.cpp
     SpecValidatorTests.cpp
 )
 

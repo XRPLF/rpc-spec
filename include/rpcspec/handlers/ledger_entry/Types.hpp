@@ -1,11 +1,12 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/JsonBool.hpp>
+#include <rpcspec/Ledger.hpp>
+
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Issue.h>
-#include <xrpl/protocol/LedgerFormats.h>
-#include <xrpl/protocol/STXChainBridge.h>
 #include <xrpl/protocol/UintTypes.h>
 
 #include <array>
@@ -17,10 +18,10 @@
 
 namespace rpc::spec::handlers::ledger_entry {
 
-// Each locator below that accepts EITHER a direct ledger-key hex OR a composite
-// object is modeled as std::variant<xrpl::uint256, ...Entry>: the uint256 arm is
-// the direct key, the struct arm is the unpacked object. The strong sub-field
-// types mirror what the ledger_entry validator (Spec.hpp) guarantees.
+// Each locator that accepts EITHER a direct ledger-key hex OR a composite object
+// is modeled as std::variant<xrpl::uint256, ...Entry>: the uint256 arm is the
+// direct key, the struct arm is the unpacked object. The strong sub-field types
+// mirror what the ledger_entry validator (Spec.hpp) guarantees.
 
 /** @brief `directory` object locator: an owner dir, or an explicit dir root, with an optional sub-index. */
 struct DirectoryEntry {
@@ -89,10 +90,23 @@ struct AmmEntry {
     xrpl::Issue asset2;
 };
 
+/** @brief `oracle` object locator: owner account + oracle document id. */
+struct OracleEntry {
+    xrpl::AccountID account;
+    uint32_t oracleDocumentId = 0;
+};
+
+/** @brief `credential` object locator: subject, issuer, and credential type. */
+struct CredentialEntry {
+    xrpl::AccountID subject;
+    xrpl::AccountID issuer;
+    std::string credentialType;  /**< Variable-length hex blob (credential type); no fixed-width strong type fits, so kept as a hex string. */
+};
+
 /** @brief One entry of `deposit_preauth.authorized_credentials`. */
 struct AuthorizeCredentialEntry {
     xrpl::AccountID issuer;
-    std::string credentialType;  /**< Variable-length hex blob (credential type). */
+    std::string credentialType;  /**< Variable-length hex blob (credential type); no fixed-width strong type fits, so kept as a hex string. */
 };
 
 /** @brief `deposit_preauth` object locator: owner plus EITHER an authorized account OR a credential set. */
@@ -109,27 +123,60 @@ struct RippleStateEntry {
 };
 
 /**
+ * @brief A cross-chain bridge spec, as carried by the `bridge` and the xchain
+ * claim-id locators: the two chain doors and the two chain issues.
+ */
+struct BridgeSpec {
+    xrpl::AccountID lockingChainDoor;
+    xrpl::AccountID issuingChainDoor;
+    xrpl::Issue lockingChainIssue;
+    xrpl::Issue issuingChainIssue;
+};
+
+/**
+ * @brief An xchain claim-id locator: the bridge spec plus the claim id.
+ *
+ * Used for both `xchain_owned_claim_id` and `xchain_owned_create_account_claim_id`;
+ * each request field carries its own embedded bridge object and a uint32 id.
+ */
+struct XChainClaimIdEntry {
+    BridgeSpec bridge;
+    uint32_t claimId = 0;
+};
+
+/**
  * @brief Input for the 'ledger_entry' RPC command.
  *
- * @note This handler is still a validate-only spec (Spec.hpp): the spec checks the
- * request shape, while the values below are unpacked from the request downstream.
- * The types are the strong contract that unpacking must produce.
+ * The wire format is unchanged from the validator; this is the strong, internal
+ * representation the spec unpacks the request into. Exactly one locator member is
+ * set per request (validated elsewhere); a locator's ledger-entry type is implied
+ * by which member is present.
  */
 struct Input {
-    std::optional<xrpl::uint256> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
-    bool binary = false;
-    // Direct ledger-entry key. Also the normalized target for the hex-only
-    // locators (check, payment_channel, nft_page, nft_offer, signer_list,
-    // amendments, fee, hashes, nunl), with expectedType recording which.
+    LedgerSpecifier ledger;
+    JsonBool binary{false};
+    JsonBool includeDeleted{false};
+
+    // Direct ledger-key locators (hex string -> xrpl::uint256).
     std::optional<xrpl::uint256> index;
-    xrpl::LedgerEntryType expectedType = xrpl::ltANY;
+    std::optional<xrpl::uint256> check;
+    std::optional<xrpl::uint256> paymentChannel;
+    std::optional<xrpl::uint256> nftPage;
+    std::optional<xrpl::uint256> nftOffer;
+    std::optional<xrpl::uint256> signerList;
+    std::optional<xrpl::uint256> amendments;
+    std::optional<xrpl::uint256> fee;
+    std::optional<xrpl::uint256> hashes;
+    std::optional<xrpl::uint256> nunl;
+
+    // Account / id locators.
     std::optional<xrpl::AccountID> accountRoot;
     std::optional<xrpl::AccountID> did;
     std::optional<xrpl::uint192> mptIssuance;
+
+    // Hex-or-object locators.
     std::optional<std::variant<xrpl::uint256, DirectoryEntry>> directory;
     std::optional<std::variant<xrpl::uint256, OfferEntry>> offer;
-    std::optional<RippleStateEntry> rippleStateAccount;
     std::optional<std::variant<xrpl::uint256, EscrowEntry>> escrow;
     std::optional<std::variant<xrpl::uint256, DepositPreauthEntry>> depositPreauth;
     std::optional<std::variant<xrpl::uint256, TicketEntry>> ticket;
@@ -139,14 +186,16 @@ struct Input {
     std::optional<std::variant<xrpl::uint256, VaultEntry>> vault;
     std::optional<std::variant<xrpl::uint256, LoanBrokerEntry>> loanBroker;
     std::optional<std::variant<xrpl::uint256, LoanEntry>> loan;
-    std::optional<xrpl::STXChainBridge> bridge;
-    std::optional<xrpl::AccountID> bridgeAccount;
-    std::optional<uint32_t> chainClaimId;
-    std::optional<uint32_t> createAccountClaimId;
-    std::optional<xrpl::uint256> oracleNode;
-    std::optional<xrpl::uint256> credential;
+    std::optional<std::variant<xrpl::uint256, OracleEntry>> oracle;
+    std::optional<std::variant<xrpl::uint256, CredentialEntry>> credential;
     std::optional<std::variant<xrpl::uint256, DelegateEntry>> delegate;
-    bool includeDeleted = false;
+
+    // Object-only locators.
+    std::optional<RippleStateEntry> rippleStateAccount;
+    std::optional<BridgeSpec> bridge;
+    std::optional<xrpl::AccountID> bridgeAccount;
+    std::optional<std::variant<xrpl::uint256, XChainClaimIdEntry>> xchainOwnedClaimId;
+    std::optional<std::variant<xrpl::uint256, XChainClaimIdEntry>> xchainOwnedCreateAccountClaimId;
 };
 
 } // namespace rpc::spec::handlers::ledger_entry

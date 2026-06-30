@@ -232,8 +232,10 @@ struct LedgerSelectorField {
     void
     dump(SpecDumpWriter& w) const
     {
-        w.bulletGroup("ledger_hash", [] {});
-        w.bulletGroup("ledger_index", [] {});
+        // Render the two underlying keys so the unified selector is still
+        // discoverable in the schema dump, each with the value it accepts.
+        w.bulletGroup("ledger_hash", [&] { w.bullet("uint256Hex", [] {}); });
+        w.bulletGroup("ledger_index", [&] { w.bullet("uint32 or shortcut (validated/current/closed)", [] {}); });
     }
 };
 

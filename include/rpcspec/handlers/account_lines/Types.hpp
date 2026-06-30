@@ -25,7 +25,7 @@ struct Input {
     bool ignoreDefault = false;  // TODO: document
                                  // https://github.com/XRPLF/xrpl-dev-portal/issues/1839
     uint32_t limit = kLimitDefault;
-    std::optional<std::string> marker;
+    std::optional<std::string> marker;  /**< Opaque pagination cursor (may encode an account + hint, not a single id); re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */
 };
 
 }  // namespace rpc::spec::handlers::account_lines

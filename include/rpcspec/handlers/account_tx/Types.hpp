@@ -38,7 +38,7 @@ struct Input {
   JsonBool forward{false};
   std::optional<uint32_t> limit;
   std::optional<Marker> marker;
-  std::optional<std::string> transactionTypeInLowercase;
+  std::optional<std::string> transactionTypeInLowercase;  /**< Validated tx-type name, kept as a normalized string rather than a strong enum: the valid set is version-dependent (derived at runtime from libxrpl TxFormats), so a repo-local enum would duplicate xrpl::TxType and risk drift. */
 };
 
 } // namespace rpc::spec::handlers::account_tx

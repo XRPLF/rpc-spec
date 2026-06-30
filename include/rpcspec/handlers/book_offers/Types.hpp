@@ -29,7 +29,7 @@ struct Input {
     std::optional<xrpl::AccountID> taker;
     xrpl::Issue takerPays;
     xrpl::Issue takerGets;
-    std::optional<std::string> domain;
+    std::optional<std::string> domain;  /**< Permissioned-domain id, passed through as a validated hex string. */
 };
 
 } // namespace rpc::spec::handlers::book_offers

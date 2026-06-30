@@ -9,10 +9,18 @@
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/SpecDumpWriter.hpp>
+#include <rpcspec/handlers/subscribe/Spec.hpp>
+#include <rpcspec/handlers/subscribe/Types.hpp>
+#include <rpcspec/handlers/unsubscribe/Spec.hpp>
+#include <rpcspec/handlers/unsubscribe/Types.hpp>
 
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+
+#include <sstream>
+#include <string>
 
 using namespace rpc::spec;
 
@@ -44,4 +52,76 @@ TEST(ServerConditionalClio, IfServerRippledValidatorIsInertInClioBuild)
 {
     auto value = boost::json::parse(R"JSON({ "rippled_only": true })JSON");
     EXPECT_TRUE(kSPEC.process(value).has_value());
+}
+
+// ---------------------------------------------------------------------------
+// Subscribe spec — Clio-build stream gating
+// ---------------------------------------------------------------------------
+
+TEST(SubscribeSpecClio, ServerStreamRejectedWithNotSupported)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
+    auto const r = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+}
+
+TEST(SubscribeSpecClio, ConsensusStreamRejectedWithNotSupported)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["consensus"]})JSON");
+    auto const r = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+}
+
+TEST(SubscribeSpecClio, PeerStatusStreamRejectedWithNotSupported)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["peer_status"]})JSON");
+    auto const r = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+}
+
+TEST(SubscribeSpecClio, LedgerStreamAccepted)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["ledger"]})JSON");
+    auto const r = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->streams.has_value());
+    ASSERT_EQ(r->streams->size(), 1u);
+    EXPECT_EQ((*r->streams)[0], handlers::subscribe::StreamType::Ledger);
+}
+
+TEST(SubscribeDumpClio, DumpContainsNotSupportedAndServerStream)
+{
+    std::ostringstream oss;
+    rpc::spec::SpecDumpWriter w{oss};
+    handlers::subscribe::kInputSpec.dump(w);
+    auto const s = oss.str();
+
+    static constexpr auto npos = std::string::npos;
+    EXPECT_NE(s.find("notSupported"), npos) << "missing: notSupported";
+    EXPECT_NE(s.find("server"), npos)       << "missing: server";
+}
+
+// ---------------------------------------------------------------------------
+// Unsubscribe spec — Clio-build: server stream rejected, ledger accepted
+// ---------------------------------------------------------------------------
+
+TEST(UnsubscribeSpecClio, ServerStreamRejectedWithNotSupported)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
+    auto const r = handlers::unsubscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+}
+
+TEST(UnsubscribeSpecClio, LedgerStreamAccepted)
+{
+    auto value = boost::json::parse(R"JSON({"streams": ["ledger"]})JSON");
+    auto const r = handlers::unsubscribe::kInputSpec.parse(value);
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->streams.has_value());
+    ASSERT_EQ(r->streams->size(), 1u);
+    EXPECT_EQ((*r->streams)[0], handlers::unsubscribe::StreamType::Ledger);
 }
