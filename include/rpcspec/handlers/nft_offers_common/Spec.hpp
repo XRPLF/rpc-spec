@@ -4,24 +4,60 @@
 // Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/nft_offers_common/Types.hpp>
 
+#include <xrpl/basics/base_uint.h>
+
 #include <cstdint>
+#include <string_view>
 
 namespace rpc::spec::handlers::nft_offers_common {
 
-inline constexpr auto kSpec = RpcSpec{
-    field("nft_id", required, uint256Hex),
-    field("ledger_hash", uint256Hex),
-    field("ledger_index", ledgerIndex),
-    field(
-        "limit",
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})
-    ),
-    field("marker", uint256Hex),
+struct Uint256Converter {
+    static constexpr std::string_view kName = "uint256";
+    using ValueType = xrpl::uint256;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        auto const err = [&] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams,
+                "Invalid field '" + std::string{f.key()} + "', not hex string."
+            }};
+        };
+        if (!f.isString())
+            return err();
+        xrpl::uint256 out;
+        if (!out.parseHex(std::string{f.asString()}.c_str()))
+            return err();
+        return out;
+    }
 };
 
-} // namespace rpc::spec::handlers::nft_offers_common
+// NOLINTBEGIN(readability-identifier-naming)
+inline constexpr auto asUint256 = Uint256Converter{};
+// NOLINTEND(readability-identifier-naming)
+
+inline constexpr auto kInputSpec = spec<Input>(
+    field("nft_id", &Input::nftID, required, asUint256),
+    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
+    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    field(
+        "limit",
+        &Input::limit,
+        type<uint32_t>,
+        min(uint32_t{1}),
+        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        asUint32
+    ),
+    field("marker", &Input::marker, asUint256)
+);
+
+inline constexpr auto& kSpec = kInputSpec;
+
+}  // namespace rpc::spec::handlers::nft_offers_common

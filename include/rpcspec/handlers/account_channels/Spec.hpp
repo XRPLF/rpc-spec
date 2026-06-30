@@ -4,28 +4,29 @@
 // Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_channels/Types.hpp>
 
 #include <cstdint>
 
 namespace rpc::spec::handlers::account_channels {
 
-inline constexpr auto kSpec = RpcSpec{
-    field("account", required, account),
-    // Type<std::string> is chained before `account` so that a non-string
-    // destination_account produces a bare RpcInvalidParams rather than the
-    // "<key>NotString" message that AccountFormat would emit.
-    field("destination_account", type<std::string>, account),
-    field("ledger_hash", uint256Hex),
+inline constexpr auto kInputSpec = spec<Input>(
+    field("account", &Input::account, required, accountId),
+    field("destination_account", &Input::destinationAccount, type<std::string>, accountId),
+    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
     field(
         "limit",
+        &Input::limit,
         type<uint32_t>,
         min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})
+        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        asUint32
     ),
-    field("ledger_index", ledgerIndex),
-    field("marker", accountMarker),
-};
+    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    field("marker", &Input::marker, accountMarker, asString)
+);
 
 } // namespace rpc::spec::handlers::account_channels

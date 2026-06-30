@@ -3,6 +3,8 @@
 
 #include <rpcspec/JsonBool.hpp>
 
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -20,17 +22,31 @@ struct Marker {
 };
 
 /**
+ * @brief The resolved `ledger_index` specifier.
+ *
+ * A single strong member that captures the three states the legacy code spread
+ * across an optional<uint32_t> plus a separate `usingValidatedLedger` bool:
+ *   - a concrete numeric index (`index` set);
+ *   - a sentinel ("validated"/"current"/"closed") or an unresolvable value
+ *     (`index` empty, `usingValidated` true) — handler falls back to the latest;
+ *   - absent (`index` empty, `usingValidated` false).
+ */
+struct LedgerIndexSpec {
+  std::optional<uint32_t> index;
+  bool usingValidated = false;
+};
+
+/**
  * @brief Input for the 'account_tx' RPC command.
  */
 struct Input {
-  std::string account;
+  xrpl::AccountID account;
   // You must use at least one of the following fields in your request:
   // ledger_index, ledger_hash, ledger_index_min, or ledger_index_max.
   std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
+  LedgerIndexSpec ledgerIndex;
   std::optional<int32_t> ledgerIndexMin;
   std::optional<int32_t> ledgerIndexMax;
-  bool usingValidatedLedger = false;
   JsonBool binary{false};
   JsonBool forward{false};
   std::optional<uint32_t> limit;

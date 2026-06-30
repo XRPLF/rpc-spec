@@ -1,7 +1,9 @@
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
 #include <boost/json/parse.hpp>
@@ -597,4 +599,57 @@ TEST(RpcSpecDSL_ClampAs, AbsentFieldPasses)
     static constexpr auto kSPEC = RpcSpec{field("v", clampAs<int32_t>)};
     auto absent = boost::json::parse(R"JSON({})JSON");
     EXPECT_TRUE(kSPEC.process(absent).has_value());
+}
+
+namespace {
+struct TypedLimitInput {
+    uint32_t limit = 0;
+};
+struct TypedTxInput {
+    std::string txType;
+};
+}  // namespace
+
+TEST(TypedSpecModifier, ClampRunsBeforeConverter)
+{
+    static constexpr auto kSPEC =
+        spec<TypedLimitInput>(field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
+
+    auto tooLow = boost::json::parse(R"JSON({ "limit": 5 })JSON");
+    auto const low = kSPEC.parse(tooLow);
+    ASSERT_TRUE(low.has_value());
+    EXPECT_EQ(low->limit, 10u);  // clamped up, then converted
+
+    auto tooHigh = boost::json::parse(R"JSON({ "limit": 9999 })JSON");
+    auto const high = kSPEC.parse(tooHigh);
+    ASSERT_TRUE(high.has_value());
+    EXPECT_EQ(high->limit, 400u);  // clamped down, then converted
+
+    auto inRange = boost::json::parse(R"JSON({ "limit": 50 })JSON");
+    auto const ok = kSPEC.parse(inRange);
+    ASSERT_TRUE(ok.has_value());
+    EXPECT_EQ(ok->limit, 50u);
+}
+
+TEST(TypedSpecModifier, ToLowerRunsBeforeConverter)
+{
+    static constexpr auto kSPEC =
+        spec<TypedTxInput>(field("tx_type", &TypedTxInput::txType, toLower, asString));
+
+    auto request = boost::json::parse(R"JSON({ "tx_type": "Payment" })JSON");
+    auto const r = kSPEC.parse(request);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(r->txType, "payment");  // lowercased by the modifier, then converted
+}
+
+TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
+{
+    // The converter still rejects values the modifier left invalid.
+    static constexpr auto kSPEC =
+        spec<TypedLimitInput>(field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
+
+    auto wrongType = boost::json::parse(R"JSON({ "limit": "not a number" })JSON");
+    auto const r = kSPEC.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }

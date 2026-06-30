@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,14 +17,14 @@ inline constexpr uint32_t kLimitDefault = 200;
  * @brief Input for the 'account_lines' RPC command.
  */
 struct Input {
-  std::string account;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
-  std::optional<std::string> peer;
-  bool ignoreDefault = false;  // TODO: document
-                               // https://github.com/XRPLF/xrpl-dev-portal/issues/1839
-  uint32_t limit = kLimitDefault;
-  std::optional<std::string> marker;
+    xrpl::AccountID account;
+    std::optional<std::string> ledgerHash;
+    std::optional<uint32_t> ledgerIndex;
+    std::optional<xrpl::AccountID> peer;
+    bool ignoreDefault = false;  // TODO: document
+                                 // https://github.com/XRPLF/xrpl-dev-portal/issues/1839
+    uint32_t limit = kLimitDefault;
+    std::optional<std::string> marker;
 };
 
-} // namespace rpc::spec::handlers::account_lines
+}  // namespace rpc::spec::handlers::account_lines

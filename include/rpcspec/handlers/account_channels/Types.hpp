@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,8 +17,8 @@ inline constexpr uint32_t kLimitDefault = 200;
  * @brief Input for the 'account_channels' RPC command.
  */
 struct Input {
-  std::string account;
-  std::optional<std::string> destinationAccount;
+  xrpl::AccountID account;
+  std::optional<xrpl::AccountID> destinationAccount;
   std::optional<std::string> ledgerHash;
   std::optional<uint32_t> ledgerIndex;
   uint32_t limit = kLimitDefault;

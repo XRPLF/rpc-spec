@@ -3,6 +3,8 @@
 
 #include <rpcspec/JsonBool.hpp>
 
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -16,8 +18,8 @@ namespace rpc::spec::handlers::account_info {
  * `ident` is deprecated, keep it for now, in line with rippled
  */
 struct Input {
-    std::optional<std::string> account;
-    std::optional<std::string> ident;
+    std::optional<xrpl::AccountID> account;
+    std::optional<xrpl::AccountID> ident;
     std::optional<std::string> ledgerHash;
     std::optional<uint32_t> ledgerIndex;
     JsonBool signerLists{false};

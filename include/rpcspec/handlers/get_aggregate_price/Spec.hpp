@@ -4,12 +4,18 @@
 // Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
+#include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
+#include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Types.hpp>
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <vector>
 
 namespace rpc::spec::handlers::get_aggregate_price {
 
@@ -69,5 +75,88 @@ inline constexpr auto kSpec = RpcSpec{
     field("time_threshold", type<uint32_t>),
     field("trim", type<uint32_t>, between(uint32_t{1}, uint32_t{25})),
 };
+
+struct OraclesConverter {
+    static constexpr std::string_view kName = "oracles";
+    using ValueType = std::vector<Oracle>;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        ValueType result;
+        result.reserve(f.arraySize());
+        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+            auto const elem = f.element(i);
+            auto const docId = elem.child("oracle_document_id");
+            auto const account = elem.child("account");
+            // Both are guaranteed valid by kORACLES_VALIDATOR; extract directly.
+            auto id = detail::accountFromStringStrict(std::string{account.asString()});
+            if (!id)
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            result.push_back(Oracle{
+                .documentId = docId.asUint32(),
+                .account = *id,
+            });
+        }
+        return result;
+    }
+};
+
+struct Uint8Converter {
+    static constexpr std::string_view kName = "uint8";
+    using ValueType = uint8_t;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        if (!f.isUint32())
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return static_cast<uint8_t>(f.asUint32());
+    }
+};
+
+struct CurrencyStringConverter {
+    static constexpr std::string_view kName = "currencyString";
+    using ValueType = std::string;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        if (!f.isString())
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return std::string{f.asString()};
+    }
+};
+
+// NOLINTBEGIN(readability-identifier-naming)
+inline constexpr auto oraclesConv = OraclesConverter{};
+inline constexpr auto uint8Conv = Uint8Converter{};
+inline constexpr auto currencyString = CurrencyStringConverter{};
+// NOLINTEND(readability-identifier-naming)
+
+inline constexpr auto kInputSpec = spec<Input>(
+    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
+    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    field(
+        "base_asset",
+        &Input::baseAsset,
+        required,
+        withCustomError(currency, RippledError::RpcInvalidParams),
+        currencyString
+    ),
+    field(
+        "quote_asset",
+        &Input::quoteAsset,
+        required,
+        withCustomError(currency, RippledError::RpcInvalidParams),
+        currencyString
+    ),
+    field("oracles", &Input::oracles, required, kORACLES_VALIDATOR, oraclesConv),
+    field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),
+    field("trim", &Input::trim, type<uint32_t>, between(uint32_t{1}, uint32_t{25}), uint8Conv)
+);
 
 } // namespace rpc::spec::handlers::get_aggregate_price

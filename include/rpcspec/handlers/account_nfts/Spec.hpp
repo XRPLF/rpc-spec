@@ -4,24 +4,60 @@
 // Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_nfts/Types.hpp>
 
+#include <xrpl/basics/base_uint.h>
+
 #include <cstdint>
+#include <string_view>
 
 namespace rpc::spec::handlers::account_nfts {
 
-inline constexpr auto kSpec = RpcSpec{
-    field("account", required, account),
-    field("ledger_hash", uint256Hex),
-    field("ledger_index", ledgerIndex),
-    field("marker", uint256Hex),
-    field(
-        "limit",
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})
-    ),
+struct Uint256Converter {
+    static constexpr std::string_view kName = "uint256";
+    using ValueType = xrpl::uint256;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        auto const err = [&] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams,
+                "Invalid field '" + std::string{f.key()} + "', not hex string."
+            }};
+        };
+        if (!f.isString())
+            return err();
+        xrpl::uint256 out;
+        if (!out.parseHex(std::string{f.asString()}.c_str()))
+            return err();
+        return out;
+    }
 };
 
-} // namespace rpc::spec::handlers::account_nfts
+// NOLINTBEGIN(readability-identifier-naming)
+inline constexpr auto asUint256 = Uint256Converter{};
+// NOLINTEND(readability-identifier-naming)
+
+inline constexpr auto kInputSpec = spec<Input>(
+    field("account", &Input::account, required, accountId),
+    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
+    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
+    field("marker", &Input::marker, asUint256),
+    field(
+        "limit",
+        &Input::limit,
+        type<uint32_t>,
+        min(uint32_t{1}),
+        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        asUint32
+    )
+);
+
+inline constexpr auto& kSpec = kInputSpec;
+
+}  // namespace rpc::spec::handlers::account_nfts

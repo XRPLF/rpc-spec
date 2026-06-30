@@ -1,6 +1,9 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,12 +18,12 @@ inline constexpr uint32_t kLimitDefault = 50;
  * @brief Input for the 'nfts_by_issuer' RPC command.
  */
 struct Input {
-  std::string issuer;
-  std::optional<uint32_t> nftTaxon;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
-  std::optional<std::string> marker;
-  std::optional<uint32_t> limit;
+    xrpl::AccountID issuer;
+    std::optional<uint32_t> nftTaxon;
+    std::optional<std::string> ledgerHash;
+    std::optional<uint32_t> ledgerIndex;
+    std::optional<xrpl::uint256> marker;
+    uint32_t limit = kLimitDefault;  ///< Clamped to [kLimitMin, kLimitMax]
 };
 
 } // namespace rpc::spec::handlers::nfts_by_issuer

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
 
 #include <cstdint>
@@ -25,11 +26,8 @@ struct Input {
     std::optional<uint32_t> ledgerIndex;
     uint32_t limit = kLimitDefault;
     std::optional<xrpl::AccountID> taker;
-    xrpl::Currency paysCurrency;
-    xrpl::Currency getsCurrency;
-    // accountID will be filled by input converter, if no issuer is given, will use XRP issuer
-    xrpl::AccountID paysID = xrpl::xrpAccount();
-    xrpl::AccountID getsID = xrpl::xrpAccount();
+    xrpl::Issue takerPays;
+    xrpl::Issue takerGets;
     std::optional<std::string> domain;
 };
 

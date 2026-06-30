@@ -1,6 +1,9 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/AccountID.h>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,11 +18,11 @@ inline constexpr uint32_t kLimitDefault = 50;
  * @brief Input for the 'mpt_holders' RPC command.
  */
 struct Input {
-  std::string mptID;
+  xrpl::uint192 mptID;
   std::optional<std::string> ledgerHash;
   std::optional<uint32_t> ledgerIndex;
-  std::optional<std::string> marker;
-  std::optional<uint32_t> limit;
+  std::optional<xrpl::AccountID> marker;
+  uint32_t limit = kLimitDefault;
 };
 
 } // namespace rpc::spec::handlers::mpt_holders

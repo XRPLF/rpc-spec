@@ -4,17 +4,19 @@
 // Single source of truth — both Clio and rippled include this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/handlers/account_currencies/Types.hpp>
 
 namespace rpc::spec::handlers::account_currencies {
 
-inline constexpr auto kSpec = RpcSpec{
-    field("account", required, account),
-    field("ledger_hash", uint256Hex),
-    field("ledger_index", ledgerIndex),
+inline constexpr auto kInputSpec = spec<Input>(
+    field("account", &Input::account, required, accountId),
+    field("ledger_hash", &Input::ledgerHash, ledgerHashHex),
+    field("ledger_index", &Input::ledgerIndex, ledgerIndexOpt),
     field("account_index", deprecated),
-    field("strict", deprecated),
-};
+    field("strict", deprecated)
+);
 
-} // namespace rpc::spec::handlers::account_currencies
+}  // namespace rpc::spec::handlers::account_currencies

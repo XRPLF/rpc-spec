@@ -4,17 +4,22 @@
 // Single source of truth — Clio includes this file.
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/subscribe/Types.hpp>
 
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Book.h>
 #include <xrpl/protocol/UintTypes.h>
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace rpc::spec::handlers::subscribe {
 
@@ -282,14 +287,109 @@ static constexpr auto kBOOKS_VALIDATOR =
         return {};
     }};
 
-inline constexpr auto kSpec = RpcSpec{
-    field("streams") | kSUBSCRIBE_STREAM_VALIDATOR,
-    field("accounts") | kSUBSCRIBE_ACCOUNTS_VALIDATOR,
-    field("accounts_proposed") | kSUBSCRIBE_ACCOUNTS_VALIDATOR,
-    field("books") | kBOOKS_VALIDATOR,
+struct StringVecConverter {
+    static constexpr std::string_view kName = "stringVec";
+    using ValueType = std::optional<std::vector<std::string>>;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        std::vector<std::string> result;
+        result.reserve(f.arraySize());
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+            result.push_back(std::string{f.element(i).asString()});
+        return std::optional<std::vector<std::string>>{std::move(result)};
+    }
+};
+
+struct SubscribeBooksConverter {
+    static constexpr std::string_view kName = "subscribeBooksVec";
+    using ValueType = std::optional<std::vector<OrderBook>>;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        std::vector<OrderBook> result;
+        result.reserve(f.arraySize());
+
+        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+            auto const bookFa = f.element(i);
+            OrderBook ob;
+
+            auto const bothFa = bookFa.child("both");
+            if (bothFa.present())
+                ob.both = bothFa.asBool();
+
+            auto const snapshotFa = bookFa.child("snapshot");
+            if (snapshotFa.present())
+                ob.snapshot = snapshotFa.asBool();
+
+            auto const takerFa = bookFa.child("taker");
+            if (takerFa.present())
+                ob.taker = std::string{takerFa.asString()};
+
+            // Reconstruct the xrpl::Book from the pre-validated currency/issuer fields.
+            auto const paysFa = bookFa.child("taker_pays");
+            auto const getsFa = bookFa.child("taker_gets");
+
+            xrpl::Currency payCurrency;
+            xrpl::toCurrency(payCurrency, std::string{paysFa.child("currency").asString()});
+
+            xrpl::Currency getCurrency;
+            xrpl::toCurrency(getCurrency, std::string{getsFa.child("currency").asString()});
+
+            xrpl::AccountID payIssuer;
+            auto const paysIssuerFa = paysFa.child("issuer");
+            if (paysIssuerFa.present())
+                xrpl::toIssuer(payIssuer, std::string{paysIssuerFa.asString()});
+            else
+                payIssuer = xrpl::xrpAccount();
+
+            xrpl::AccountID getIssuer;
+            auto const getsIssuerFa = getsFa.child("issuer");
+            if (getsIssuerFa.present())
+                xrpl::toIssuer(getIssuer, std::string{getsIssuerFa.asString()});
+            else
+                getIssuer = xrpl::xrpAccount();
+
+            std::optional<xrpl::uint256> domainID;
+            auto const domainFa = bookFa.child("domain");
+            if (domainFa.present()) {
+                xrpl::uint256 dom;
+                dom.parseHex(std::string{domainFa.asString()});
+                domainID = dom;
+            }
+
+            ob.book = xrpl::Book{
+                xrpl::Issue{payCurrency, payIssuer},
+                xrpl::Issue{getCurrency, getIssuer},
+                domainID
+            };
+
+            result.push_back(std::move(ob));
+        }
+
+        return std::optional<std::vector<OrderBook>>{std::move(result)};
+    }
+};
+
+// NOLINTBEGIN(readability-identifier-naming)
+inline constexpr auto stringVecConv = StringVecConverter{};
+inline constexpr auto subscribeBooksConv = SubscribeBooksConverter{};
+// NOLINTEND(readability-identifier-naming)
+
+inline constexpr auto kInputSpec = spec<Input>(
+    field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, stringVecConv),
+    field("accounts", &Input::accounts, kSUBSCRIBE_ACCOUNTS_VALIDATOR, stringVecConv),
+    field("accounts_proposed", &Input::accountsProposed, kSUBSCRIBE_ACCOUNTS_VALIDATOR, stringVecConv),
+    field("books", &Input::books, kBOOKS_VALIDATOR, subscribeBooksConv),
     field("user") | deprecated,
     field("password") | deprecated,
     field("rt_accounts") | deprecated
-};
+);
+
+inline constexpr auto kSpec = kInputSpec;
 
 } // namespace rpc::spec::handlers::subscribe

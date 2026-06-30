@@ -5,6 +5,7 @@
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/SpecDump.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
+#include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 
 #include <concepts>
@@ -50,6 +51,21 @@ public:
         }},
         dumpImpl_{[](void const *s, SpecDumpWriter &w) {
           dumpRpcSpec(w, *static_cast<RpcSpec<Fields...> const *>(s));
+        }} {}
+
+  // process() is a no-op: a TypedSpec validates in its own parse() (run by the
+  // handler's parseInput); only check() and dump() delegate here.
+  template <typename InputT, typename... Fields>
+  // NOLINTNEXTLINE(google-explicit-constructor)
+  constexpr RpcSpecView(TypedSpec<InputT, Fields...> const &spec) noexcept
+      : self_{&spec}, processImpl_{[](void const *, ObjectView &) -> MaybeError {
+          return {};
+        }},
+        checkImpl_{[](void const *s, ObjectView const &r) {
+          return static_cast<TypedSpec<InputT, Fields...> const *>(s)->check(r);
+        }},
+        dumpImpl_{[](void const *s, SpecDumpWriter &w) {
+          static_cast<TypedSpec<InputT, Fields...> const *>(s)->dump(w);
         }} {}
 
   [[nodiscard]] MaybeError process(ObjectView &root) const {
