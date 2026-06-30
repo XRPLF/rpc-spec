@@ -18,7 +18,13 @@ class XrplRpcSpecConan(ConanFile):
 
     # The headers travel with the recipe so consumers get a real package (not a
     # source build). CMakeLists/tests are exported too for local `conan create`.
-    exports_sources = "include/*", "CMakeLists.txt", "tests/*", "LICENSE.md", "README.md"
+    exports_sources = (
+        "include/*",
+        "CMakeLists.txt",
+        "tests/*",
+        "LICENSE.md",
+        "README.md",
+    )
 
     # Build-time consumers (Clio, rippled) provide their own xrpl/ripple headers;
     # the only direct dependency of the headers is Boost::json. Keep this aligned
@@ -63,8 +69,6 @@ class XrplRpcSpecConan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
-        if self.options.tests:
-            tc.preprocessor_definitions["RPCSPEC_IS_RIPPLED"] = "1"
         tc.generate()
 
     # Header-only: no compilation. Just copy the headers into the package.
