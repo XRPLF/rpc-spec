@@ -22,10 +22,6 @@ namespace rpc::spec::handlers::get_aggregate_price {
 
 static constexpr auto kORACLES_MAX = 200;
 
-// Validates and normalises the "oracles" array field.
-// Each element must be an object containing both "account" (base58) and
-// "oracle_document_id" (uint32 or string).  String document IDs are
-// converted to integers in-place via ToNumber.
 static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeError {
     if (!f.isArray() || f.arraySize() == 0 || f.arraySize() > kORACLES_MAX)
         return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
@@ -42,7 +38,6 @@ static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeEr
         if (!docIdFa.present() || !accountFa.present())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-        // oracle_document_id must be uint32 or convertible string
         if (auto err = Type<uint32_t, std::string>::verify(docIdFa); !err)
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
@@ -52,7 +47,6 @@ static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeEr
         if (auto err = ToNumberModifier::modify(docIdFa); !err)
             return err;
 
-        // account must be a valid base58 account ID
         if (auto err = AccountBase58Validator::verify(accountFa); !err)
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }

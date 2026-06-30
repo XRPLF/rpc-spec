@@ -23,9 +23,6 @@
 
 namespace rpc::spec::handlers::ledger_entry {
 
-// Validator only works in this handler
-// The accounts array must have two different elements
-// Each element must be a valid address
 inline constexpr auto kRippleStateAccountsValidator =
     CustomValidator{[](auto const& f) -> MaybeError {
         if (!f.isArray() || f.arraySize() != 2)
@@ -66,12 +63,6 @@ inline constexpr auto kBridgeJsonValidator = withCustomError(
         field("IssuingChainIssue", required, currencyIssue))),
     rpc::ClioError::RpcMalformedRequest);
 
-// ---------------------------------------------------------------------------
-// Local helpers
-// ---------------------------------------------------------------------------
-
-// Build an xrpl::Issue from a field-view that is a currency/issuer object
-// (already validated by the currencyIssue validator).
 template <typename FA>
 inline xrpl::Issue
 issueFromCurrencyIssue(FA const& fa)
@@ -85,8 +76,6 @@ issueFromCurrencyIssue(FA const& fa)
     return xrpl::Issue{.currency = currency, .account = issuer};
 }
 
-// Build a BridgeSpec from a field-view that is an object already validated by
-// kBRIDGE_JSON_VALIDATOR.
 template <typename FA>
 inline BridgeSpec
 bridgeSpecFromObject(FA const& fa)
@@ -101,11 +90,6 @@ bridgeSpecFromObject(FA const& fa)
     return bs;
 }
 
-// ---------------------------------------------------------------------------
-// Converters for composite hex-or-object locators
-// ---------------------------------------------------------------------------
-
-// directory → variant<uint256, DirectoryEntry>
 struct DirectoryConverter
 {
     static constexpr std::string_view kName = "directory";
@@ -134,7 +118,6 @@ struct DirectoryConverter
     }
 };
 
-// offer → variant<uint256, OfferEntry>
 struct OfferConverter
 {
     static constexpr std::string_view kName = "offer";
@@ -154,7 +137,6 @@ struct OfferConverter
     }
 };
 
-// escrow → variant<uint256, EscrowEntry>
 struct EscrowConverter
 {
     static constexpr std::string_view kName = "escrow";
@@ -174,7 +156,6 @@ struct EscrowConverter
     }
 };
 
-// ticket → variant<uint256, TicketEntry>
 struct TicketConverter
 {
     static constexpr std::string_view kName = "ticket";
@@ -194,7 +175,6 @@ struct TicketConverter
     }
 };
 
-// permissioned_domain → variant<uint256, PermissionedDomainEntry>
 struct PermissionedDomainConverter
 {
     static constexpr std::string_view kName = "permissioned_domain";
@@ -214,7 +194,6 @@ struct PermissionedDomainConverter
     }
 };
 
-// vault → variant<uint256, VaultEntry>
 struct VaultConverter
 {
     static constexpr std::string_view kName = "vault";
@@ -234,7 +213,6 @@ struct VaultConverter
     }
 };
 
-// loan_broker → variant<uint256, LoanBrokerEntry>
 struct LoanBrokerConverter
 {
     static constexpr std::string_view kName = "loan_broker";
@@ -254,7 +232,6 @@ struct LoanBrokerConverter
     }
 };
 
-// loan → variant<uint256, LoanEntry>
 struct LoanConverter
 {
     static constexpr std::string_view kName = "loan";
@@ -274,7 +251,6 @@ struct LoanConverter
     }
 };
 
-// delegate → variant<uint256, DelegateEntry>
 struct DelegateConverter
 {
     static constexpr std::string_view kName = "delegate";
@@ -295,7 +271,6 @@ struct DelegateConverter
     }
 };
 
-// mptoken → variant<uint256, MptokenEntry>
 struct MptokenConverter
 {
     static constexpr std::string_view kName = "mptoken";
@@ -316,7 +291,6 @@ struct MptokenConverter
     }
 };
 
-// amm → variant<uint256, AmmEntry>
 struct AmmConverter
 {
     static constexpr std::string_view kName = "amm";
@@ -335,7 +309,6 @@ struct AmmConverter
     }
 };
 
-// oracle → variant<uint256, OracleEntry>
 struct OracleConverter
 {
     static constexpr std::string_view kName = "oracle";
@@ -355,7 +328,6 @@ struct OracleConverter
     }
 };
 
-// credential → variant<uint256, CredentialEntry>
 struct CredentialConverter
 {
     static constexpr std::string_view kName = "credential";
@@ -377,7 +349,6 @@ struct CredentialConverter
     }
 };
 
-// deposit_preauth → variant<uint256, DepositPreauthEntry>
 struct DepositPreauthConverter
 {
     static constexpr std::string_view kName = "deposit_preauth";
@@ -417,7 +388,6 @@ struct DepositPreauthConverter
     }
 };
 
-// ripple_state → RippleStateEntry (object-only)
 struct RippleStateConverter
 {
     static constexpr std::string_view kName = "ripple_state";
@@ -439,7 +409,6 @@ struct RippleStateConverter
     }
 };
 
-// bridge → BridgeSpec (object-only)
 struct BridgeConverter
 {
     static constexpr std::string_view kName = "bridge";
@@ -453,7 +422,6 @@ struct BridgeConverter
     }
 };
 
-// xchain_owned_claim_id → variant<uint256, XChainClaimIdEntry>
 struct XChainClaimIdConverter
 {
     static constexpr std::string_view kName = "xchain_owned_claim_id";
@@ -472,7 +440,6 @@ struct XChainClaimIdConverter
     }
 };
 
-// xchain_owned_create_account_claim_id → variant<uint256, XChainClaimIdEntry>
 struct XChainCreateAccountClaimIdConverter
 {
     static constexpr std::string_view kName = "xchain_owned_create_account_claim_id";

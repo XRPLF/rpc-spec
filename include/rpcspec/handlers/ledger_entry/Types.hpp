@@ -181,7 +181,6 @@ struct Input
     JsonBool binary{false};
     JsonBool includeDeleted{false};
 
-    // Direct ledger-key locators (hex string -> xrpl::uint256).
     std::optional<xrpl::uint256> index;
     std::optional<xrpl::uint256> check;
     std::optional<xrpl::uint256> paymentChannel;
@@ -193,12 +192,10 @@ struct Input
     std::optional<xrpl::uint256> hashes;
     std::optional<xrpl::uint256> nunl;
 
-    // Account / id locators.
     std::optional<xrpl::AccountID> accountRoot;
     std::optional<xrpl::AccountID> did;
     std::optional<xrpl::uint192> mptIssuance;
 
-    // Hex-or-object locators.
     std::optional<std::variant<xrpl::uint256, DirectoryEntry>> directory;
     std::optional<std::variant<xrpl::uint256, OfferEntry>> offer;
     std::optional<std::variant<xrpl::uint256, EscrowEntry>> escrow;
@@ -214,7 +211,6 @@ struct Input
     std::optional<std::variant<xrpl::uint256, CredentialEntry>> credential;
     std::optional<std::variant<xrpl::uint256, DelegateEntry>> delegate;
 
-    // Object-only locators.
     std::optional<RippleStateEntry> rippleStateAccount;
     std::optional<BridgeSpec> bridge;
     std::optional<xrpl::AccountID> bridgeAccount;

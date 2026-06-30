@@ -35,7 +35,7 @@ struct Input
 {
     LedgerSpecifier ledger;
     bool binary = false;
-    uint32_t limit = kLimitJson;        // max 256 for json ; 2048 for binary
+    uint32_t limit = kLimitJson;
     std::optional<MarkerValue> marker;  // nullopt = no marker; uint256 = normal; uint32 = diff/OOO
     bool outOfOrder = false;
     xrpl::LedgerEntryType type = xrpl::LedgerEntryType::ltANY;

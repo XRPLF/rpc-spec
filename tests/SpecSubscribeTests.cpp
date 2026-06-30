@@ -40,9 +40,6 @@ parseUnsub(std::string const& json)
 
 }  // namespace
 
-// ---------------------------------------------------------------------------
-// 1. accounts array — two valid accounts (streams included to satisfy validator)
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, AccountsTwoElements)
 {
     auto const r = parseSub(R"JSON({
@@ -62,9 +59,6 @@ TEST(SubscribeSpec, AccountsTwoElements)
     EXPECT_EQ((*r->accounts)[1], *expected1);
 }
 
-// ---------------------------------------------------------------------------
-// 2. accounts_proposed array — two valid accounts
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, AccountsProposedTwoElements)
 {
     auto const r = parseSub(R"JSON({
@@ -80,9 +74,6 @@ TEST(SubscribeSpec, AccountsProposedTwoElements)
     EXPECT_EQ((*r->accountsProposed)[0], *expected0);
 }
 
-// ---------------------------------------------------------------------------
-// 3. streams: ["ledger", "validations", "book_changes"] → 3 enum values
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsThreeCommon)
 {
     auto const r = parseSub(R"JSON({"streams": ["ledger", "validations", "book_changes"]})JSON");
@@ -96,9 +87,6 @@ TEST(SubscribeSpec, StreamsThreeCommon)
     EXPECT_EQ((*r->streams)[2], ST::BookChanges);
 }
 
-// ---------------------------------------------------------------------------
-// 4. streams: deprecated alias rt_transactions → TransactionsProposed
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsDeprecatedRtTransactionsAlias)
 {
     auto const r = parseSub(R"JSON({"streams": ["rt_transactions"]})JSON");
@@ -110,9 +98,6 @@ TEST(SubscribeSpec, StreamsDeprecatedRtTransactionsAlias)
     EXPECT_EQ((*r->streams)[0], ST::TransactionsProposed);
 }
 
-// ---------------------------------------------------------------------------
-// 5. streams: ["server"] → StreamType::Server (rippled build)
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsServerAcceptedInRippledBuild)
 {
     auto const r = parseSub(R"JSON({"streams": ["server"]})JSON");
@@ -124,9 +109,6 @@ TEST(SubscribeSpec, StreamsServerAcceptedInRippledBuild)
     EXPECT_EQ((*r->streams)[0], ST::Server);
 }
 
-// ---------------------------------------------------------------------------
-// 6. streams: ["consensus"] → StreamType::Consensus (rippled build)
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsConsensusAcceptedInRippledBuild)
 {
     auto const r = parseSub(R"JSON({"streams": ["consensus"]})JSON");
@@ -138,27 +120,18 @@ TEST(SubscribeSpec, StreamsConsensusAcceptedInRippledBuild)
     EXPECT_EQ((*r->streams)[0], ST::Consensus);
 }
 
-// ---------------------------------------------------------------------------
-// 7. streams: unknown value → parse fails
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsBogusValueFails)
 {
     auto const r = parseSub(R"JSON({"streams": ["bogus"]})JSON");
     EXPECT_FALSE(r.has_value());
 }
 
-// ---------------------------------------------------------------------------
-// 8. streams: not an array → parse fails
-// ---------------------------------------------------------------------------
 TEST(SubscribeSpec, StreamsNotArrayFails)
 {
     auto const r = parseSub(R"JSON({"streams": "ledger"})JSON");
     EXPECT_FALSE(r.has_value());
 }
 
-// ---------------------------------------------------------------------------
-// 9. Dump test (subscribe): field keys + stream values appear in schema dump
-// ---------------------------------------------------------------------------
 TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
 {
     std::ostringstream oss;
@@ -168,26 +141,18 @@ TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
 
     static constexpr auto npos = std::string::npos;
 
-    // Top-level field keys
     EXPECT_NE(s.find("accounts"), npos) << "missing: accounts";
     EXPECT_NE(s.find("streams"), npos) << "missing: streams";
     EXPECT_NE(s.find("accounts_proposed"), npos) << "missing: accounts_proposed";
     EXPECT_NE(s.find("books"), npos) << "missing: books";
-
-    // Stream names exposed by StreamsValidator::describeParams
     EXPECT_NE(s.find("ledger"), npos) << "missing: ledger";
     EXPECT_NE(s.find("transactions_proposed"), npos) << "missing: transactions_proposed";
     EXPECT_NE(s.find("validations"), npos) << "missing: validations";
     EXPECT_NE(s.find("book_changes"), npos) << "missing: book_changes";
     EXPECT_NE(s.find("manifests"), npos) << "missing: manifests";
-
-    // oneOf/alsoAllowed grouping key
     EXPECT_NE(s.find("oneOf"), npos) << "missing: oneOf";
 }
 
-// ---------------------------------------------------------------------------
-// 10. Unsubscribe: accounts two elements (streams included to satisfy validator)
-// ---------------------------------------------------------------------------
 TEST(UnsubscribeSpec, AccountsTwoElements)
 {
     auto const r = parseUnsub(R"JSON({
@@ -203,9 +168,6 @@ TEST(UnsubscribeSpec, AccountsTwoElements)
     EXPECT_EQ((*r->accounts)[0], *expected0);
 }
 
-// ---------------------------------------------------------------------------
-// 11. Unsubscribe: streams enum mapping
-// ---------------------------------------------------------------------------
 TEST(UnsubscribeSpec, StreamsEnumMapping)
 {
     auto const r = parseUnsub(R"JSON({"streams": ["ledger", "transactions", "manifests"]})JSON");
@@ -219,9 +181,6 @@ TEST(UnsubscribeSpec, StreamsEnumMapping)
     EXPECT_EQ((*r->streams)[2], ST::Manifests);
 }
 
-// ---------------------------------------------------------------------------
-// 12. Dump test (unsubscribe): stream values appear in schema dump
-// ---------------------------------------------------------------------------
 TEST(UnsubscribeDump, StreamValuesPresent)
 {
     std::ostringstream oss;

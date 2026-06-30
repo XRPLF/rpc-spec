@@ -23,15 +23,11 @@ using namespace rpc::spec::handlers::ledger_entry;
 
 namespace {
 
-// ---------------------------------------------------------------------------
-// Test fixtures
-// ---------------------------------------------------------------------------
 constexpr char const* kACCT1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr char const* kACCT2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 constexpr char const* kHEX64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
 constexpr char const* kHEX48 = "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01";
 
-// Helper: parse a JSON string through kInputSpec and return the std::expected.
 auto
 parse(std::string const& json)
 {
@@ -41,9 +37,6 @@ parse(std::string const& json)
 
 }  // namespace
 
-// ---------------------------------------------------------------------------
-// 1. Hex-only locator: check
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, CheckHexLocator)
 {
     auto const r = parse(
@@ -56,9 +49,6 @@ TEST(LedgerEntrySpec, CheckHexLocator)
     EXPECT_EQ(*r->check, expected);
 }
 
-// ---------------------------------------------------------------------------
-// 2. Account locator: account_root
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, AccountRootLocator)
 {
     auto const r = parse(R"JSON({"account_root": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
@@ -70,9 +60,6 @@ TEST(LedgerEntrySpec, AccountRootLocator)
     EXPECT_EQ(*r->accountRoot, *expected);
 }
 
-// ---------------------------------------------------------------------------
-// 3. mpt_issuance hex locator
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, MptIssuanceHexLocator)
 {
     auto const r =
@@ -85,9 +72,6 @@ TEST(LedgerEntrySpec, MptIssuanceHexLocator)
     EXPECT_EQ(*r->mptIssuance, expected);
 }
 
-// ---------------------------------------------------------------------------
-// 4. Hex-or-object, hex arm: offer as hex string
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, OfferHexArm)
 {
     auto const r = parse(
@@ -101,9 +85,6 @@ TEST(LedgerEntrySpec, OfferHexArm)
     EXPECT_EQ(std::get<xrpl::uint256>(*r->offer), expected);
 }
 
-// ---------------------------------------------------------------------------
-// 5. Hex-or-object, object arm: offer as {account, seq}
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, OfferObjectArm)
 {
     auto const r =
@@ -119,9 +100,6 @@ TEST(LedgerEntrySpec, OfferObjectArm)
     EXPECT_EQ(entry.seq, 5u);
 }
 
-// ---------------------------------------------------------------------------
-// 6. directory object with owner + sub_index
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
 {
     auto const r = parse(
@@ -140,9 +118,6 @@ TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
     EXPECT_FALSE(entry.dirRoot.has_value());
 }
 
-// ---------------------------------------------------------------------------
-// 7. amm object arm
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, AmmObjectArm)
 {
     auto const r = parse(R"JSON({
@@ -156,9 +131,6 @@ TEST(LedgerEntrySpec, AmmObjectArm)
     EXPECT_TRUE(std::holds_alternative<AmmEntry>(*r->amm));
 }
 
-// ---------------------------------------------------------------------------
-// 8. ripple_state object locator
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, RippleStateObjectLocator)
 {
     auto const r = parse(R"JSON({
@@ -179,9 +151,6 @@ TEST(LedgerEntrySpec, RippleStateObjectLocator)
     EXPECT_EQ(r->rippleStateAccount->accounts[1], *expectedAcct2);
 }
 
-// ---------------------------------------------------------------------------
-// 9a. deposit_preauth with authorized account
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
 {
     auto const r = parse(R"JSON({
@@ -202,9 +171,6 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
     EXPECT_FALSE(entry.authorizedCredentials.has_value());
 }
 
-// ---------------------------------------------------------------------------
-// 9b. deposit_preauth with authorized_credentials array
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
 {
     auto const r = parse(R"JSON({
@@ -231,9 +197,6 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
     EXPECT_EQ(cred.credentialType, "ABCD");
 }
 
-// ---------------------------------------------------------------------------
-// 10. bridge object locator
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, BridgeObjectLocator)
 {
     auto const r = parse(R"JSON({
@@ -252,9 +215,6 @@ TEST(LedgerEntrySpec, BridgeObjectLocator)
     EXPECT_EQ(r->bridge->lockingChainDoor, *expectedDoor);
 }
 
-// ---------------------------------------------------------------------------
-// 11a. xchain_owned_claim_id object arm
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, XChainOwnedClaimIdObjectArm)
 {
     auto const r = parse(R"JSON({
@@ -274,9 +234,6 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdObjectArm)
     EXPECT_EQ(entry.claimId, 7u);
 }
 
-// ---------------------------------------------------------------------------
-// 11b. xchain_owned_claim_id hex arm
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
 {
     auto const r = parse(
@@ -286,9 +243,6 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*r->xchainOwnedClaimId));
 }
 
-// ---------------------------------------------------------------------------
-// 12. Ledger selection
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, LedgerIndexValidated)
 {
     auto const r = parse(
@@ -301,19 +255,12 @@ TEST(LedgerEntrySpec, LedgerIndexValidated)
 TEST(LedgerEntrySpec, LedgerUnspecifiedWhenAbsent)
 {
     auto const r = parse(R"JSON({})JSON");
-    // No locator needed for the ledger test; parse may or may not succeed, but
-    // ledger should remain unspecified either way.
-    // We just check ledger state when the parse succeeds (e.g. empty object passes
-    // field-level validation since no field is required).
     if (r.has_value())
     {
         EXPECT_TRUE(r->ledger.isUnspecified());
     }
 }
 
-// ---------------------------------------------------------------------------
-// 13. Error cases
-// ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, MalformedCheckHexReturnsError)
 {
     auto const r = parse(R"JSON({"check": "xyz"})JSON");
@@ -331,9 +278,6 @@ TEST(LedgerEntrySpec, RippleStateWithOnlyOneAccountReturnsError)
     EXPECT_FALSE(r.has_value());
 }
 
-// ---------------------------------------------------------------------------
-// Dump test — locks that all locator keys remain visible in the schema dump.
-// ---------------------------------------------------------------------------
 TEST(LedgerEntryDump, AllFieldsVisible)
 {
     std::ostringstream oss;

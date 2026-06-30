@@ -16,7 +16,6 @@
 
 namespace rpc::spec::handlers::ledger_index {
 
-// Parses the (already format-validated) UTC date string into a time_point.
 struct DateConverter
 {
     static constexpr std::string_view kName = "utcDate";

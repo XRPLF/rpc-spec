@@ -23,7 +23,7 @@ struct Input
 {
     xrpl::AccountID account;
     LedgerSpecifier ledger;
-    uint32_t limit = kLimitDefault;  // [kLimitMin, kLimitMax]
+    uint32_t limit = kLimitDefault;
     std::optional<std::string>
         marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);
                    re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */

@@ -478,17 +478,14 @@ static_assert(rpc::spec::SomeRequirement<rpc::spec::TimeFormatValidator>);
 static_assert(rpc::spec::SomeRequirement<rpc::spec::WithCustomError<rpc::spec::Required>>);
 static_assert(rpc::spec::SomeModifier<rpc::spec::WithCustomError<rpc::spec::Clamp<int64_t>>>);
 
-// Section is SomeModifier
 using SimpleSection = rpc::spec::Section<rpc::spec::FieldSpec<rpc::spec::Required>>;
 static_assert(rpc::spec::SomeModifier<SimpleSection>);
 
-// IfType for object/array branches is SomeModifier (replaces the old IfObject/IfArray)
 using SimpleIfObject = rpc::spec::IfType<rpc::spec::JsonObject, SimpleSection>;
 static_assert(rpc::spec::SomeModifier<SimpleIfObject>);
 using SimpleIfArray = rpc::spec::IfType<rpc::spec::JsonArray, SimpleSection>;
 static_assert(rpc::spec::SomeModifier<SimpleIfArray>);
 
-// New validators
 static_assert(rpc::spec::SomeRequirement<rpc::spec::Uint256HexStringValidator>);
 static_assert(rpc::spec::SomeRequirement<rpc::spec::Uint192HexStringValidator>);
 static_assert(rpc::spec::SomeRequirement<rpc::spec::Uint160HexStringValidator>);

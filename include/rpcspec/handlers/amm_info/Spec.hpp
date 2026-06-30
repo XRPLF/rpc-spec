@@ -19,7 +19,6 @@
 
 namespace rpc::spec::handlers::amm_info {
 
-// Validates that a string field can be parsed as an xrpl::Issue.
 // field is already confirmed to be a string (inside ifType<std::string>)
 inline constexpr auto kSTRING_ISSUE_VALIDATOR = CustomValidator{[](auto const& f) -> MaybeError {
     try
@@ -57,7 +56,6 @@ struct IssueConverter
         {
             try
             {
-                // Re-use the same issueFromJson path the old tag_invoke used.
                 auto const currSv = f.child("currency").asString();
                 xrpl::Currency currency{};
                 if (!xrpl::toCurrency(currency, std::string{currSv}))

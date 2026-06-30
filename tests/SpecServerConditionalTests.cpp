@@ -53,10 +53,6 @@ TEST(ServerConditionalClio, IfServerRippledValidatorIsInertInClioBuild)
     EXPECT_TRUE(kSPEC.process(value).has_value());
 }
 
-// ---------------------------------------------------------------------------
-// Subscribe spec — Clio-build stream gating
-// ---------------------------------------------------------------------------
-
 TEST(SubscribeSpecClio, ServerStreamRejectedWithNotSupported)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
@@ -102,10 +98,6 @@ TEST(SubscribeDumpClio, DumpContainsNotSupportedAndServerStream)
     EXPECT_NE(s.find("notSupported"), npos) << "missing: notSupported";
     EXPECT_NE(s.find("server"), npos) << "missing: server";
 }
-
-// ---------------------------------------------------------------------------
-// Unsubscribe spec — Clio-build: server stream rejected, ledger accepted
-// ---------------------------------------------------------------------------
 
 TEST(UnsubscribeSpecClio, ServerStreamRejectedWithNotSupported)
 {

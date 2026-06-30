@@ -27,11 +27,11 @@ struct Oracle
 struct Input
 {
     LedgerSpecifier ledger;
-    std::vector<Oracle> oracles;  // valid range is 1-200
+    std::vector<Oracle> oracles;
     xrpl::Currency baseAsset;
     xrpl::Currency quoteAsset;
     std::optional<std::uint32_t> timeThreshold;
-    std::optional<std::uint8_t> trim;  // valid range is 1-25
+    std::optional<std::uint8_t> trim;
 };
 
 }  // namespace rpc::spec::handlers::get_aggregate_price

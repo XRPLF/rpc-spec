@@ -182,7 +182,6 @@ static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> May
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams, "bothNotBool"}};
         }
 
-        // Replicate parseBook(book.as_object()) errors inline using FA child API.
         auto const takerPaysFa = book.child("taker_pays");
         if (!takerPaysFa.present())
         {
@@ -207,7 +206,6 @@ static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> May
                 rpc::RippledError::RpcInvalidParams, "Field 'taker_gets' is not an object"}};
         }
 
-        // taker_pays currency
         auto const paysCurFa = takerPaysFa.child("currency");
         if (!paysCurFa.present() || !paysCurFa.isString())
         {
@@ -219,7 +217,6 @@ static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> May
             return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
         }
 
-        // taker_gets currency
         auto const getsCurFa = takerGetsFa.child("currency");
         if (!getsCurFa.present() || !getsCurFa.isString())
         {
@@ -238,7 +235,6 @@ static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> May
             return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
         }
 
-        // taker_pays issuer
         xrpl::AccountID payIssuer;
         auto const paysIssuerFa = takerPaysFa.child("issuer");
         if (paysIssuerFa.present())
@@ -275,7 +271,6 @@ static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> May
                 "Invalid field 'taker_pays.issuer', expected non-XRP issuer."}};
         }
 
-        // taker_gets issuer
         xrpl::AccountID getIssuer;
         auto const getsIssuerFa = takerGetsFa.child("issuer");
         if (getsIssuerFa.present())
@@ -433,7 +428,6 @@ struct UnsubscribeBooksConverter
             if (bothFa.present())
                 ob.both = bothFa.asBool();
 
-            // Reconstruct the xrpl::Book from the pre-validated currency/issuer fields.
             auto const paysFa = bookFa.child("taker_pays");
             auto const getsFa = bookFa.child("taker_gets");
 

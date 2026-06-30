@@ -337,7 +337,6 @@ TEST(RpcSpecDSL_IfObject, SkipsWhenFieldIsNotObject)
         field("entry", ifType<JsonObject>(section(field("a", required)))),
     };
 
-    // string value — object branch must not fire
     auto request = boost::json::parse(R"JSON({ "entry": "validated" })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
@@ -370,12 +369,10 @@ TEST(RpcSpecDSL_IfObject, AbsentFieldSkipped)
 
 TEST(RpcSpecDSL_IfArray, SkipsWhenFieldIsNotArray)
 {
-    // A no-op sub-processor just to exercise the type check.
     static constexpr auto kSPEC = RpcSpec{
         field("ids", ifType<JsonArray>(ifType<int64_t>())),
     };
 
-    // object — not an array, should be skipped
     auto request = boost::json::parse(R"JSON({ "ids": {} })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
@@ -455,7 +452,6 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "tooLow");
 
-    // Type mismatch: IfType skips, no error fires.
     auto skipped = boost::json::parse(R"JSON({ "limit": "default" })JSON");
     EXPECT_TRUE(kSPEC.process(skipped).has_value());
 }
