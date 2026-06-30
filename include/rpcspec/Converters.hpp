@@ -9,13 +9,13 @@
 // re-parseable std::string), it removes the class of handler crashes that came
 // from re-deriving/asserting input shape after validation.
 
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/AccountID.h>
+
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
-
-#include <xrpl/basics/base_uint.h>
-#include <xrpl/protocol/AccountID.h>
 
 #include <charconv>
 #include <cstdint>
@@ -38,7 +38,8 @@ using Parsed = std::expected<T, rpc::Status>;
  * The validation work (base58/hex decode) IS the conversion — the handler
  * receives a ready AccountID, never a string it must re-parse.
  */
-struct AccountIdConverter {
+struct AccountIdConverter
+{
     static constexpr std::string_view kName = "account";
     using ValueType = xrpl::AccountID;
 
@@ -47,14 +48,16 @@ struct AccountIdConverter {
     parse(FA const& f) const
     {
         if (!f.isString())
-            return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}
-            };
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+        }
         auto id = detail::accountFromStringStrict(std::string{f.asString()});
         if (!id)
-            return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}
-            };
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}};
+        }
         return *id;
     }
 };
@@ -66,7 +69,8 @@ struct AccountIdConverter {
  * such as getLedgerHeaderFromHashOrSeq are unaffected; the value is guaranteed
  * to be a well-formed hash.
  */
-struct LedgerHashConverter {
+struct LedgerHashConverter
+{
     static constexpr std::string_view kName = "uint256Hex";
     using ValueType = std::string;
 
@@ -77,8 +81,7 @@ struct LedgerHashConverter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -95,7 +98,8 @@ struct LedgerHashConverter {
  * Like LedgerHashConverter, but produces the strong type so the handler receives
  * a ready hash and never re-parses the string.
  */
-struct Uint256HexConverter {
+struct Uint256HexConverter
+{
     static constexpr std::string_view kName = "uint256Hex";
     using ValueType = xrpl::uint256;
 
@@ -106,8 +110,7 @@ struct Uint256HexConverter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -123,7 +126,8 @@ struct Uint256HexConverter {
  *
  * The uint192 form of @ref Uint256HexConverter, used for MPT issuance ids.
  */
-struct Uint192HexConverter {
+struct Uint192HexConverter
+{
     static constexpr std::string_view kName = "uint192Hex";
     using ValueType = xrpl::uint192;
 
@@ -134,8 +138,7 @@ struct Uint192HexConverter {
         auto const err = [&] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."
-            }};
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
         };
         if (!f.isString())
             return err();
@@ -154,7 +157,8 @@ struct Uint192HexConverter {
  * (nullopt — the handler then falls back to the latest sequence); other
  * non-numeric strings are an error.
  */
-struct LedgerIndexOptConverter {
+struct LedgerIndexOptConverter
+{
     static constexpr std::string_view kName = "ledgerIndex";
     using ValueType = std::optional<uint32_t>;
 
@@ -167,9 +171,11 @@ struct LedgerIndexOptConverter {
         if (f.isInt64())  // numeric but out of uint32 range → leave unset
             return std::optional<uint32_t>{std::nullopt};
         if (!f.isString())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_index', not string or number."
-            }};
+                rpc::RippledError::RpcInvalidParams,
+                "Invalid field 'ledger_index', not string or number."}};
+        }
         auto const sv = f.asString();
         if (sv == "validated" || sv == "closed" || sv == "current")
             return std::optional<uint32_t>{std::nullopt};
@@ -179,8 +185,8 @@ struct LedgerIndexOptConverter {
         if (auto const [p, ec] = std::from_chars(begin, end, out); ec == std::errc{} && p == end)
             return std::optional<uint32_t>{out};
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_index', not string or number."
-        }};
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field 'ledger_index', not string or number."}};
     }
 };
 
@@ -192,7 +198,8 @@ struct LedgerIndexOptConverter {
  * tag_invoke behaviour.
  */
 template <bool Strict>
-struct JsonBoolConverterT {
+struct JsonBoolConverterT
+{
     static constexpr std::string_view kName = "bool";
     using ValueType = JsonBool;
 
@@ -200,11 +207,14 @@ struct JsonBoolConverterT {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if constexpr (Strict) {
+        if constexpr (Strict)
+        {
             if (!f.isBool())
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             return JsonBool{f.asBool()};
-        } else {
+        }
+        else
+        {
             if (f.isBool())
                 return JsonBool{f.asBool()};
             if (f.isUint32())
@@ -213,7 +223,8 @@ struct JsonBoolConverterT {
                 return JsonBool{f.asInt64() != 0};
             if (f.isDouble())
                 return JsonBool{f.asDouble() != 0.0};
-            if (f.isString()) {
+            if (f.isString())
+            {
                 auto const s = f.asString();
                 return JsonBool{!s.empty() && s[0] != 0};
             }
@@ -230,7 +241,8 @@ struct JsonBoolConverterT {
  * Pairs with the `clamp` modifier for limit-style fields: clamp normalises the
  * incoming number in place, then this converts the clamped value.
  */
-struct Uint32Converter {
+struct Uint32Converter
+{
     static constexpr std::string_view kName = "uint32";
     using ValueType = uint32_t;
 
@@ -247,7 +259,8 @@ struct Uint32Converter {
 /**
  * @brief Validates a field is a string and yields it (e.g. after a `toLower` modifier).
  */
-struct StringConverter {
+struct StringConverter
+{
     static constexpr std::string_view kName = "string";
     using ValueType = std::string;
 
@@ -269,7 +282,8 @@ struct StringConverter {
  * by handlers (account_lines, account_mptoken_issuances, …) that want the uniform
  * "Account malformed." error rather than the per-key "<key>NotString"/"<key>Malformed".
  */
-struct AccountIdActMalformedConverter {
+struct AccountIdActMalformedConverter
+{
     static constexpr std::string_view kName = "account";
     using ValueType = xrpl::AccountID;
 
@@ -277,7 +291,8 @@ struct AccountIdActMalformedConverter {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        if (f.isString()) {
+        if (f.isString())
+        {
             if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
                 return *id;
         }
@@ -286,25 +301,33 @@ struct AccountIdActMalformedConverter {
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
-/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID with per-key error messages. */
+/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID with
+ * per-key error messages. */
 inline constexpr auto accountId = AccountIdConverter{};
-/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID, mapping all failures to RpcActMalformed. */
+/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID, mapping
+ * all failures to RpcActMalformed. */
 inline constexpr auto accountIdActMalformed = AccountIdActMalformedConverter{};
 /** @brief Converter instance: validates a field is a uint32 and yields it. */
 inline constexpr auto asUint32 = Uint32Converter{};
 /** @brief Converter instance: validates a field is a string and yields it. */
 inline constexpr auto asString = StringConverter{};
-/** @brief Converter instance: validates and decodes a hex-encoded uint256 field into a std::string. */
+/** @brief Converter instance: validates and decodes a hex-encoded uint256 field into a std::string.
+ */
 inline constexpr auto ledgerHashHex = LedgerHashConverter{};
-/** @brief Converter instance: validates a hex-encoded uint256 field and yields a strong xrpl::uint256. */
+/** @brief Converter instance: validates a hex-encoded uint256 field and yields a strong
+ * xrpl::uint256. */
 inline constexpr auto asUint256 = Uint256HexConverter{};
-/** @brief Converter instance: validates a hex-encoded uint192 field and yields a strong xrpl::uint192. */
+/** @brief Converter instance: validates a hex-encoded uint192 field and yields a strong
+ * xrpl::uint192. */
 inline constexpr auto asUint192 = Uint192HexConverter{};
-/** @brief Converter instance: decodes a ledger_index field into an optional uint32 (nullopt for sentinel strings). */
+/** @brief Converter instance: decodes a ledger_index field into an optional uint32 (nullopt for
+ * sentinel strings). */
 inline constexpr auto ledgerIndexOpt = LedgerIndexOptConverter{};
-/** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API semantics). */
+/** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API
+ * semantics). */
 inline constexpr auto jsonBool = JsonBoolConverterT<false>{};
-/** @brief Converter instance: strict bool converter (field must be a JSON bool; V2 API semantics). */
+/** @brief Converter instance: strict bool converter (field must be a JSON bool; V2 API semantics).
+ */
 inline constexpr auto jsonBoolStrict = JsonBoolConverterT<true>{};
 // NOLINTEND(readability-identifier-naming)
 

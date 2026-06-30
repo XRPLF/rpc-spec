@@ -21,6 +21,8 @@
 //     longer be handed an "optional that the spec promised was present";
 //   * two compile-time guards (below) keep the spec and the Input in lockstep.
 
+#include <boost/pfr/core.hpp>
+
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/FieldView.hpp>
@@ -28,8 +30,6 @@
 #include <rpcspec/SpecDump.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/Types.hpp>
-
-#include <boost/pfr/core.hpp>
 
 #include <array>
 #include <concepts>
@@ -46,14 +46,18 @@ namespace rpc::spec {
 namespace detail {
 
 template <typename T>
-struct IsOptional : std::false_type {};
+struct IsOptional : std::false_type
+{
+};
 template <typename T>
-struct IsOptional<std::optional<T>> : std::true_type {};
+struct IsOptional<std::optional<T>> : std::true_type
+{
+};
 
 }  // namespace detail
 
 template <typename T>
-inline constexpr bool kIS_OPTIONAL = detail::IsOptional<std::remove_cvref_t<T>>::value;
+inline constexpr bool kIsOptional = detail::IsOptional<std::remove_cvref_t<T>>::value;
 
 /**
  * @brief A converter validates a field and produces its strong-typed value.
@@ -82,7 +86,8 @@ concept SomeConverter = requires(C const c, detail::FieldViewArchetype const& f)
  * as the legacy validate+modify pipeline allowed.
  */
 template <typename InputT, typename Member, SomeConverter Conv, SomeFieldItem... Items>
-struct BoundField {
+struct BoundField
+{
     static constexpr bool kIsBound = true;
 
     std::string_view key;
@@ -99,8 +104,7 @@ struct BoundField {
     // A spec/Input type mismatch is therefore a compile error, not a runtime bug.
     static_assert(
         std::is_assignable_v<Member&, typename Conv::ValueType>,
-        "rpcspec: converter output type is not assignable to the bound Input member"
-    );
+        "rpcspec: converter output type is not assignable to the bound Input member");
 
     /**
      * @brief Run this field's items against @p root and assign the converted value into @p out.
@@ -127,8 +131,7 @@ struct BoundField {
             [&](auto const&... it) {
                 (void)((pre = callIfProcessor(it, fa), pre.has_value()) && ...);
             },
-            items
-        );
+            items);
         if (!pre.has_value())
             return pre;
 
@@ -187,7 +190,8 @@ struct BoundField {
  *   field("limit", &Input::limit) | clamp(10, 400) | asUint32
  */
 template <typename InputT, typename Member, SomeFieldItem... Items>
-struct PartialBoundField {
+struct PartialBoundField
+{
     std::string_view key;
     Member InputT::* member;
     std::tuple<Items...> items;
@@ -210,10 +214,10 @@ struct PartialBoundField {
     {
         return std::apply(
             [&](auto const&... existing) {
-                return PartialBoundField<InputT, Member, Items..., Item>{key, member, existing..., item};
+                return PartialBoundField<InputT, Member, Items..., Item>{
+                    key, member, existing..., item};
             },
-            items
-        );
+            items);
     }
 
     /**
@@ -231,8 +235,7 @@ struct PartialBoundField {
             [&](auto const&... existing) {
                 return BoundField<InputT, Member, Conv, Items...>{key, member, conv, existing...};
             },
-            items
-        );
+            items);
     }
 };
 
@@ -245,18 +248,20 @@ inline constexpr bool kIsBoundField = requires { F::kIsBound; };
 // BoundField. ItemIs indexes the leading items; the last element is the converter.
 template <typename InputT, typename Member, typename... Rest, std::size_t... ItemIs>
 consteval auto
-makeBoundField(std::string_view key, Member InputT::* member, std::tuple<Rest...> rest, std::index_sequence<ItemIs...>)
+makeBoundField(
+    std::string_view key,
+    Member InputT::* member,
+    std::tuple<Rest...> rest,
+    std::index_sequence<ItemIs...>)
 {
     using RestTuple = std::tuple<Rest...>;
     constexpr std::size_t kLast = sizeof...(Rest) - 1;
     static_assert(
         SomeConverter<std::tuple_element_t<kLast, RestTuple>>,
-        "rpcspec: the final argument of a bound field must be a converter"
-    );
+        "rpcspec: the final argument of a bound field must be a converter");
     auto conv = std::get<kLast>(rest);
     return BoundField<InputT, Member, decltype(conv), std::tuple_element_t<ItemIs, RestTuple>...>{
-        key, member, conv, std::get<ItemIs>(rest)...
-    };
+        key, member, conv, std::get<ItemIs>(rest)...};
 }
 
 }  // namespace detail
@@ -287,12 +292,12 @@ field(std::string_view key, Member InputT::* member, Rest... rest)
 {
     static_assert(sizeof...(Rest) >= 1, "rpcspec: a bound field needs a final converter");
     return detail::makeBoundField<InputT, Member>(
-        key, member, std::tuple{rest...}, std::make_index_sequence<sizeof...(Rest) - 1>{}
-    );
+        key, member, std::tuple{rest...}, std::make_index_sequence<sizeof...(Rest) - 1>{});
 }
 
 /**
- * @brief Create a `PartialBoundField` that binds a key to an `InputT` member for pipe-style composition.
+ * @brief Create a `PartialBoundField` that binds a key to an `InputT` member for pipe-style
+ * composition.
  *
  * Attach modifiers/checks and a final converter with successive `operator|` calls:
  *
@@ -330,18 +335,24 @@ template <typename... Fields>
 distinctBoundKeyCount(Fields const&... f)
 {
     constexpr std::size_t kN = sizeof...(Fields);
-    if constexpr (kN == 0) {
+    if constexpr (kN == 0)
+    {
         return 0;
-    } else {
+    }
+    else
+    {
         std::array<std::string_view, kN> const keys{f.key...};
         std::array<bool, kN> const bound{detail::kIsBoundField<Fields>...};
         std::size_t distinct = 0;
-        for (std::size_t i = 0; i < kN; ++i) {
+        for (std::size_t i = 0; i < kN; ++i)
+        {
             if (!bound[i])
                 continue;
             bool seen = false;
-            for (std::size_t j = 0; j < i; ++j) {
-                if (bound[j] && keys[j] == keys[i]) {
+            for (std::size_t j = 0; j < i; ++j)
+            {
+                if (bound[j] && keys[j] == keys[i])
+                {
                     seen = true;
                     break;
                 }
@@ -362,7 +373,8 @@ distinctBoundKeyCount(Fields const&... f)
  * retighten a V1 field), exactly like RpcSpec.
  */
 template <typename InputT, typename... Fields>
-struct TypedSpec {
+struct TypedSpec
+{
     std::tuple<Fields...> fields;
 
     // Guard 2: every member of the Input aggregate must be bound by exactly one
@@ -376,8 +388,10 @@ struct TypedSpec {
     consteval explicit TypedSpec(Fields... f) : fields{f...}
     {
         if (distinctBoundKeyCount(f...) != boost::pfr::tuple_size_v<InputT>)
+        {
             throw "rpcspec: every Input member must be bound by exactly one field "
                   "(an Input member is unbound, or the bound-member count disagrees with the Input)";
+        }
     }
 
     /**
@@ -464,7 +478,8 @@ private:
     parseImpl(Root& root, std::index_sequence<Is...>) const
     {
         InputT out{};
-        if constexpr (sizeof...(Is) > 0) {
+        if constexpr (sizeof...(Is) > 0)
+        {
             constexpr auto kN = sizeof...(Is);
             std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
             auto const plan = impl::buildOverridePlan(keys);
@@ -473,10 +488,10 @@ private:
             static constexpr std::array<Fn, kN> kDispatch{
                 +[](std::tuple<Fields...> const& t, Root& r, InputT& o) -> MaybeError {
                     return parseOne(std::get<Is>(t), r, o);
-                }...
-            };
+                }...};
 
-            for (std::size_t i = 0; i < kN; ++i) {
+            for (std::size_t i = 0; i < kN; ++i)
+            {
                 if (!plan.shouldRun[i])
                     continue;
                 if (auto res = kDispatch[plan.effectiveIdx[i]](fields, root, out); !res.has_value())
@@ -491,7 +506,8 @@ private:
     checkImpl(Root const& root, std::index_sequence<Is...>) const
     {
         Warnings out;
-        if constexpr (sizeof...(Is) > 0) {
+        if constexpr (sizeof...(Is) > 0)
+        {
             constexpr auto kN = sizeof...(Is);
             std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
             auto const plan = impl::buildOverridePlan(keys);
@@ -500,10 +516,10 @@ private:
             static constexpr std::array<Fn, kN> kDispatch{
                 +[](std::tuple<Fields...> const& t, Root const& r) -> Warnings {
                     return std::get<Is>(t).check(r);
-                }...
-            };
+                }...};
 
-            for (std::size_t i = 0; i < kN; ++i) {
+            for (std::size_t i = 0; i < kN; ++i)
+            {
                 if (!plan.shouldRun[i])
                     continue;
                 auto w = kDispatch[plan.effectiveIdx[i]](fields, root);
@@ -517,17 +533,20 @@ private:
     void
     dumpImpl(SpecDumpWriter& w, std::index_sequence<Is...>) const
     {
-        if constexpr (sizeof...(Is) > 0) {
+        if constexpr (sizeof...(Is) > 0)
+        {
             constexpr auto kN = sizeof...(Is);
             std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
             auto const plan = impl::buildOverridePlan(keys);
 
             using Fn = void (*)(SpecDumpWriter&, std::tuple<Fields...> const&);
             static constexpr std::array<Fn, kN> kDispatch{
-                +[](SpecDumpWriter& wr, std::tuple<Fields...> const& t) { dumpOne(wr, std::get<Is>(t)); }...
-            };
+                +[](SpecDumpWriter& wr, std::tuple<Fields...> const& t) {
+                    dumpOne(wr, std::get<Is>(t));
+                }...};
 
-            for (std::size_t i = 0; i < kN; ++i) {
+            for (std::size_t i = 0; i < kN; ++i)
+            {
                 if (plan.shouldRun[i])
                     kDispatch[plan.effectiveIdx[i]](w, fields);
             }
@@ -538,9 +557,12 @@ private:
     static void
     dumpOne(SpecDumpWriter& w, F const& f)
     {
-        if constexpr (detail::kIsBoundField<F>) {
+        if constexpr (detail::kIsBoundField<F>)
+        {
             f.dump(w);
-        } else {
+        }
+        else
+        {
             dumpFieldSpec(w, f);  // validate-only field (shared FieldSpec dumper)
         }
     }
@@ -549,9 +571,12 @@ private:
     [[nodiscard]] static MaybeError
     parseOne(F const& f, Root& root, InputT& out)
     {
-        if constexpr (detail::kIsBoundField<F>) {
+        if constexpr (detail::kIsBoundField<F>)
+        {
             return f.parseInto(root, out);
-        } else {
+        }
+        else
+        {
             // Validate-only field with no Input member (e.g. a deprecated marker or a
             // field like account_tx's `ctid` that is validated but not stored). Run its
             // validators/modifiers; it populates no member. Warnings come via check().
@@ -582,9 +607,10 @@ template <typename InputT, typename... Existing, typename... Extra>
 extend(TypedSpec<InputT, Existing...> const& base, Extra... extra)
 {
     return std::apply(
-        [&](auto const&... existing) { return TypedSpec<InputT, Existing..., Extra...>{existing..., extra...}; },
-        base.fields
-    );
+        [&](auto const&... existing) {
+            return TypedSpec<InputT, Existing..., Extra...>{existing..., extra...};
+        },
+        base.fields);
 }
 
 }  // namespace rpc::spec

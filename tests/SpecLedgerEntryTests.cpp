@@ -3,20 +3,16 @@
  *  Compiled under RPCSPEC_IS_RIPPLED.
  */
 
-#include <rpcspec/Aliases.hpp>
-#include <rpcspec/Errors.hpp>
+#include <boost/json/parse.hpp>
+
+#include <gtest/gtest.h>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/ledger_entry/Spec.hpp>
 #include <rpcspec/handlers/ledger_entry/Types.hpp>
 
-#include <xrpl/basics/base_uint.h>
-#include <xrpl/protocol/AccountID.h>
-#include <xrpl/protocol/UintTypes.h>
-
-#include <boost/json/parse.hpp>
-#include <gtest/gtest.h>
+#include "xrpl_mock.hpp"
 
 #include <sstream>
 #include <string>
@@ -50,7 +46,8 @@ parse(std::string const& json)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, CheckHexLocator)
 {
-    auto const r = parse(R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
+    auto const r = parse(
+        R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->check.has_value());
 
@@ -78,7 +75,8 @@ TEST(LedgerEntrySpec, AccountRootLocator)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, MptIssuanceHexLocator)
 {
-    auto const r = parse(R"JSON({"mpt_issuance": "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01"})JSON");
+    auto const r =
+        parse(R"JSON({"mpt_issuance": "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01"})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->mptIssuance.has_value());
 
@@ -92,7 +90,8 @@ TEST(LedgerEntrySpec, MptIssuanceHexLocator)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, OfferHexArm)
 {
-    auto const r = parse(R"JSON({"offer": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
+    auto const r = parse(
+        R"JSON({"offer": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->offer.has_value());
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*r->offer));
@@ -107,7 +106,8 @@ TEST(LedgerEntrySpec, OfferHexArm)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, OfferObjectArm)
 {
-    auto const r = parse(R"JSON({"offer": {"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "seq": 5}})JSON");
+    auto const r =
+        parse(R"JSON({"offer": {"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "seq": 5}})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->offer.has_value());
     ASSERT_TRUE(std::holds_alternative<OfferEntry>(*r->offer));
@@ -124,7 +124,8 @@ TEST(LedgerEntrySpec, OfferObjectArm)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
 {
-    auto const r = parse(R"JSON({"directory": {"owner": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sub_index": 42}})JSON");
+    auto const r = parse(
+        R"JSON({"directory": {"owner": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sub_index": 42}})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->directory.has_value());
     ASSERT_TRUE(std::holds_alternative<DirectoryEntry>(*r->directory));
@@ -278,7 +279,8 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdObjectArm)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
 {
-    auto const r = parse(R"JSON({"xchain_owned_claim_id": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
+    auto const r = parse(
+        R"JSON({"xchain_owned_claim_id": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->xchainOwnedClaimId.has_value());
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*r->xchainOwnedClaimId));
@@ -289,7 +291,8 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
 // ---------------------------------------------------------------------------
 TEST(LedgerEntrySpec, LedgerIndexValidated)
 {
-    auto const r = parse(R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "validated"})JSON");
+    auto const r = parse(
+        R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "validated"})JSON");
     ASSERT_TRUE(r.has_value());
     EXPECT_TRUE(r->ledger.isShortcut());
     EXPECT_EQ(std::get<LedgerShortcut>(r->ledger.value), LedgerShortcut::Validated);
@@ -302,7 +305,8 @@ TEST(LedgerEntrySpec, LedgerUnspecifiedWhenAbsent)
     // ledger should remain unspecified either way.
     // We just check ledger state when the parse succeeds (e.g. empty object passes
     // field-level validation since no field is required).
-    if (r.has_value()) {
+    if (r.has_value())
+    {
         EXPECT_TRUE(r->ledger.isUnspecified());
     }
 }

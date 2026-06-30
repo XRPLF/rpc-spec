@@ -37,6 +37,7 @@ struct JsonBool {
  * @return The converted JsonBool
  */
 inline JsonBool
+// NOLINTNEXTLINE(readability-identifier-naming)
 tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const& jsonValue)
 {
     switch (jsonValue.kind()) {

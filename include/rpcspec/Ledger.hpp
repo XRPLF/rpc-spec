@@ -1,13 +1,13 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/Types.hpp>
-
-#include <xrpl/basics/base_uint.h>
 
 #include <charconv>
 #include <cstdint>
@@ -58,8 +58,9 @@ inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Current
  * ledger_index range (account_tx, nft_history) tell "no ledger given" apart from
  * an explicit shortcut.
  */
-struct LedgerSpecifier {
-    std::variant<std::monostate, LedgerShortcut, xrpl::uint256, uint32_t> value{};
+struct LedgerSpecifier
+{
+    std::variant<std::monostate, LedgerShortcut, xrpl::uint256, uint32_t> value;
 
     /** @brief True when the request named no ledger (neither hash nor index). */
     [[nodiscard]] bool
@@ -117,8 +118,8 @@ ledgerSpecifierFromIndex(FA const& f)
 {
     auto const invalid = [&] {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_index', not string or number."
-        }};
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field 'ledger_index', not string or number."}};
     };
 
     if (f.isUint32())
@@ -151,9 +152,8 @@ template <SomeFieldView FA>
 ledgerSpecifierFromHash(FA const& f)
 {
     auto const invalid = [&] {
-        return std::unexpected{
-            rpc::Status{rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_hash', not hex string."}
-        };
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_hash', not hex string."}};
     };
     if (!f.isString())
         return invalid();
@@ -179,7 +179,8 @@ ledgerSpecifierFromHash(FA const& f)
  * "ledger_index"; a spec using this must not also bind that key.
  */
 template <typename InputT, typename Member>
-struct LedgerSelectorField {
+struct LedgerSelectorField
+{
     static constexpr bool kIsBound = true;
 
     std::string_view key{"ledger_index"};
@@ -191,8 +192,7 @@ struct LedgerSelectorField {
 
     static_assert(
         std::is_assignable_v<Member&, LedgerSpecifier>,
-        "rpcspec: ledgerSelector must bind a LedgerSpecifier Input member"
-    );
+        "rpcspec: ledgerSelector must bind a LedgerSpecifier Input member");
 
     template <SomeObjectView Root>
     [[nodiscard]] MaybeError
@@ -203,7 +203,8 @@ struct LedgerSelectorField {
 
         // ledger_hash takes precedence over ledger_index (the two are not
         // mutually exclusive — accepting both preserves the existing contract).
-        if (hashFa.present()) {
+        if (hashFa.present())
+        {
             auto res = detail::ledgerSpecifierFromHash(hashFa);
             if (!res.has_value())
                 return std::unexpected{std::move(res).error()};
@@ -211,7 +212,8 @@ struct LedgerSelectorField {
             return {};
         }
 
-        if (indexFa.present()) {
+        if (indexFa.present())
+        {
             auto res = detail::ledgerSpecifierFromIndex(indexFa);
             if (!res.has_value())
                 return std::unexpected{std::move(res).error()};
@@ -235,7 +237,9 @@ struct LedgerSelectorField {
         // Render the two underlying keys so the unified selector is still
         // discoverable in the schema dump, each with the value it accepts.
         w.bulletGroup("ledger_hash", [&] { w.bullet("uint256Hex", [] {}); });
-        w.bulletGroup("ledger_index", [&] { w.bullet("uint32 or shortcut (validated/current/closed)", [] {}); });
+        w.bulletGroup("ledger_index", [&] {
+            w.bullet("uint32 or shortcut (validated/current/closed)", [] {});
+        });
     }
 };
 

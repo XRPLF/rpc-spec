@@ -3,6 +3,11 @@
 // Shared constexpr spec for the 'unsubscribe' RPC command.
 // Single source of truth — both Clio and rippled include this file.
 
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Book.h>
+#include <xrpl/protocol/UintTypes.h>
+
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
@@ -10,11 +15,6 @@
 #include <rpcspec/Validators.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/unsubscribe/Types.hpp>
-
-#include <xrpl/basics/base_uint.h>
-#include <xrpl/protocol/AccountID.h>
-#include <xrpl/protocol/Book.h>
-#include <xrpl/protocol/UintTypes.h>
 
 #include <array>
 #include <cstddef>
@@ -32,31 +32,30 @@ namespace rpc::spec::handlers::unsubscribe {
 //   - empty array → RpcActMalformed + key + " malformed."
 //   - element not string → RpcInvalidParams + key + "'sItemNotString"
 //   - element invalid account → RpcActMalformed + key + "'sItemMalformed"
-static constexpr auto kSUBSCRIBE_ACCOUNTS_VALIDATOR =
+static constexpr auto kSubscribeAccountsValidator =
     CustomValidator{[](auto const& f) -> MaybeError {
-        if (!f.isArray()) {
+        if (!f.isArray())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"}};
         }
-        if (f.arraySize() == 0) {
+        if (f.arraySize() == 0)
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{f.key()} + " malformed."
-            }};
+                rpc::RippledError::RpcActMalformed, std::string{f.key()} + " malformed."}};
         }
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const elem = f.element(i);
-            if (!elem.isString()) {
+            if (!elem.isString())
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams,
-                    std::string{f.key()} + "'sItemNotString"
-                }};
+                    rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "'sItemNotString"}};
             }
-            if (!rpc::spec::detail::accountFromStringStrict(std::string{elem.asString()})) {
+            if (!rpc::spec::detail::accountFromStringStrict(std::string{elem.asString()}))
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcActMalformed,
-                    std::string{f.key()} + "'sItemMalformed"
-                }};
+                    rpc::RippledError::RpcActMalformed, std::string{f.key()} + "'sItemMalformed"}};
             }
         }
         return {};
@@ -73,30 +72,42 @@ static constexpr auto kSUBSCRIBE_ACCOUNTS_VALIDATOR =
 // "<key>NotArray"; element not string → "streamNotString"; unknown → RpcStreamMalformed.
 // A dedicated validator (rather than a CustomValidator lambda) so the accepted
 // stream values are exposed to the schema dump via describeParams().
-struct StreamsValidator {
+struct StreamsValidator
+{
     static constexpr std::string_view kName = "streams";
 
     // Streams both servers serve.
     static constexpr std::array<std::string_view, 6> kCommon{
-        "ledger", "transactions", "transactions_proposed", "book_changes", "manifests", "validations"
-    };
+        "ledger",
+        "transactions",
+        "transactions_proposed",
+        "book_changes",
+        "manifests",
+        "validations"};
 #if RPCSPEC_IS_CLIO
     // Clio does not serve these live streams.
-    static constexpr std::array<std::string_view, 3> kNotSupported{"server", "peer_status", "consensus"};
+    static constexpr std::array<std::string_view, 3> kNotSupported{
+        "server",
+        "peer_status",
+        "consensus"};
 #else
     // rippled also accepts these (admin role enforced later); rt_transactions is a
     // deprecated alias for transactions_proposed.
     static constexpr std::array<std::string_view, 4> kRippledExtra{
-        "server", "peer_status", "consensus", "rt_transactions"
-    };
+        "server",
+        "peer_status",
+        "consensus",
+        "rt_transactions"};
 #endif
 
     static constexpr bool
     contains(auto const& arr, std::string_view s)
     {
         for (auto const& v : arr)
+        {
             if (v == s)
                 return true;
+        }
         return false;
     }
 
@@ -116,17 +127,18 @@ struct StreamsValidator {
     [[nodiscard]] MaybeError
     verify(FA const& f) const
     {
-        if (!f.isArray()) {
+        if (!f.isArray())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"}};
         }
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const elem = f.element(i);
-            if (!elem.isString()) {
+            if (!elem.isString())
+            {
                 return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcInvalidParams, "streamNotString"}
-                };
+                    rpc::Status{rpc::RippledError::RpcInvalidParams, "streamNotString"}};
             }
             auto const str = elem.asString();
 #if RPCSPEC_IS_CLIO
@@ -149,172 +161,181 @@ inline constexpr auto kSUBSCRIBE_STREAM_VALIDATOR = StreamsValidator{};
 // Validates the books field: must be an array of valid book objects.
 // Errors mirror the old kBOOKS_VALIDATOR lambda exactly (including all parseBook errors).
 // Note: Unsubscribe does NOT check snapshot (no snapshot field in unsubscribe).
-static constexpr auto kBOOKS_VALIDATOR =
-    CustomValidator{[](auto const& f) -> MaybeError {
-        if (!f.isArray()) {
+static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> MaybeError {
+    if (!f.isArray())
+    {
+        return std::unexpected{
+            rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"}};
+    }
+    for (std::size_t i = 0; i < f.arraySize(); ++i)
+    {
+        auto const book = f.element(i);
+        if (!book.isObject())
+        {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotArray"
-            }};
+                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "ItemNotObject"}};
         }
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
-            auto const book = f.element(i);
-            if (!book.isObject()) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "ItemNotObject"
-                }};
-            }
 
-            auto const bothFa = book.child("both");
-            if (bothFa.present() && !bothFa.isBool()) {
+        auto const bothFa = book.child("both");
+        if (bothFa.present() && !bothFa.isBool())
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams, "bothNotBool"}};
+        }
+
+        // Replicate parseBook(book.as_object()) errors inline using FA child API.
+        auto const takerPaysFa = book.child("taker_pays");
+        if (!takerPaysFa.present())
+        {
+            return std::unexpected{
+                rpc::Status{rpc::RippledError::RpcInvalidParams, "Missing field 'taker_pays'"}};
+        }
+        if (!takerPaysFa.isObject())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, "Field 'taker_pays' is not an object"}};
+        }
+
+        auto const takerGetsFa = book.child("taker_gets");
+        if (!takerGetsFa.present())
+        {
+            return std::unexpected{
+                rpc::Status{rpc::RippledError::RpcInvalidParams, "Missing field 'taker_gets'"}};
+        }
+        if (!takerGetsFa.isObject())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, "Field 'taker_gets' is not an object"}};
+        }
+
+        // taker_pays currency
+        auto const paysCurFa = takerPaysFa.child("currency");
+        if (!paysCurFa.present() || !paysCurFa.isString())
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
+        }
+        xrpl::Currency payCurrency;
+        if (!xrpl::toCurrency(payCurrency, std::string{paysCurFa.asString()}))
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
+        }
+
+        // taker_gets currency
+        auto const getsCurFa = takerGetsFa.child("currency");
+        if (!getsCurFa.present() || !getsCurFa.isString())
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
+        }
+        xrpl::Currency getCurrency;
+        if (!xrpl::toCurrency(getCurrency, std::string{getsCurFa.asString()}))
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
+        }
+
+        // book-level domain (mirrors parseBook): must be string if present
+        auto const domainFa = book.child("domain");
+        if (domainFa.present() && !domainFa.isString())
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
+        }
+
+        // taker_pays issuer
+        xrpl::AccountID payIssuer;
+        auto const paysIssuerFa = takerPaysFa.child("issuer");
+        if (paysIssuerFa.present())
+        {
+            if (!paysIssuerFa.isString())
+            {
                 return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcInvalidParams, "bothNotBool"}
-                };
+                    rpc::Status{rpc::RippledError::RpcInvalidParams, "takerPaysIssuerNotString"}};
             }
+            if (!xrpl::toIssuer(payIssuer, std::string{paysIssuerFa.asString()}))
+            {
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}};
+            }
+            if (payIssuer == xrpl::noAccount())
+            {
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}};
+            }
+        }
+        else
+        {
+            payIssuer = xrpl::xrpAccount();
+        }
 
-            // Replicate parseBook(book.as_object()) errors inline using FA child API.
-            auto const takerPaysFa = book.child("taker_pays");
-            if (!takerPaysFa.present()) {
+        if (xrpl::isXRP(payCurrency) && !xrpl::isXRP(payIssuer))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcSrcIsrMalformed,
+                "Unneeded field 'taker_pays.issuer' for XRP currency specification."}};
+        }
+        if (!xrpl::isXRP(payCurrency) && xrpl::isXRP(payIssuer))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcSrcIsrMalformed,
+                "Invalid field 'taker_pays.issuer', expected non-XRP issuer."}};
+        }
+
+        // taker_gets issuer
+        xrpl::AccountID getIssuer;
+        auto const getsIssuerFa = takerGetsFa.child("issuer");
+        if (getsIssuerFa.present())
+        {
+            if (!getsIssuerFa.isString())
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Missing field 'taker_pays'"
-                }};
+                    rpc::RippledError::RpcInvalidParams, "taker_gets.issuer should be string"}};
             }
-            if (!takerPaysFa.isObject()) {
+            if (!xrpl::toIssuer(getIssuer, std::string{getsIssuerFa.asString()}))
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Field 'taker_pays' is not an object"
-                }};
+                    rpc::RippledError::RpcDstIsrMalformed,
+                    "Invalid field 'taker_gets.issuer', bad issuer."}};
             }
-
-            auto const takerGetsFa = book.child("taker_gets");
-            if (!takerGetsFa.present()) {
+            if (getIssuer == xrpl::noAccount())
+            {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Missing field 'taker_gets'"
-                }};
+                    rpc::RippledError::RpcDstIsrMalformed,
+                    "Invalid field 'taker_gets.issuer', bad issuer account one."}};
             }
-            if (!takerGetsFa.isObject()) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Field 'taker_gets' is not an object"
-                }};
-            }
+        }
+        else
+        {
+            getIssuer = xrpl::xrpAccount();
+        }
 
-            // taker_pays currency
-            auto const paysCurFa = takerPaysFa.child("currency");
-            if (!paysCurFa.present() || !paysCurFa.isString()) {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
-            }
-            xrpl::Currency payCurrency;
-            if (!xrpl::toCurrency(payCurrency, std::string{paysCurFa.asString()})) {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
-            }
+        if (xrpl::isXRP(getCurrency) && !xrpl::isXRP(getIssuer))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcDstIsrMalformed,
+                "Unneeded field 'taker_gets.issuer' for XRP currency specification."}};
+        }
+        if (!xrpl::isXRP(getCurrency) && xrpl::isXRP(getIssuer))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcDstIsrMalformed,
+                "Invalid field 'taker_gets.issuer', expected non-XRP issuer."}};
+        }
 
-            // taker_gets currency
-            auto const getsCurFa = takerGetsFa.child("currency");
-            if (!getsCurFa.present() || !getsCurFa.isString()) {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
-            }
-            xrpl::Currency getCurrency;
-            if (!xrpl::toCurrency(getCurrency, std::string{getsCurFa.asString()})) {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
-            }
+        if (payCurrency == getCurrency && payIssuer == getIssuer)
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcBadMarket, "badMarket"}};
+        }
 
-            // book-level domain (mirrors parseBook): must be string if present
-            auto const domainFa = book.child("domain");
-            if (domainFa.present() && !domainFa.isString()) {
+        // book-level domain (mirrors inner parseBook overload): must parse as hex
+        if (domainFa.present())
+        {
+            xrpl::uint256 dom;
+            if (!dom.parseHex(std::string{domainFa.asString()}))
+            {
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
             }
-
-            // taker_pays issuer
-            xrpl::AccountID payIssuer;
-            auto const paysIssuerFa = takerPaysFa.child("issuer");
-            if (paysIssuerFa.present()) {
-                if (!paysIssuerFa.isString()) {
-                    return std::unexpected{rpc::Status{
-                        rpc::RippledError::RpcInvalidParams, "takerPaysIssuerNotString"
-                    }};
-                }
-                if (!xrpl::toIssuer(payIssuer, std::string{paysIssuerFa.asString()})) {
-                    return std::unexpected{
-                        rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}
-                    };
-                }
-                if (payIssuer == xrpl::noAccount()) {
-                    return std::unexpected{
-                        rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}
-                    };
-                }
-            } else {
-                payIssuer = xrpl::xrpAccount();
-            }
-
-            if (xrpl::isXRP(payCurrency) && !xrpl::isXRP(payIssuer)) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcSrcIsrMalformed,
-                    "Unneeded field 'taker_pays.issuer' for XRP currency specification."
-                }};
-            }
-            if (!xrpl::isXRP(payCurrency) && xrpl::isXRP(payIssuer)) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcSrcIsrMalformed,
-                    "Invalid field 'taker_pays.issuer', expected non-XRP issuer."
-                }};
-            }
-
-            // taker_gets issuer
-            xrpl::AccountID getIssuer;
-            auto const getsIssuerFa = takerGetsFa.child("issuer");
-            if (getsIssuerFa.present()) {
-                if (!getsIssuerFa.isString()) {
-                    return std::unexpected{rpc::Status{
-                        rpc::RippledError::RpcInvalidParams,
-                        "taker_gets.issuer should be string"
-                    }};
-                }
-                if (!xrpl::toIssuer(getIssuer, std::string{getsIssuerFa.asString()})) {
-                    return std::unexpected{rpc::Status{
-                        rpc::RippledError::RpcDstIsrMalformed,
-                        "Invalid field 'taker_gets.issuer', bad issuer."
-                    }};
-                }
-                if (getIssuer == xrpl::noAccount()) {
-                    return std::unexpected{rpc::Status{
-                        rpc::RippledError::RpcDstIsrMalformed,
-                        "Invalid field 'taker_gets.issuer', bad issuer account one."
-                    }};
-                }
-            } else {
-                getIssuer = xrpl::xrpAccount();
-            }
-
-            if (xrpl::isXRP(getCurrency) && !xrpl::isXRP(getIssuer)) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcDstIsrMalformed,
-                    "Unneeded field 'taker_gets.issuer' for XRP currency specification."
-                }};
-            }
-            if (!xrpl::isXRP(getCurrency) && xrpl::isXRP(getIssuer)) {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcDstIsrMalformed,
-                    "Invalid field 'taker_gets.issuer', expected non-XRP issuer."
-                }};
-            }
-
-            if (payCurrency == getCurrency && payIssuer == getIssuer) {
-                return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcBadMarket, "badMarket"}
-                };
-            }
-
-            // book-level domain (mirrors inner parseBook overload): must parse as hex
-            if (domainFa.present()) {
-                xrpl::uint256 dom;
-                if (!dom.parseHex(std::string{domainFa.asString()})) {
-                    return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
-                }
-            }
         }
-        return {};
-    }};
+    }
+    return {};
+}};
 
-struct StreamVecConverter {
+struct StreamVecConverter
+{
     static constexpr std::string_view kName = "streamVec";
     using ValueType = std::optional<std::vector<StreamType>>;
 
@@ -326,32 +347,52 @@ struct StreamVecConverter {
         // element here is an accepted stream for this server build.
         std::vector<StreamType> result;
         result.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const s = f.element(i).asString();
             if (s == "ledger")
+            {
                 result.push_back(StreamType::Ledger);
+            }
             else if (s == "transactions")
+            {
                 result.push_back(StreamType::Transactions);
-            else if (s == "transactions_proposed" || s == "rt_transactions")  // rt_transactions: deprecated alias
+            }
+            else if (s == "transactions_proposed" || s == "rt_transactions")
+            {  // rt_transactions: deprecated alias
                 result.push_back(StreamType::TransactionsProposed);
+            }
             else if (s == "book_changes")
+            {
                 result.push_back(StreamType::BookChanges);
+            }
             else if (s == "manifests")
+            {
                 result.push_back(StreamType::Manifests);
+            }
             else if (s == "validations")
+            {
                 result.push_back(StreamType::Validations);
+            }
             else if (s == "server")
+            {
                 result.push_back(StreamType::Server);
+            }
             else if (s == "peer_status")
+            {
                 result.push_back(StreamType::PeerStatus);
-            else  // "consensus"
+            }
+            else
+            {  // "consensus"
                 result.push_back(StreamType::Consensus);
+            }
         }
         return std::optional<std::vector<StreamType>>{std::move(result)};
     }
 };
 
-struct AccountIdVecConverter {
+struct AccountIdVecConverter
+{
     static constexpr std::string_view kName = "accountIdVec";
     using ValueType = std::optional<std::vector<xrpl::AccountID>>;
 
@@ -359,17 +400,20 @@ struct AccountIdVecConverter {
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        // The accounts validator already confirmed each element is a valid account,
-        // so accountFromStringStrict cannot return nullopt here.
+        // The accounts validator already confirmed each element is a valid account.
         std::vector<xrpl::AccountID> result;
         result.reserve(f.arraySize());
         for (std::size_t i = 0; i < f.arraySize(); ++i)
-            result.push_back(*rpc::spec::detail::accountFromStringStrict(std::string{f.element(i).asString()}));
+        {
+            result.push_back(
+                rpc::spec::detail::accountFromValidated(std::string{f.element(i).asString()}));
+        }
         return std::optional<std::vector<xrpl::AccountID>>{std::move(result)};
     }
 };
 
-struct UnsubscribeBooksConverter {
+struct UnsubscribeBooksConverter
+{
     static constexpr std::string_view kName = "unsubscribeBooksVec";
     using ValueType = std::optional<std::vector<OrderBook>>;
 
@@ -380,7 +424,8 @@ struct UnsubscribeBooksConverter {
         std::vector<OrderBook> result;
         result.reserve(f.arraySize());
 
-        for (std::size_t i = 0; i < f.arraySize(); ++i) {
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
             auto const bookFa = f.element(i);
             OrderBook ob;
 
@@ -392,41 +437,35 @@ struct UnsubscribeBooksConverter {
             auto const paysFa = bookFa.child("taker_pays");
             auto const getsFa = bookFa.child("taker_gets");
 
-            xrpl::Currency payCurrency;
-            xrpl::toCurrency(payCurrency, std::string{paysFa.child("currency").asString()});
+            auto const payCurrency = rpc::spec::detail::currencyFromValidated(
+                std::string{paysFa.child("currency").asString()});
+            auto const getCurrency = rpc::spec::detail::currencyFromValidated(
+                std::string{getsFa.child("currency").asString()});
 
-            xrpl::Currency getCurrency;
-            xrpl::toCurrency(getCurrency, std::string{getsFa.child("currency").asString()});
-
-            xrpl::AccountID payIssuer;
             auto const paysIssuerFa = paysFa.child("issuer");
-            if (paysIssuerFa.present())
-                xrpl::toIssuer(payIssuer, std::string{paysIssuerFa.asString()});
-            else
-                payIssuer = xrpl::xrpAccount();
+            xrpl::AccountID const payIssuer = paysIssuerFa.present()
+                ? rpc::spec::detail::issuerFromValidated(std::string{paysIssuerFa.asString()})
+                : xrpl::xrpAccount();
 
-            xrpl::AccountID getIssuer;
             auto const getsIssuerFa = getsFa.child("issuer");
-            if (getsIssuerFa.present())
-                xrpl::toIssuer(getIssuer, std::string{getsIssuerFa.asString()});
-            else
-                getIssuer = xrpl::xrpAccount();
+            xrpl::AccountID const getIssuer = getsIssuerFa.present()
+                ? rpc::spec::detail::issuerFromValidated(std::string{getsIssuerFa.asString()})
+                : xrpl::xrpAccount();
 
             std::optional<xrpl::uint256> domainID;
             auto const domainFa = bookFa.child("domain");
-            if (domainFa.present()) {
-                xrpl::uint256 dom;
-                dom.parseHex(std::string{domainFa.asString()});
-                domainID = dom;
+            if (domainFa.present())
+            {
+                domainID =
+                    rpc::spec::detail::uint256FromValidated(std::string{domainFa.asString()});
             }
 
             ob.book = xrpl::Book{
-                xrpl::Issue{payCurrency, payIssuer},
-                xrpl::Issue{getCurrency, getIssuer},
-                domainID
-            };
+                .in = xrpl::Issue{.currency = payCurrency, .account = payIssuer},
+                .out = xrpl::Issue{.currency = getCurrency, .account = getIssuer},
+                .domain = domainID};
 
-            result.push_back(std::move(ob));
+            result.push_back(ob);
         }
 
         return std::optional<std::vector<OrderBook>>{std::move(result)};
@@ -441,14 +480,17 @@ inline constexpr auto unsubscribeBooksConv = UnsubscribeBooksConverter{};
 
 inline constexpr auto kInputSpec = spec<Input>(
     field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, streamVecConv),
-    field("accounts", &Input::accounts, kSUBSCRIBE_ACCOUNTS_VALIDATOR, accountIdVecConv),
-    field("accounts_proposed", &Input::accountsProposed, kSUBSCRIBE_ACCOUNTS_VALIDATOR, accountIdVecConv),
-    field("books", &Input::books, kBOOKS_VALIDATOR, unsubscribeBooksConv),
+    field("accounts", &Input::accounts, kSubscribeAccountsValidator, accountIdVecConv),
+    field(
+        "accounts_proposed",
+        &Input::accountsProposed,
+        kSubscribeAccountsValidator,
+        accountIdVecConv),
+    field("books", &Input::books, kBooksValidator, unsubscribeBooksConv),
     field("url") | deprecated,
     field("rt_accounts") | deprecated,
-    field("rt_transactions") | deprecated
-);
+    field("rt_transactions") | deprecated);
 
 inline constexpr auto kSpec = kInputSpec;
 
-} // namespace rpc::spec::handlers::unsubscribe
+}  // namespace rpc::spec::handlers::unsubscribe

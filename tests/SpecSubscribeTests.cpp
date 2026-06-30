@@ -3,7 +3,9 @@
  *  Compiled under RPCSPEC_IS_RIPPLED (the default for rpcspec_tests).
  */
 
-#include <rpcspec/Aliases.hpp>
+#include <boost/json/parse.hpp>
+
+#include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
@@ -12,12 +14,8 @@
 #include <rpcspec/handlers/unsubscribe/Spec.hpp>
 #include <rpcspec/handlers/unsubscribe/Types.hpp>
 
-#include <boost/json/parse.hpp>
-#include <gtest/gtest.h>
-
 #include <sstream>
 #include <string>
-#include <variant>
 
 using namespace rpc::spec;
 
@@ -171,20 +169,20 @@ TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
     static constexpr auto npos = std::string::npos;
 
     // Top-level field keys
-    EXPECT_NE(s.find("accounts"), npos)           << "missing: accounts";
-    EXPECT_NE(s.find("streams"), npos)            << "missing: streams";
-    EXPECT_NE(s.find("accounts_proposed"), npos)  << "missing: accounts_proposed";
-    EXPECT_NE(s.find("books"), npos)              << "missing: books";
+    EXPECT_NE(s.find("accounts"), npos) << "missing: accounts";
+    EXPECT_NE(s.find("streams"), npos) << "missing: streams";
+    EXPECT_NE(s.find("accounts_proposed"), npos) << "missing: accounts_proposed";
+    EXPECT_NE(s.find("books"), npos) << "missing: books";
 
     // Stream names exposed by StreamsValidator::describeParams
-    EXPECT_NE(s.find("ledger"), npos)                  << "missing: ledger";
-    EXPECT_NE(s.find("transactions_proposed"), npos)   << "missing: transactions_proposed";
-    EXPECT_NE(s.find("validations"), npos)             << "missing: validations";
-    EXPECT_NE(s.find("book_changes"), npos)            << "missing: book_changes";
-    EXPECT_NE(s.find("manifests"), npos)               << "missing: manifests";
+    EXPECT_NE(s.find("ledger"), npos) << "missing: ledger";
+    EXPECT_NE(s.find("transactions_proposed"), npos) << "missing: transactions_proposed";
+    EXPECT_NE(s.find("validations"), npos) << "missing: validations";
+    EXPECT_NE(s.find("book_changes"), npos) << "missing: book_changes";
+    EXPECT_NE(s.find("manifests"), npos) << "missing: manifests";
 
     // oneOf/alsoAllowed grouping key
-    EXPECT_NE(s.find("oneOf"), npos)               << "missing: oneOf";
+    EXPECT_NE(s.find("oneOf"), npos) << "missing: oneOf";
 }
 
 // ---------------------------------------------------------------------------
@@ -233,10 +231,10 @@ TEST(UnsubscribeDump, StreamValuesPresent)
 
     static constexpr auto npos = std::string::npos;
 
-    EXPECT_NE(s.find("streams"), npos)                 << "missing: streams";
-    EXPECT_NE(s.find("ledger"), npos)                  << "missing: ledger";
-    EXPECT_NE(s.find("transactions_proposed"), npos)   << "missing: transactions_proposed";
-    EXPECT_NE(s.find("validations"), npos)             << "missing: validations";
-    EXPECT_NE(s.find("book_changes"), npos)            << "missing: book_changes";
-    EXPECT_NE(s.find("oneOf"), npos)                   << "missing: oneOf";
+    EXPECT_NE(s.find("streams"), npos) << "missing: streams";
+    EXPECT_NE(s.find("ledger"), npos) << "missing: ledger";
+    EXPECT_NE(s.find("transactions_proposed"), npos) << "missing: transactions_proposed";
+    EXPECT_NE(s.find("validations"), npos) << "missing: validations";
+    EXPECT_NE(s.find("book_changes"), npos) << "missing: book_changes";
+    EXPECT_NE(s.find("oneOf"), npos) << "missing: oneOf";
 }

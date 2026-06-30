@@ -1,8 +1,15 @@
+#include "admissionspec/Types.hpp"
 #include <admissionspec/Resolver.hpp>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <unordered_map>
+#include <utility>
+#include <variant>
 #include <vector>
 
 struct Config
@@ -39,7 +46,11 @@ TEST(ResolverTests, ReadConfig)
     constexpr auto t1 =
         admission::spec::tunable<"foo.max_payload_bytes">(2048ull, "foo.max_payload_bytes");
     constexpr auto t2 = admission::spec::tunable<"foo.size_ramp">(
-        admission::spec::ramp({{256, 2.5}, {512, 5.0}}), "foo.size_ramp");
+        admission::spec::ramp({
+            {.upToBytes = 256, .cost = 2.5},
+            {.upToBytes = 512, .cost = 5.0},
+        }),
+        "foo.size_ramp");
     constexpr auto t3 = admission::spec::tunable<"foo.bar">(std::string{"default"}, "foo.bar");
     constexpr auto t4 = admission::spec::tunable<"foo.baz">(std::string{"default"}, "foo.baz");
 
