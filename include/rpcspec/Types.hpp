@@ -25,10 +25,20 @@ struct Warning {
     std::string message;    // extra context appended to the standard message for `code`
 };
 
+/**
+ * @brief A collection of non-blocking warnings returned alongside a successful result.
+ */
 using Warnings = std::vector<Warning>;
 
 // Marker types for use with Type<T> and is<T>() — keeps validators decoupled from boost::json.
+/**
+ * @brief Tag type representing a JSON object value; used with Type<T> and is<T>().
+ */
 struct JsonObject {};
+
+/**
+ * @brief Tag type representing a JSON array value; used with Type<T> and is<T>().
+ */
 struct JsonArray {};
 
 /**

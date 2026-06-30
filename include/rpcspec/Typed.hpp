@@ -102,6 +102,18 @@ struct BoundField {
         "rpcspec: converter output type is not assignable to the bound Input member"
     );
 
+    /**
+     * @brief Run this field's items against @p root and assign the converted value into @p out.
+     *
+     * Items execute in declaration order (requirements then modifiers), then the
+     * converter transforms the (possibly modified) value into the member type and
+     * assigns it through the pointer-to-member. An absent optional field is a no-op.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Mutable root object view (modifiers may write back into it).
+     * @param out   The `InputT` instance being populated.
+     * @return An error if any item or the converter fails; empty on success.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] MaybeError
     parseInto(Root& root, InputT& out) const
@@ -132,6 +144,13 @@ struct BoundField {
         return {};
     }
 
+    /**
+     * @brief Collect warnings from check items for this field.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Const root object view.
+     * @return All warnings emitted by check items for this field.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const& root) const
@@ -142,6 +161,11 @@ struct BoundField {
         return out;
     }
 
+    /**
+     * @brief Render this field's schema entry into the spec dump writer.
+     *
+     * @param w  The `SpecDumpWriter` receiving the schema output.
+     */
     void
     dump(SpecDumpWriter& w) const
     {
@@ -173,7 +197,13 @@ struct PartialBoundField {
     {
     }
 
-    // Pipe a modifier/check: append it to the (still converter-less) field.
+    /**
+     * @brief Append a modifier or check item, returning a new `PartialBoundField`.
+     *
+     * @tparam Item A field-item type satisfying `SomeFieldItem`.
+     * @param item  The item to append.
+     * @return A new `PartialBoundField` with @p item appended; still awaiting a converter.
+     */
     template <SomeFieldItem Item>
     [[nodiscard]] consteval auto
     operator|(Item item) const
@@ -186,7 +216,13 @@ struct PartialBoundField {
         );
     }
 
-    // Pipe a converter: complete the field into a BoundField.
+    /**
+     * @brief Complete the field by piping a converter, returning a `BoundField`.
+     *
+     * @tparam Conv A converter type satisfying `SomeConverter`.
+     * @param conv  The converter that validates and transforms the field value.
+     * @return A fully constructed `BoundField` ready for use in a `TypedSpec`.
+     */
     template <SomeConverter Conv>
     [[nodiscard]] consteval auto
     operator|(Conv conv) const
@@ -225,13 +261,26 @@ makeBoundField(std::string_view key, Member InputT::* member, std::tuple<Rest...
 
 }  // namespace detail
 
-// field() overload that binds a key to an Input member. Distinguished from the
-// validate-only field() by the pointer-to-member argument. The trailing arguments
-// are the field's items in source = execution order: modifiers/checks first
-// (left-to-right), then the final converter that produces the strong member value.
-//
-//   field("limit", &Input::limit, clamp(10, 400), asUint32)
-//          name     member        modifier         converter (last)
+/**
+ * @brief Create a `BoundField` that binds a JSON key to an `InputT` member with inline items.
+ *
+ * Distinguished from the validate-only `field()` overload by the pointer-to-member argument.
+ * Trailing arguments are items in execution order — modifiers/checks first (left-to-right),
+ * followed by the final converter that produces the strongly-typed member value:
+ *
+ * @code
+ * field("limit", &Input::limit, clamp(10, 400), asUint32)
+ *        name     member        modifier         converter (last)
+ * @endcode
+ *
+ * @tparam InputT  The handler Input struct.
+ * @tparam Member  The type of the bound member.
+ * @tparam Rest    Items in execution order; the last element must satisfy `SomeConverter`.
+ * @param key      JSON field name.
+ * @param member   Pointer-to-member that will receive the converted value.
+ * @param rest     Items (modifiers/checks) followed by the converter.
+ * @return A fully constructed `BoundField`.
+ */
 template <typename InputT, typename Member, typename... Rest>
 consteval auto
 field(std::string_view key, Member InputT::* member, Rest... rest)
@@ -242,10 +291,21 @@ field(std::string_view key, Member InputT::* member, Rest... rest)
     );
 }
 
-// Pipe-style entry point: bind a key to an Input member, then add items/converter
-// with operator|. Returns a PartialBoundField that completes once a converter is piped.
-//
-//   field("limit", &Input::limit) | clamp(10, 400) | asUint32
+/**
+ * @brief Create a `PartialBoundField` that binds a key to an `InputT` member for pipe-style composition.
+ *
+ * Attach modifiers/checks and a final converter with successive `operator|` calls:
+ *
+ * @code
+ * field("limit", &Input::limit) | clamp(10, 400) | asUint32
+ * @endcode
+ *
+ * @tparam InputT  The handler Input struct.
+ * @tparam Member  The type of the bound member.
+ * @param key      JSON field name.
+ * @param member   Pointer-to-member that will receive the converted value.
+ * @return A `PartialBoundField` awaiting a converter via `operator|`.
+ */
 template <typename InputT, typename Member>
 consteval auto
 field(std::string_view key, Member InputT::* member)
@@ -253,10 +313,18 @@ field(std::string_view key, Member InputT::* member)
     return PartialBoundField<InputT, Member>{key, member};
 }
 
-// Counts the number of DISTINCT keys among the bound fields. A later field that
-// re-binds an existing key (an override from extend(), e.g. V2 retightening a V1
-// field) is counted once, so the count reflects how many Input members are
-// covered — not how many bindings were written.
+/**
+ * @brief Count the number of distinct keys among the bound fields.
+ *
+ * A later field that re-binds an existing key (an override from `extend()`,
+ * e.g. a V2 spec retightening a V1 field) is counted once, so the count
+ * reflects how many `InputT` members are covered, not the raw number of
+ * bindings written.
+ *
+ * @tparam Fields The field types in the spec.
+ * @param f       The fields to inspect.
+ * @return The number of distinct bound keys.
+ */
 template <typename... Fields>
 [[nodiscard]] consteval std::size_t
 distinctBoundKeyCount(Fields const&... f)
@@ -312,8 +380,17 @@ struct TypedSpec {
                   "(an Input member is unbound, or the bound-member count disagrees with the Input)";
     }
 
-    // parse() takes a MUTABLE root: modifiers (clamp, toLower, …) write the
-    // normalised value back into the JSON before conversion reads it.
+    /**
+     * @brief Validate @p root and deserialise it directly into a strong-typed `InputT`.
+     *
+     * Modifiers run first (writing normalised values back into @p root), then
+     * converters transform each field into the corresponding `InputT` member.
+     * The root must be mutable so modifiers can write in place.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Mutable root object view.
+     * @return The populated `InputT` on success, or an error on the first failing field.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] std::expected<InputT, rpc::Status>
     parse(Root& root) const
@@ -321,6 +398,13 @@ struct TypedSpec {
         return parseImpl(root, std::index_sequence_for<Fields...>{});
     }
 
+    /**
+     * @brief Collect all warnings emitted by check items across all fields.
+     *
+     * @tparam Root An object-view type satisfying `SomeObjectView`.
+     * @param root  Const root object view.
+     * @return All warnings produced by check items.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const& root) const
@@ -328,17 +412,27 @@ struct TypedSpec {
         return checkImpl(root, std::index_sequence_for<Fields...>{});
     }
 
-    // Render the schema (used by the spec dumper). Mirrors RpcSpec's dump, with
-    // last-wins key dedup, dispatching bound fields to BoundField::dump and
-    // validate-only fields to the shared dumpFieldSpec.
+    /**
+     * @brief Render the schema for this spec into @p w.
+     *
+     * Uses last-wins key deduplication, delegating bound fields to
+     * `BoundField::dump` and validate-only fields to `dumpFieldSpec`.
+     *
+     * @param w  The `SpecDumpWriter` receiving the schema output.
+     */
     void
     dump(SpecDumpWriter& w) const
     {
         dumpImpl(w, std::index_sequence_for<Fields...>{});
     }
 
-    // boost::json::value (or any value constructible into an ObjectView) overloads.
-    // parse() needs a mutable value (modifiers); check() does not.
+    /**
+     * @brief `parse()` overload accepting any value constructible into an `ObjectView`.
+     *
+     * @tparam V A mutable value type convertible to `ObjectView` (e.g. `boost::json::value`).
+     * @param v  Mutable value to parse.
+     * @return The populated `InputT` on success, or an error on the first failing field.
+     */
     template <typename V>
         requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V&>
     [[nodiscard]] std::expected<InputT, rpc::Status>
@@ -348,6 +442,13 @@ struct TypedSpec {
         return parse(root);
     }
 
+    /**
+     * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+     *
+     * @tparam V A value type convertible to `ObjectView const`.
+     * @param v  Const value to check.
+     * @return All warnings produced by check items.
+     */
     template <typename V>
         requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V const&>
     [[nodiscard]] Warnings

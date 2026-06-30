@@ -20,7 +20,7 @@ struct Input {
     xrpl::AccountID account;
     std::optional<std::string> ledgerHash;
     std::optional<uint32_t> ledgerIndex;
-    uint32_t limit = kLimitDefault;  ///< Clamped to [kLimitMin, kLimitMax]
+    uint32_t limit = kLimitDefault;  /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };
 

@@ -229,13 +229,21 @@ struct AccountIdActMalformedConverter {
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID with per-key error messages. */
 inline constexpr auto accountId = AccountIdConverter{};
+/** @brief Converter instance: validates and decodes an account field into xrpl::AccountID, mapping all failures to RpcActMalformed. */
 inline constexpr auto accountIdActMalformed = AccountIdActMalformedConverter{};
+/** @brief Converter instance: validates a field is a uint32 and yields it. */
 inline constexpr auto asUint32 = Uint32Converter{};
+/** @brief Converter instance: validates a field is a string and yields it. */
 inline constexpr auto asString = StringConverter{};
+/** @brief Converter instance: validates and decodes a hex-encoded uint256 field into a std::string. */
 inline constexpr auto ledgerHashHex = LedgerHashConverter{};
+/** @brief Converter instance: decodes a ledger_index field into an optional uint32 (nullopt for sentinel strings). */
 inline constexpr auto ledgerIndexOpt = LedgerIndexOptConverter{};
+/** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API semantics). */
 inline constexpr auto jsonBool = JsonBoolConverterT<false>{};
+/** @brief Converter instance: strict bool converter (field must be a JSON bool; V2 API semantics). */
 inline constexpr auto jsonBoolStrict = JsonBoolConverterT<true>{};
 // NOLINTEND(readability-identifier-naming)
 

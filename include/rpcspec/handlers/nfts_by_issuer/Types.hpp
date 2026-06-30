@@ -23,7 +23,7 @@ struct Input {
     std::optional<std::string> ledgerHash;
     std::optional<uint32_t> ledgerIndex;
     std::optional<xrpl::uint256> marker;
-    uint32_t limit = kLimitDefault;  ///< Clamped to [kLimitMin, kLimitMax]
+    uint32_t limit = kLimitDefault;  /**< Clamped to [kLimitMin, kLimitMax] */
 };
 
 } // namespace rpc::spec::handlers::nfts_by_issuer

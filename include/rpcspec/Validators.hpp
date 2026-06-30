@@ -31,6 +31,11 @@
 
 namespace rpc::spec {
 
+/**
+ * @brief Verifies that a field is present in the request.
+ *
+ * Returns `RpcInvalidParams` with a descriptive message if the field is absent.
+ */
 struct Required {
     static constexpr std::string_view kName = "required";
 
@@ -48,6 +53,17 @@ struct Required {
     }
 };
 
+/**
+ * @brief Validates that a present field's JSON type matches the specified C++ type(s).
+ *
+ * The single-type specialisations (`int64_t`, `bool`, `std::string`, `double`, `uint32_t`,
+ * `JsonObject`, `JsonArray`) each accept a field whose JSON representation corresponds to
+ * that type. The multi-type specialisation `Type<T1, T2, Rest...>` uses OR semantics: the
+ * field is accepted when it matches any one of the listed types. Absent fields are always
+ * accepted (use `Required` first if presence is mandatory). Failures return `RpcInvalidParams`.
+ *
+ * @tparam Ts One or more C++ types to check against. Two or more types enable OR semantics.
+ */
 template <typename... Ts>
 struct Type;
 
@@ -241,6 +257,14 @@ struct Type<T1, T2, Rest...> {
     }
 };
 
+/**
+ * @brief Validates that a numeric field's value is at least `bound` (inclusive).
+ *
+ * Silently passes if the field is absent or has a mismatched type (pair with `Type<T>`).
+ * Returns `RpcInvalidParams` when the value is strictly less than the bound.
+ *
+ * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
+ */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Min {
@@ -290,6 +314,13 @@ struct Min {
 template <typename T>
 Min(T) -> Min<T>;
 
+/**
+ * @brief Modifier that clamps a numeric field's value to the closed interval `[lo, hi]`.
+ *
+ * Mutates the field in-place. Silently skips absent fields or type mismatches.
+ *
+ * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
+ */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Clamp {
@@ -334,6 +365,15 @@ struct Clamp {
 template <typename T>
 Clamp(T, T) -> Clamp<T>;
 
+/**
+ * @brief Modifier that clamps an `int64_t` or `uint32_t` field to the representable range of `Target`.
+ *
+ * Useful for safely narrowing a wider integer field to a smaller integral type before
+ * downstream processing. Negative values are floored to zero for unsigned `Target` types.
+ * Silently skips absent fields and non-integer fields.
+ *
+ * @tparam Target A non-bool integral type whose min/max define the clamping bounds.
+ */
 template <typename Target>
     requires std::integral<Target> && (!std::is_same_v<Target, bool>)
 struct ClampAs {
@@ -381,6 +421,11 @@ struct ClampAs {
     }
 };
 
+/**
+ * @brief Emits a `WarnRpcDeprecated` warning when a deprecated field is present.
+ *
+ * Does not reject the request; the warning is advisory only.
+ */
 struct Deprecated {
     static constexpr std::string_view kName = "deprecated";
 
@@ -399,6 +444,12 @@ struct Deprecated {
     }
 };
 
+/**
+ * @brief Validates that a field is a well-formed XRPL account string (base58 or hex).
+ *
+ * Returns `RpcInvalidParams` with `<key>NotString` if the field is not a string, or
+ * `RpcActMalformed` with `<key>Malformed` if the string cannot be parsed as an account.
+ */
 struct AccountFormat {
     static constexpr std::string_view kName = "account";
 
@@ -422,6 +473,12 @@ struct AccountFormat {
     }
 };
 
+/**
+ * @brief Validates that a string field matches a specific UTC datetime format.
+ *
+ * The expected format pattern is provided at construction time (e.g. `"%Y-%m-%dT%H:%M:%S"`).
+ * Returns `RpcInvalidParams` if the field is not a string or does not parse against the format.
+ */
 class TimeFormatValidator final {
     std::string_view format_;
 
@@ -453,6 +510,12 @@ public:
     }
 };
 
+/**
+ * @brief Returns true if the entire string view represents a valid `uint32_t` decimal number.
+ *
+ * @param sv The string view to test.
+ * @return `true` when `sv` is parseable as a `uint32_t` with no trailing characters.
+ */
 [[nodiscard]] inline bool
 checkIsU32Numeric(std::string_view sv)
 {
@@ -461,6 +524,14 @@ checkIsU32Numeric(std::string_view sv)
     return ec == std::errc();
 }
 
+/**
+ * @brief Validates that a string field is a valid hex encoding of a fixed-width XRPL uint type.
+ *
+ * Accepted `HexType` values are `xrpl::uint160`, `xrpl::uint192`, and `xrpl::uint256`.
+ * Returns `RpcInvalidParams` if the field is not a string or the hex parse fails.
+ *
+ * @tparam HexType The fixed-width XRPL unsigned integer type to parse against.
+ */
 template <typename HexType>
     requires(
         std::is_same_v<HexType, xrpl::uint160> || std::is_same_v<HexType, xrpl::uint192> ||
@@ -500,10 +571,28 @@ struct HexStringValidator {
     }
 };
 
+/**
+ * @brief Convenience alias for `HexStringValidator<xrpl::uint256>`.
+ */
 using Uint256HexStringValidator = HexStringValidator<xrpl::uint256>;
+
+/**
+ * @brief Convenience alias for `HexStringValidator<xrpl::uint192>`.
+ */
 using Uint192HexStringValidator = HexStringValidator<xrpl::uint192>;
+
+/**
+ * @brief Convenience alias for `HexStringValidator<xrpl::uint160>`.
+ */
 using Uint160HexStringValidator = HexStringValidator<xrpl::uint160>;
 
+/**
+ * @brief Validates that a field is an acceptable ledger index specifier.
+ *
+ * Accepts an integer (`int64_t` or `uint32_t`), the sentinel strings `"validated"`,
+ * `"closed"`, `"current"`, or a string containing a decimal `uint32_t`. Returns
+ * `RpcInvalidParams` for any other value.
+ */
 struct LedgerIndexValidator {
     static constexpr std::string_view kName = "ledgerIndex";
 
@@ -528,6 +617,12 @@ struct LedgerIndexValidator {
     }
 };
 
+/**
+ * @brief Validates that a string field is a non-zero base58-encoded XRPL `AccountID`.
+ *
+ * Returns `RpcInvalidParams` if the field is not a string, or `RpcMalformedAddress`
+ * if the base58 decode fails or yields the zero account.
+ */
 struct AccountBase58Validator {
     static constexpr std::string_view kName = "accountBase58";
 
@@ -550,6 +645,12 @@ struct AccountBase58Validator {
     }
 };
 
+/**
+ * @brief Validates that a string field is a recognised XRPL currency code.
+ *
+ * Returns `RpcInvalidParams` for non-string or empty values, and `RpcMalformedCurrency`
+ * when `xrpl::toCurrency` cannot parse the string.
+ */
 struct CurrencyValidator {
     static constexpr std::string_view kName = "currency";
 
@@ -580,6 +681,12 @@ struct CurrencyValidator {
     }
 };
 
+/**
+ * @brief Validates that a string field is a valid, non-`noAccount` XRPL issuer address.
+ *
+ * Returns `RpcInvalidParams` if the field is not a string, cannot be parsed by
+ * `xrpl::toIssuer`, or resolves to the reserved `noAccount()` sentinel.
+ */
 struct IssuerValidator {
     static constexpr std::string_view kName = "issuer";
 
@@ -611,6 +718,13 @@ struct IssuerValidator {
     }
 };
 
+/**
+ * @brief Validates a JSON object representing a currency/issuer pair.
+ *
+ * Expects an object with a `"currency"` string child. For XRP the `"issuer"` child must
+ * be absent; for non-XRP currencies a valid `"issuer"` string is required. Returns
+ * `RpcMalformedRequest` on any structural or value violation.
+ */
 struct CurrencyIssueValidator {
     static constexpr std::string_view kName = "currencyIssue";
 
@@ -651,6 +765,12 @@ struct CurrencyIssueValidator {
     }
 };
 
+/**
+ * @brief Modifier that converts a string field containing an integer literal to an `int64_t`.
+ *
+ * Only operates when the field is present and is a string. Rejects strings that contain a
+ * decimal point or cannot be fully parsed as `int64_t`, returning `RpcInvalidParams`.
+ */
 struct ToNumberModifier {
     static constexpr std::string_view kName = "toNumber";
 
@@ -674,6 +794,12 @@ struct ToNumberModifier {
     }
 };
 
+/**
+ * @brief Validates that a string field is a non-empty hex-encoded credential type within the maximum allowed length.
+ *
+ * Returns `RpcMalformedAuthorizedCredentials` if the field is not a string, is not valid hex,
+ * is empty after decoding, or exceeds `xrpl::kMaxCredentialTypeLength` bytes.
+ */
 struct CredentialTypeValidator {
     static constexpr std::string_view kName = "credentialType";
 
@@ -712,6 +838,14 @@ struct CredentialTypeValidator {
     }
 };
 
+/**
+ * @brief Validates an array of authorized-credential objects, each containing `"issuer"` and `"credential_type"`.
+ *
+ * Enforces that the field is a non-empty array with at most `xrpl::kMaxCredentialsArraySize`
+ * elements, and that each element is an object passing both `IssuerValidator` and
+ * `CredentialTypeValidator`. Returns `RpcMalformedRequest` or `RpcMalformedAuthorizedCredentials`
+ * on any violation.
+ */
 struct AuthorizeCredentialValidator {
     static constexpr std::string_view kName = "authorizeCredential";
 
@@ -777,6 +911,14 @@ struct AuthorizeCredentialValidator {
     }
 };
 
+/**
+ * @brief Wraps an arbitrary callable as a field validator.
+ *
+ * `fn` is called with the field view when the field is present; absent fields are silently
+ * skipped. The callable must return `MaybeError`.
+ *
+ * @tparam Fn A callable type with signature `MaybeError(FA const&)`.
+ */
 template <typename Fn>
 struct CustomValidator {
     Fn fn;
@@ -798,6 +940,14 @@ struct CustomValidator {
 template <typename Fn>
 CustomValidator(Fn) -> CustomValidator<Fn>;
 
+/**
+ * @brief Wraps an arbitrary callable as a field modifier.
+ *
+ * `fn` is called with a mutable field view when the field is present; absent fields are
+ * silently skipped. The callable must return `MaybeError`.
+ *
+ * @tparam Fn A callable type with signature `MaybeError(FA&)`.
+ */
 template <typename Fn>
 struct CustomModifier {
     Fn fn;
@@ -819,6 +969,11 @@ struct CustomModifier {
 template <typename Fn>
 CustomModifier(Fn) -> CustomModifier<Fn>;
 
+/**
+ * @brief Rejects any request that includes this field, signalling it is not supported.
+ *
+ * Returns `RpcNotSupported` with a descriptive message when the field is present.
+ */
 struct NotSupported {
     static constexpr std::string_view kName = "notSupported";
 
@@ -836,6 +991,14 @@ struct NotSupported {
     }
 };
 
+/**
+ * @brief Rejects the request when a boolean field is present and equals a specific value.
+ *
+ * Returns `RpcNotSupported` only when the field is present, is a boolean, and its value
+ * matches `value`. Absent fields and non-boolean values are silently accepted.
+ *
+ * @tparam T Must be `bool` (enforced by constraint).
+ */
 template <typename T>
     requires(std::is_same_v<T, bool>)
 struct NotSupportedIfEqual {
@@ -875,6 +1038,14 @@ struct NotSupportedIfEqual {
 template <typename T>
 NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
 
+/**
+ * @brief Validates that a string field's value is one of a compile-time set of allowed strings.
+ *
+ * Returns `RpcInvalidParams` if the field is not a string or does not match any entry in
+ * `values`. Absent fields are silently accepted.
+ *
+ * @tparam N Number of allowed string values in the set.
+ */
 template <std::size_t N>
 struct OneOfValidator {
     static constexpr std::string_view kName = "oneOf";
@@ -906,6 +1077,11 @@ struct OneOfValidator {
     }
 };
 
+/**
+ * @brief Modifier that converts a string field's value to lowercase in-place.
+ *
+ * Silently skips absent fields and non-string fields.
+ */
 struct ToLowerModifier {
     static constexpr std::string_view kName = "toLower";
 
@@ -925,6 +1101,14 @@ struct ToLowerModifier {
     }
 };
 
+/**
+ * @brief Validates that a numeric field's value falls within the closed interval `[lo, hi]`.
+ *
+ * Returns `RpcInvalidParams` when the value is outside the range. Absent fields and
+ * type mismatches are silently accepted (pair with `Type<T>` as needed).
+ *
+ * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
+ */
 template <typename T>
     requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
 struct Between {
@@ -975,6 +1159,12 @@ struct Between {
 template <typename T>
 Between(T, T) -> Between<T>;
 
+/**
+ * @brief Validates that a field is an array of valid `uint256` hex-encoded strings.
+ *
+ * Returns `RpcInvalidParams` if the field is not an array, or if any element is not a
+ * string or fails `xrpl::uint256::parseHex`.
+ */
 struct Hex256ArrayValidator {
     static constexpr std::string_view kName = "hex256Array";
 
@@ -1007,6 +1197,12 @@ struct Hex256ArrayValidator {
     }
 };
 
+/**
+ * @brief Validates an account-pagination marker in the format `"<uint256hex>,<uint64>"`.
+ *
+ * The string must contain a comma separating a valid `uint256` hex prefix from a decimal
+ * `uint64` page-hint suffix. Returns `RpcInvalidParams` for any structural or parse failure.
+ */
 struct AccountMarkerValidator {
     static constexpr std::string_view kName = "accountMarker";
 
@@ -1045,6 +1241,12 @@ struct AccountMarkerValidator {
     }
 };
 
+/**
+ * @brief Validates that a string field names a recognised account-owned ledger object type.
+ *
+ * Returns `RpcInvalidParams` if the field is not a string or the string does not map to a
+ * known ledger type (i.e. would resolve to `xrpl::ltANY`).
+ */
 struct AccountTypeValidator {
     static constexpr std::string_view kName = "accountType";
 
@@ -1071,6 +1273,12 @@ struct AccountTypeValidator {
     }
 };
 
+/**
+ * @brief Validates that a string field names a recognised ledger entry type.
+ *
+ * Returns `RpcInvalidParams` if the field is not a string or the string does not map to a
+ * known ledger entry type (i.e. would resolve to `xrpl::ltANY`).
+ */
 struct LedgerEntryTypeValidator {
     static constexpr std::string_view kName = "ledgerType";
 

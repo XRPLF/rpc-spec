@@ -35,11 +35,34 @@
 
 namespace rpc::spec {
 
+/**
+ * @brief Applies a set of validators only when compiled for the Clio server.
+ *
+ * In rippled builds every member function is a no-op that returns success, so
+ * the inner validators are entirely elided. The struct satisfies whichever of
+ * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
+ * one of the inner validators @p Vs.
+ *
+ * Use the `ifServerClio()` factory alias rather than constructing this directly.
+ *
+ * @tparam Vs Processor types whose constraints are applied in Clio builds.
+ */
 template <typename... Vs> struct IfServerClioValidator {
   std::tuple<Vs...> inners;
 
+  /**
+   * @brief Constructs the validator with the given set of inner processors.
+   *
+   * @param vs Inner processors to run in Clio builds.
+   */
   consteval explicit IfServerClioValidator(Vs... vs) : inners(vs...) {}
 
+  /**
+   * @brief Runs the inner requirements in Clio builds; always succeeds in rippled builds.
+   *
+   * @param f  Field view for the field under validation.
+   * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (Clio only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] MaybeError verify([[maybe_unused]] FA const &f) const
     requires(SomeRequirement<Vs> || ...)
@@ -64,6 +87,12 @@ template <typename... Vs> struct IfServerClioValidator {
 #endif
   }
 
+  /**
+   * @brief Runs the inner checkers in Clio builds; always returns no warning in rippled builds.
+   *
+   * @param f  Field view for the field under checking.
+   * @return   The first warning produced by an inner checker, or `std::nullopt` (Clio only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] std::optional<Warning> check([[maybe_unused]] FA const &f) const
     requires(SomeCheck<Vs> || ...)
@@ -87,6 +116,12 @@ template <typename... Vs> struct IfServerClioValidator {
 #endif
   }
 
+  /**
+   * @brief Runs the inner modifiers in Clio builds; always succeeds in rippled builds.
+   *
+   * @param f  Mutable field view for the field under modification.
+   * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (Clio only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] MaybeError modify([[maybe_unused]] FA &f) const
     requires(SomeModifier<Vs> || ...)
@@ -112,11 +147,34 @@ template <typename... Vs> struct IfServerClioValidator {
   }
 };
 
+/**
+ * @brief Applies a set of validators only when compiled for the rippled server.
+ *
+ * In Clio builds every member function is a no-op that returns success, so
+ * the inner validators are entirely elided. The struct satisfies whichever of
+ * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
+ * one of the inner validators @p Vs.
+ *
+ * Use the `ifServerRippled()` factory alias rather than constructing this directly.
+ *
+ * @tparam Vs Processor types whose constraints are applied in rippled builds.
+ */
 template <typename... Vs> struct IfServerRippledValidator {
   std::tuple<Vs...> inners;
 
+  /**
+   * @brief Constructs the validator with the given set of inner processors.
+   *
+   * @param vs Inner processors to run in rippled builds.
+   */
   consteval explicit IfServerRippledValidator(Vs... vs) : inners(vs...) {}
 
+  /**
+   * @brief Runs the inner requirements in rippled builds; always succeeds in Clio builds.
+   *
+   * @param f  Field view for the field under validation.
+   * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (rippled only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] MaybeError verify([[maybe_unused]] FA const &f) const
     requires(SomeRequirement<Vs> || ...)
@@ -141,6 +199,12 @@ template <typename... Vs> struct IfServerRippledValidator {
 #endif
   }
 
+  /**
+   * @brief Runs the inner checkers in rippled builds; always returns no warning in Clio builds.
+   *
+   * @param f  Field view for the field under checking.
+   * @return   The first warning produced by an inner checker, or `std::nullopt` (rippled only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] std::optional<Warning> check([[maybe_unused]] FA const &f) const
     requires(SomeCheck<Vs> || ...)
@@ -164,6 +228,12 @@ template <typename... Vs> struct IfServerRippledValidator {
 #endif
   }
 
+  /**
+   * @brief Runs the inner modifiers in rippled builds; always succeeds in Clio builds.
+   *
+   * @param f  Mutable field view for the field under modification.
+   * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (rippled only).
+   */
   template <SomeFieldView FA>
   [[nodiscard]] MaybeError modify([[maybe_unused]] FA &f) const
     requires(SomeModifier<Vs> || ...)

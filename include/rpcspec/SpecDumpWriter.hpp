@@ -31,18 +31,24 @@ public:
     {
     }
 
+    /** @brief Increase the current indentation level by one step. */
     void
     push() noexcept
     {
         ++indent_;
     }
 
+    /** @brief Decrease the current indentation level by one step. */
     void
     pop() noexcept
     {
         --indent_;
     }
 
+    /**
+     * @brief Return the underlying output stream.
+     * @return A reference to the stream passed at construction.
+     */
     [[nodiscard]] std::ostream&
     stream() const noexcept
     {
@@ -126,6 +132,13 @@ public:
         *os_ << "]\n";
     }
 
+    /**
+     * @brief Emit a "key: [a, b, c]" parameter line from a brace-enclosed initializer list.
+     *
+     * @tparam T The element type of the initializer list.
+     * @param key The parameter name to emit.
+     * @param values The values to format as an inline list.
+     */
     template <typename T>
     void
     paramList(std::string_view key, std::initializer_list<T> values)

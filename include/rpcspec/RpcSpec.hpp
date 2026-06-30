@@ -102,22 +102,53 @@ template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
 
 } // namespace impl
 
+/**
+ * @brief Compile-time RPC request validator composed of typed field specs.
+ *
+ * Holds a heterogeneous tuple of `FieldSpec` entries (and compatible field
+ * types). On `process()` each field's requirements and modifiers run in
+ * declaration order using last-wins override semantics for duplicate keys.
+ * Build instances via the `spec()` / `extend()` / `field()` factories.
+ *
+ * @tparam Fields Zero or more field types (e.g. `FieldSpec<...>`).
+ */
 template <typename... Fields> struct RpcSpec {
   using FieldsTuple = std::tuple<Fields...>;
   FieldsTuple fields;
 
   consteval RpcSpec(Fields... f) : fields{f...} {}
 
+  /**
+   * @brief Validate @p root, running all field requirements and modifiers.
+   *
+   * @tparam Root An object-view type satisfying `SomeObjectView`.
+   * @param root  Mutable root object view (modifiers may write back into it).
+   * @return An error on the first failing field; empty on success.
+   */
   template <SomeObjectView Root>
   [[nodiscard]] MaybeError process(Root &root) const {
     return impl::process(fields, root, std::index_sequence_for<Fields...>{});
   }
 
+  /**
+   * @brief Collect all warnings emitted by check items across all fields.
+   *
+   * @tparam Root An object-view type satisfying `SomeObjectView`.
+   * @param root  Const root object view.
+   * @return All warnings produced by check items.
+   */
   template <SomeObjectView Root>
   [[nodiscard]] Warnings check(Root const &root) const {
     return impl::check(fields, root, std::index_sequence_for<Fields...>{});
   }
 
+  /**
+   * @brief `process()` overload accepting any value constructible into an `ObjectView`.
+   *
+   * @tparam V A value type convertible to `ObjectView` (e.g. `boost::json::value`).
+   * @param v  Mutable value to validate.
+   * @return An error on the first failing field; empty on success.
+   */
   template <typename V>
     requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V &>
   [[nodiscard]] MaybeError process(V &v) const {
@@ -125,6 +156,13 @@ template <typename... Fields> struct RpcSpec {
     return process(root);
   }
 
+  /**
+   * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+   *
+   * @tparam V A value type convertible to `ObjectView const`.
+   * @param v  Const value to check.
+   * @return All warnings produced by check items.
+   */
   template <typename V>
     requires(!SomeObjectView<V>) &&
             std::constructible_from<ObjectView, V const &>
@@ -136,6 +174,18 @@ template <typename... Fields> struct RpcSpec {
 
 template <typename... Fs> RpcSpec(Fs...) -> RpcSpec<Fs...>;
 
+/**
+ * @brief Derive a new `RpcSpec` from @p base by appending extra fields.
+ *
+ * Fields with duplicate keys follow last-wins override semantics, so @p extra
+ * fields can retighten or replace base fields without removing them explicitly.
+ *
+ * @tparam Existing Field types of the base spec.
+ * @tparam Extra    Additional field types to append.
+ * @param base  The spec to extend.
+ * @param extra Additional fields appended after the base fields.
+ * @return A new `RpcSpec` combining base and extra fields.
+ */
 template <typename... Existing, typename... Extra>
 [[nodiscard]] consteval auto extend(RpcSpec<Existing...> const &base,
                                     Extra... extra) {
@@ -144,6 +194,15 @@ template <typename... Existing, typename... Extra>
       base.fields);
 }
 
+/**
+ * @brief Convenience `operator+` alias for `extend(base, extra)`.
+ *
+ * @tparam Existing Field types of the base spec.
+ * @tparam NewItems Item types of the extra `FieldSpec`.
+ * @param base  The spec to extend.
+ * @param extra A single `FieldSpec` to append.
+ * @return A new `RpcSpec` with @p extra appended.
+ */
 template <typename... Existing, typename... NewItems>
 [[nodiscard]] consteval auto operator+(RpcSpec<Existing...> const &base,
                                        FieldSpec<NewItems...> extra) {

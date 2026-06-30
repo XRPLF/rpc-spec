@@ -40,6 +40,12 @@ class RpcSpecView {
   void (*dumpImpl_)(void const *, SpecDumpWriter &);
 
 public:
+  /**
+   * @brief Construct a view over an `RpcSpec`.
+   *
+   * @tparam Fields The field types of the spec.
+   * @param spec    The `RpcSpec` to wrap; must outlive this view.
+   */
   template <typename... Fields>
   // NOLINTNEXTLINE(google-explicit-constructor)
   constexpr RpcSpecView(RpcSpec<Fields...> const &spec) noexcept
@@ -53,8 +59,17 @@ public:
           dumpRpcSpec(w, *static_cast<RpcSpec<Fields...> const *>(s));
         }} {}
 
-  // process() is a no-op: a TypedSpec validates in its own parse() (run by the
-  // handler's parseInput); only check() and dump() delegate here.
+  /**
+   * @brief Construct a view over a `TypedSpec`.
+   *
+   * `process()` on the resulting view is a no-op: a `TypedSpec` validates
+   * entirely inside its own `parse()` (invoked by the handler's `parseInput`).
+   * Only `check()` and `dump()` delegate to the underlying spec.
+   *
+   * @tparam InputT  The handler Input struct of the spec.
+   * @tparam Fields  The field types of the spec.
+   * @param spec     The `TypedSpec` to wrap; must outlive this view.
+   */
   template <typename InputT, typename... Fields>
   // NOLINTNEXTLINE(google-explicit-constructor)
   constexpr RpcSpecView(TypedSpec<InputT, Fields...> const &spec) noexcept
@@ -68,16 +83,41 @@ public:
           static_cast<TypedSpec<InputT, Fields...> const *>(s)->dump(w);
         }} {}
 
+  /**
+   * @brief Validate @p root by delegating to the underlying spec's `process()`.
+   *
+   * @param root  Mutable root object view.
+   * @return An error on the first failing field; empty on success (or always
+   *         empty when wrapping a `TypedSpec`).
+   */
   [[nodiscard]] MaybeError process(ObjectView &root) const {
     return processImpl_(self_, root);
   }
 
+  /**
+   * @brief Collect warnings by delegating to the underlying spec's `check()`.
+   *
+   * @param root  Const root object view.
+   * @return All warnings produced by check items.
+   */
   [[nodiscard]] Warnings check(ObjectView const &root) const {
     return checkImpl_(self_, root);
   }
 
+  /**
+   * @brief Render the spec schema into @p w.
+   *
+   * @param w  The `SpecDumpWriter` receiving the schema output.
+   */
   void dump(SpecDumpWriter &w) const { dumpImpl_(self_, w); }
 
+  /**
+   * @brief `process()` overload accepting any value constructible into an `ObjectView`.
+   *
+   * @tparam V A mutable value type convertible to `ObjectView`.
+   * @param v  Mutable value to validate.
+   * @return An error on the first failing field; empty on success.
+   */
   template <typename V>
     requires(!std::same_as<V, ObjectView>) &&
             std::constructible_from<ObjectView, V &>
@@ -86,6 +126,13 @@ public:
     return processImpl_(self_, root);
   }
 
+  /**
+   * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+   *
+   * @tparam V A value type convertible to `ObjectView const`.
+   * @param v  Const value to check.
+   * @return All warnings produced by check items.
+   */
   template <typename V>
     requires(!std::same_as<V, ObjectView>) &&
             std::constructible_from<ObjectView, V const &>
@@ -95,6 +142,7 @@ public:
   }
 };
 
+/** @brief Backward-compatible alias for `RpcSpecView`. */
 using RpcSpecConstRef = RpcSpecView;
 
 } // namespace rpc::spec

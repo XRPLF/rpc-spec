@@ -38,9 +38,21 @@ class BoostJsonFieldView {
   std::string_view key_;
 
 public:
+  /**
+   * @brief Construct a mutable view: both read and write access are enabled.
+   *
+   * @param v Pointer to the JSON value (may be null when the field is absent).
+   * @param k The field key, used in error messages and as the view's identity.
+   */
   BoostJsonFieldView(boost::json::value *v, std::string_view k) noexcept
       : readValue_{v}, writeValue_{v}, key_{k} {}
 
+  /**
+   * @brief Construct a read-only view: write access is disabled.
+   *
+   * @param v Pointer to the const JSON value (may be null when the field is absent).
+   * @param k The field key, used in error messages and as the view's identity.
+   */
   BoostJsonFieldView(boost::json::value const *v, std::string_view k) noexcept
       : readValue_{v}, writeValue_{nullptr}, key_{k} {}
 
@@ -115,9 +127,16 @@ public:
     return readValue_->as_array().size();
   }
 
-  // Returns a FieldView for a named sub-field within this field (must be an
-  // object). If this field is absent, not an object, or the child key is not
-  // found, returns an absent FA.
+  /**
+   * @brief Return a view for a named sub-field within this field (must be an object).
+   *
+   * If this field is absent, not an object, or `childKey` is not found, returns
+   * an absent view. Mutable access propagates from the parent: if this view was
+   * constructed from a mutable value, the child view is also mutable.
+   *
+   * @param childKey The key of the sub-field to look up.
+   * @return A BoostJsonFieldView for the named child, possibly absent.
+   */
   [[nodiscard]] BoostJsonFieldView
   child(std::string_view childKey) const noexcept {
     if (writeValue_ != nullptr && writeValue_->is_object()) {
@@ -136,9 +155,15 @@ public:
     return {&it->value(), childKey};
   }
 
-  // Returns a FieldView for an element within this field (must be an array).
-  // If this field is absent, not an array, or idx is out of bounds, returns an
-  // absent FA. The child FA inherits the parent key for error message context.
+  /**
+   * @brief Return a view for an element within this field (must be an array).
+   *
+   * If this field is absent, not an array, or `idx` is out of bounds, returns
+   * an absent view. The returned view inherits the parent key for error context.
+   *
+   * @param idx Zero-based index of the array element to look up.
+   * @return A BoostJsonFieldView for the element, possibly absent.
+   */
   [[nodiscard]] BoostJsonFieldView element(std::size_t idx) const noexcept {
     if (writeValue_ != nullptr && writeValue_->is_array()) {
       auto &arr = writeValue_->as_array();
@@ -154,6 +179,16 @@ public:
     return {&arr[idx], key_};
   }
 
+  /**
+   * @brief Type-dispatch predicate: returns true if the field holds a value of type @p T.
+   *
+   * Supported type arguments: `int64_t`, `uint32_t`, `bool`, `std::string`,
+   * `double`, `JsonObject`, `JsonArray`. Any other instantiation is a hard
+   * compile-time error.
+   *
+   * @tparam T The JSON value type to test.
+   * @return true if the field is present and holds a value of type @p T.
+   */
   template <typename T> [[nodiscard]] bool is() const noexcept {
     if constexpr (std::is_same_v<T, int64_t>) {
       return isInt64();
@@ -174,17 +209,22 @@ public:
     }
   }
 
+  /** @brief Overwrite the field value with a signed 64-bit integer. @param v The new value. */
   void set(int64_t v) { *writeValue_ = v; }
 
+  /** @brief Overwrite the field value with an unsigned 32-bit integer (stored as uint64 in boost::json). @param v The new value. */
   void set(uint32_t v) {
     *writeValue_ =
         static_cast<uint64_t>(v); // boost::json stores unsigned as uint64
   }
 
+  /** @brief Overwrite the field value with a string. @param v The new value. */
   void set(std::string_view v) { *writeValue_ = boost::json::string{v}; }
 
+  /** @brief Overwrite the field value with a boolean. @param v The new value. */
   void set(bool v) { *writeValue_ = v; }
 
+  /** @brief Overwrite the field value with a double. @param v The new value. */
   void set(double v) { *writeValue_ = v; }
 };
 
@@ -203,9 +243,17 @@ class BoostJsonObjectView {
   boost::json::value *writeValue_;
 
 public:
+  /**
+   * @brief Construct a mutable object view from a JSON value.
+   * @param v The mutable JSON value representing the document root.
+   */
   explicit BoostJsonObjectView(boost::json::value &v) noexcept
       : readValue_{&v}, writeValue_{&v} {}
 
+  /**
+   * @brief Construct a read-only object view from a const JSON value.
+   * @param v The const JSON value representing the document root.
+   */
   explicit BoostJsonObjectView(boost::json::value const &v) noexcept
       : readValue_{&v}, writeValue_{nullptr} {}
 
@@ -215,6 +263,14 @@ public:
 
   [[nodiscard]] bool isArray() const noexcept { return readValue_->is_array(); }
 
+  /**
+   * @brief Return a mutable field view for a named key in the root object.
+   *
+   * Returns an absent view if the root is not an object or the key is not found.
+   *
+   * @param key The field name to look up.
+   * @return A mutable BoostJsonFieldView for the named field, possibly absent.
+   */
   [[nodiscard]] BoostJsonFieldView child(std::string_view key) noexcept {
     if (writeValue_ != nullptr && writeValue_->is_object()) {
       auto &obj = writeValue_->as_object();
@@ -224,6 +280,14 @@ public:
     return BoostJsonFieldView{static_cast<boost::json::value *>(nullptr), key};
   }
 
+  /**
+   * @brief Return a read-only field view for a named key in the root object.
+   *
+   * Returns an absent view if the root is not an object or the key is not found.
+   *
+   * @param key The field name to look up.
+   * @return A read-only BoostJsonFieldView for the named field, possibly absent.
+   */
   [[nodiscard]] BoostJsonFieldView child(std::string_view key) const noexcept {
     if (readValue_->is_object()) {
       auto const &obj = readValue_->as_object();
@@ -240,7 +304,15 @@ static_assert(SomeObjectView<BoostJsonObjectView>);
 // Backend-selection aliases. Change these to swap JSON libraries — the spec
 // system (RpcSpec, FieldSpec, Validators, Section) is templated on the concepts
 // above and is otherwise independent of any concrete JSON type.
+
+/**
+ * @brief Active FieldView backend. Swap the alias here to change the JSON library.
+ */
 using FieldView = BoostJsonFieldView;
+
+/**
+ * @brief Active ObjectView backend. Swap the alias here to change the JSON library.
+ */
 using ObjectView = BoostJsonObjectView;
 
 } // namespace rpc::spec
