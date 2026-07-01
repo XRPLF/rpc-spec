@@ -874,7 +874,12 @@ struct CredentialTypeValidator
                 rpc::ClioError::RpcMalformedAuthorizedCredentials,
                 std::string{f.key()} + " NotString"}};
         }
-        auto const decoded = xrpl::strViewUnHex(f.asString());
+        // Materialise a std::string so this compiles against both libxrpl versions:
+        // newer libxrpl exposes strUnHex(std::string_view) (accepts a std::string via
+        // conversion), while the older one Clio still pins exposes
+        // strUnHex(std::string const&) (binds a std::string directly). Passing the
+        // string_view from asString() directly would fail against the older overload.
+        auto const decoded = xrpl::strUnHex(std::string{f.asString()});
         if (!decoded)
         {
             return std::unexpected{rpc::Status{
