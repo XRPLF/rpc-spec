@@ -7,6 +7,7 @@
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/tx/Types.hpp>
 
 #include <algorithm>
@@ -52,5 +53,15 @@ inline constexpr auto kInputSpecV2 =
 
 inline constexpr auto& kSpecV1 = kInputSpecV1;
 inline constexpr auto& kSpecV2 = kInputSpecV2;
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::tx

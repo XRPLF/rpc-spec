@@ -11,6 +11,7 @@
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/nft_history/Types.hpp>
 
 #include <charconv>
@@ -108,5 +109,15 @@ inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
     field("binary", &Input::binary, jsonBoolStrict),
     field("forward", &Input::forward, jsonBoolStrict));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::nft_history

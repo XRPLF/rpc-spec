@@ -12,6 +12,7 @@
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/subscribe/Types.hpp>
 
@@ -126,6 +127,8 @@ struct StreamsValidator
     [[nodiscard]] MaybeError
     verify(FA const& f) const
     {
+        if (!f.present())
+            return {};
         if (!f.isArray())
         {
             return std::unexpected{rpc::Status{
@@ -481,9 +484,7 @@ struct SubscribeBooksConverter
             }
 
             ob.book = xrpl::Book{
-                .in = xrpl::Issue{.currency = payCurrency, .account = payIssuer},
-                .out = xrpl::Issue{.currency = getCurrency, .account = getIssuer},
-                .domain = domainID};
+                xrpl::Issue{payCurrency, payIssuer}, xrpl::Issue{getCurrency, getIssuer}, domainID};
 
             result.push_back(std::move(ob));
         }
@@ -511,6 +512,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("password") | deprecated,
     field("rt_accounts") | deprecated);
 
-inline constexpr auto kSpec = kInputSpec;
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::subscribe

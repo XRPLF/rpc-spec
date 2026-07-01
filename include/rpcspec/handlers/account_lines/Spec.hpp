@@ -8,6 +8,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
 
@@ -71,5 +72,15 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("marker", &Input::marker, accountMarker, asString),
     field("ledger", deprecated),
     field("peer_index", deprecated));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::account_lines

@@ -10,6 +10,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/nft_info/Types.hpp>
 
 #include <string_view>
@@ -47,6 +48,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("nft_id", &Input::nftID, required, asUint256));
 
-inline constexpr auto& kSpec = kInputSpec;
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::nft_info

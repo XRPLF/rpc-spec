@@ -9,6 +9,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
 
 #include <cstdint>
@@ -68,5 +69,15 @@ inline constexpr auto kInputSpec = spec<Input>(
         &Input::tnxSequence,
         withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest),
         asUint32));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::vault_info

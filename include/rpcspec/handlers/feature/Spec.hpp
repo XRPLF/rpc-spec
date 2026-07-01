@@ -8,6 +8,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/feature/Types.hpp>
 
 namespace rpc::spec::handlers::feature {
@@ -22,5 +23,15 @@ inline constexpr auto kInputSpec = spec<Input>(
             notSupported,
             RippledError::RpcNoPermission,
             "The admin portion of feature API is not available through Clio.")));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::feature

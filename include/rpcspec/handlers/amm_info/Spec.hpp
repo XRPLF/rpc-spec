@@ -11,6 +11,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/amm_info/Types.hpp>
 
 #include <expected>
@@ -98,5 +99,15 @@ inline constexpr auto kInputSpec = spec<Input>(
         issueConv),
     field("amm_account", &Input::ammAccount, accountIdActMalformed),
     field("account", &Input::accountID, accountIdActMalformed));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::amm_info

@@ -12,6 +12,7 @@
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
 #include <cstddef>
@@ -53,5 +54,15 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("source_account", &Input::sourceAccount, required, accountId),
     field("destination_account", &Input::destinationAccount, required, accountId),
     field("credentials", &Input::credentials, hex256Array, credentialsArrayConv));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::deposit_authorized

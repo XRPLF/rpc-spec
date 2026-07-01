@@ -12,6 +12,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/ledger_entry/Types.hpp>
 
@@ -70,10 +71,10 @@ issueFromCurrencyIssue(FA const& fa)
     auto const currency =
         rpc::spec::detail::currencyFromValidated(std::string{fa.child("currency").asString()});
     if (xrpl::isXRP(currency))
-        return xrpl::Issue{.currency = currency, .account = xrpl::AccountID{}};
+        return xrpl::Issue{currency, xrpl::AccountID{}};
     auto const issuer =
         rpc::spec::detail::issuerFromValidated(std::string{fa.child("issuer").asString()});
-    return xrpl::Issue{.currency = currency, .account = issuer};
+    return xrpl::Issue{currency, issuer};
 }
 
 template <typename FA>
@@ -749,7 +750,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("ledger", deprecated),
     field("include_deleted", &Input::includeDeleted, type<bool>, jsonBool));
 
-// kSpec alias kept for backward compatibility if anything references it.
-inline constexpr auto& kSpec = kInputSpec;
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::ledger_entry

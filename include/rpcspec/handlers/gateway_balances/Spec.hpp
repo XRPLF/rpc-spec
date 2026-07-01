@@ -18,6 +18,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/gateway_balances/Types.hpp>
 
@@ -152,5 +153,15 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
 
 inline constexpr auto kInputSpecV2 =
     extend(kInputSpecV1, field("hotwallet", &Input::hotWallets, kHOT_WALLET_V2, hotWalletConv));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::gateway_balances

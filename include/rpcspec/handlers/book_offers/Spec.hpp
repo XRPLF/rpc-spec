@@ -12,6 +12,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/book_offers/Types.hpp>
 
 #include <expected>
@@ -129,5 +130,15 @@ inline constexpr auto kInputSpec = spec<Input>(
             "Unable to parse domain."),
         withCustomError(uint256Hex, RippledError::RpcDomainMalformed, "Unable to parse domain."),
         asString));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::book_offers

@@ -10,6 +10,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
 
 #include <charconv>
@@ -75,5 +76,15 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("strict", deprecated));
 
 inline constexpr auto kInputSpecV2 = kInputSpecV1;
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::account_offers

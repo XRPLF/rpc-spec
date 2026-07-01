@@ -10,6 +10,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Types.hpp>
 
@@ -53,22 +54,6 @@ static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeEr
 
     return {};
 }};
-
-inline constexpr auto kSpec = RpcSpec{
-    field("ledger_hash", uint256Hex),
-    field("ledger_index", ledgerIndex),
-    // validate quoteAsset and base_asset in accordance to the currency code found in XRPL
-    // doc:
-    // https://xrpl.org/docs/references/protocol/data-types/currency-formats#currency-codes
-    // usually Clio returns RpcMalformedCurrency , return InvalidParam here just to mimic
-    // rippled
-    field("base_asset", required, withCustomError(currency, RippledError::RpcInvalidParams)),
-    field("quote_asset", required, withCustomError(currency, RippledError::RpcInvalidParams)),
-    field("oracles", required, kORACLES_VALIDATOR),
-    // note: Unlike `rippled`, Clio only supports UInt as input, no string, no `null`, etc.
-    field("time_threshold", type<uint32_t>),
-    field("trim", type<uint32_t>, between(uint32_t{1}, uint32_t{25})),
-};
 
 struct OraclesConverter
 {
@@ -156,5 +141,15 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("oracles", &Input::oracles, required, kORACLES_VALIDATOR, oraclesConv),
     field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),
     field("trim", &Input::trim, type<uint32_t>, between(uint32_t{1}, uint32_t{25}), uint8Conv));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::get_aggregate_price

@@ -8,6 +8,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
 
@@ -90,5 +91,15 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("type", &Input::type, ledgerEntryTypeConv),
     field("ledger", deprecated)  // validate-only: emits a deprecation warning, not stored
 );
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::ledger_data

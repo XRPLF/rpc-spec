@@ -6,6 +6,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/ledger/Types.hpp>
 
 namespace rpc::spec::handlers::ledger {
@@ -38,5 +39,15 @@ inline constexpr auto kInputSpecV2 = extend(
     field("binary", &Input::binary, jsonBoolStrict),
     field("owner_funds", &Input::ownerFunds, jsonBoolStrict),
     field("diff", &Input::diff, jsonBoolStrict));
+
+/** @brief Version-selecting spec for 'ledger' (V1, V2+). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
 
 }  // namespace rpc::spec::handlers::ledger
