@@ -31,12 +31,12 @@ struct Marker
  */
 struct Input
 {
-    xrpl::uint256 nftID;
     // You must use at least one of the following fields in your request:
     // ledger_index, ledger_hash, ledger_index_min, or ledger_index_max.
     // `ledger` is unspecified when none of ledger_hash/ledger_index is given, so
     // the handler can choose between range mode (min/max) and the default ledger.
     LedgerSpecifier ledger;
+    xrpl::uint256 nftID;
     std::optional<int32_t> ledgerIndexMin;
     std::optional<int32_t> ledgerIndexMax;
     JsonBool binary{false};

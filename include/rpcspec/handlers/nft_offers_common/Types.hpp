@@ -19,8 +19,8 @@ inline constexpr uint32_t kLimitDefault = 250;
  */
 struct Input
 {
-    xrpl::uint256 nftID;
     LedgerSpecifier ledger;
+    xrpl::uint256 nftID;
     uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };

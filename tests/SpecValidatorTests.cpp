@@ -609,7 +609,7 @@ TEST(RpcSpecDSL_NotSupported, PresentFieldFails)
 
 // Rippled side of the server-conditional branch. The Clio side lives in its own
 // executable (SpecServerConditionalTests.cpp, compiled with RPCSPEC_IS_CLIO);
-// together they prove the ifServerClio/ifServerRippled compile-time switch flips.
+// together they prove the ifServerClio/ifServerXrpld compile-time switch flips.
 TEST(RpcSpecDSL_ServerConditional, IfServerClioValidatorIsInertInRippledBuild)
 {
     static constexpr auto kSPEC = RpcSpec{
@@ -619,10 +619,10 @@ TEST(RpcSpecDSL_ServerConditional, IfServerClioValidatorIsInertInRippledBuild)
     EXPECT_TRUE(kSPEC.process(value).has_value());
 }
 
-TEST(RpcSpecDSL_ServerConditional, IfServerRippledValidatorIsApplied)
+TEST(RpcSpecDSL_ServerConditional, IfServerXrpldValidatorIsApplied)
 {
     static constexpr auto kSPEC = RpcSpec{
-        field("rippled_only", ifServerRippled(notSupportedIf(true))),
+        field("rippled_only", ifServerXrpld(notSupportedIf(true))),
     };
     auto bad = boost::json::parse(R"JSON({ "rippled_only": true })JSON");
     auto const r = kSPEC.process(bad);

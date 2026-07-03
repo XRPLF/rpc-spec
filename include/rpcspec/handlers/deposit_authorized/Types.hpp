@@ -17,9 +17,9 @@ namespace rpc::spec::handlers::deposit_authorized {
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     xrpl::AccountID sourceAccount;
     xrpl::AccountID destinationAccount;
-    LedgerSpecifier ledger;
     std::optional<std::vector<xrpl::uint256>> credentials;
 };
 

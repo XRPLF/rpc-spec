@@ -20,9 +20,9 @@ namespace rpc::spec::handlers::account_info {
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     std::optional<xrpl::AccountID> account;
     std::optional<xrpl::AccountID> ident;
-    LedgerSpecifier ledger;
     JsonBool signerLists{false};
 };
 

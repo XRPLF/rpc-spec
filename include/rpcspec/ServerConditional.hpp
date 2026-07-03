@@ -2,12 +2,12 @@
 #pragma once
 // Compile-time server-conditional validator wrappers for the rpcspec DSL.
 //
-// Exactly one of RPCSPEC_IS_CLIO or RPCSPEC_IS_RIPPLED must be defined by the
+// Exactly one of RPCSPEC_IS_CLIO or RPCSPEC_IS_XRPLD must be defined by the
 // consuming project's build system (set automatically via each project's
 // conanfile).
 //
 // ifServerClio(v...)    — applies validators only in Clio builds
-// ifServerRippled(v...) — applies validators only in rippled builds
+// ifServerXrpld(v...) — applies validators only in rippled builds
 //
 // Each wrapper satisfies the union of the inner validators' concepts:
 //   SomeRequirement<IfServerClioValidator<Vs...>>  iff (SomeRequirement<Vs> ||
@@ -19,12 +19,12 @@
 //   field("full", ifServerClio(notSupportedIf(true), deprecated))
 //   field("diff", ifServerClio(type<bool>))
 
-#if !defined(RPCSPEC_IS_CLIO) && !defined(RPCSPEC_IS_RIPPLED)
+#if !defined(RPCSPEC_IS_CLIO) && !defined(RPCSPEC_IS_XRPLD)
 #error \
-    "rpcspec: must define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_RIPPLED=1 (set in your project's conanfile)"
+    "rpcspec: must define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_XRPLD=1 (set in your project's conanfile)"
 #endif
-#if defined(RPCSPEC_IS_CLIO) && defined(RPCSPEC_IS_RIPPLED)
-#error "rpcspec: RPCSPEC_IS_CLIO and RPCSPEC_IS_RIPPLED are mutually exclusive"
+#if defined(RPCSPEC_IS_CLIO) && defined(RPCSPEC_IS_XRPLD)
+#error "rpcspec: RPCSPEC_IS_CLIO and RPCSPEC_IS_XRPLD are mutually exclusive"
 #endif
 
 #include <rpcspec/Concepts.hpp>
@@ -165,12 +165,12 @@ struct IfServerClioValidator
  * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
  * one of the inner validators @p Vs.
  *
- * Use the `ifServerRippled()` factory alias rather than constructing this directly.
+ * Use the `ifServerXrpld()` factory alias rather than constructing this directly.
  *
  * @tparam Vs Processor types whose constraints are applied in rippled builds.
  */
 template <typename... Vs>
-struct IfServerRippledValidator
+struct IfServerXrpldValidator
 {
     std::tuple<Vs...> inners;
 
@@ -179,7 +179,7 @@ struct IfServerRippledValidator
      *
      * @param vs Inner processors to run in rippled builds.
      */
-    consteval explicit IfServerRippledValidator(Vs... vs) : inners(vs...)
+    consteval explicit IfServerXrpldValidator(Vs... vs) : inners(vs...)
     {
     }
 
@@ -195,7 +195,7 @@ struct IfServerRippledValidator
     verify([[maybe_unused]] FA const& f) const
         requires(SomeRequirement<Vs> || ...)
     {
-#if RPCSPEC_IS_RIPPLED
+#if RPCSPEC_IS_XRPLD
         MaybeError result{};
         std::apply(
             [&](auto const&... vs) {
@@ -227,7 +227,7 @@ struct IfServerRippledValidator
     check([[maybe_unused]] FA const& f) const
         requires(SomeCheck<Vs> || ...)
     {
-#if RPCSPEC_IS_RIPPLED
+#if RPCSPEC_IS_XRPLD
         std::optional<Warning> result{};
         std::apply(
             [&](auto const&... vs) {
@@ -258,7 +258,7 @@ struct IfServerRippledValidator
     modify([[maybe_unused]] FA& f) const
         requires(SomeModifier<Vs> || ...)
     {
-#if RPCSPEC_IS_RIPPLED
+#if RPCSPEC_IS_XRPLD
         MaybeError result{};
         std::apply(
             [&](auto const&... vs) {

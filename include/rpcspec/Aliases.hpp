@@ -149,13 +149,13 @@ ifServerClio(Vs... vs)
  *
  * @tparam Vs Processor types to apply conditionally.
  * @param  vs The processors to run in rippled builds.
- * @return    An `IfServerRippledValidator` wrapper.
+ * @return    An `IfServerXrpldValidator` wrapper.
  */
 template <typename... Vs>
 consteval auto
-ifServerRippled(Vs... vs)
+ifServerXrpld(Vs... vs)
 {
-    return IfServerRippledValidator<Vs...>{vs...};
+    return IfServerXrpldValidator<Vs...>{vs...};
 }
 
 // NOLINTBEGIN(readability-identifier-naming)

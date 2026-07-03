@@ -20,8 +20,8 @@ inline constexpr uint32_t kLimitDefault = 100;
  */
 struct Input
 {
-    xrpl::AccountID account;
     LedgerSpecifier ledger;
+    xrpl::AccountID account;
     uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };

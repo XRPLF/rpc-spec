@@ -16,10 +16,10 @@ namespace rpc::spec::handlers::vault_info {
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     std::optional<xrpl::uint256> vaultID;
     std::optional<xrpl::AccountID> owner;
     std::optional<uint32_t> tnxSequence;
-    LedgerSpecifier ledger;
 };
 
 }  // namespace rpc::spec::handlers::vault_info

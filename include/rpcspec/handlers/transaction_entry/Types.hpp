@@ -15,8 +15,8 @@ namespace rpc::spec::handlers::transaction_entry {
  */
 struct Input
 {
-    xrpl::uint256 txHash;
     LedgerSpecifier ledger;
+    xrpl::uint256 txHash;
 };
 
 }  // namespace rpc::spec::handlers::transaction_entry

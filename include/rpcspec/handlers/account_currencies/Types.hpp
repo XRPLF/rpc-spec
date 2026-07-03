@@ -16,8 +16,8 @@ namespace rpc::spec::handlers::account_currencies {
  */
 struct Input
 {
-    xrpl::AccountID account;
     LedgerSpecifier ledger;
+    xrpl::AccountID account;
 };
 
 }  // namespace rpc::spec::handlers::account_currencies

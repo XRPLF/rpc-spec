@@ -21,9 +21,9 @@ inline constexpr uint32_t kLimitDefault = 50;
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     xrpl::AccountID issuer;
     std::optional<uint32_t> nftTaxon;
-    LedgerSpecifier ledger;
     std::optional<xrpl::uint256> marker;
     uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
 };

@@ -1,7 +1,7 @@
 // Clio-backend tests: this translation unit is the only one in its executable
 // (rpcspec_clio_tests), compiled with RPCSPEC_IS_CLIO=1. The two server-backend
 // macros are mutually exclusive within a binary, so this is the ONLY place the
-// Clio branch of ifServerClio() / ifServerRippled() can be exercised. The
+// Clio branch of ifServerClio() / ifServerXrpld() can be exercised. The
 // complementary rippled branch is covered by RpcSpecDSL_ServerConditional in
 // SpecValidatorTests.cpp.
 
@@ -29,7 +29,7 @@ namespace {
 // the second is inert.
 constexpr auto kSPEC = RpcSpec{
     field("clio_only", ifServerClio(notSupportedIf(true))),
-    field("rippled_only", ifServerRippled(notSupportedIf(true))),
+    field("rippled_only", ifServerXrpld(notSupportedIf(true))),
 };
 }  // namespace
 
@@ -47,7 +47,7 @@ TEST(ServerConditionalClio, IfServerClioValidatorAllowsNonTriggeringValue)
     EXPECT_TRUE(kSPEC.process(ok).has_value());
 }
 
-TEST(ServerConditionalClio, IfServerRippledValidatorIsInertInClioBuild)
+TEST(ServerConditionalClio, IfServerXrpldValidatorIsInertInClioBuild)
 {
     auto value = boost::json::parse(R"JSON({ "rippled_only": true })JSON");
     EXPECT_TRUE(kSPEC.process(value).has_value());

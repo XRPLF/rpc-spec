@@ -1,5 +1,5 @@
 # Standalone unit tests. They run against the rippled (xrpl::) backend
-# (RPCSPEC_IS_RIPPLED), but the small libxrpl protocol surface the DSL references
+# (RPCSPEC_IS_XRPLD), but the small libxrpl protocol surface the DSL references
 # is mocked in tests/stubs, so there is no dependency on libxrpl — only gtest and
 # Boost::json (the latter via rpcspec::rpcspec).
 find_package(GTest REQUIRED)
@@ -36,7 +36,7 @@ target_include_directories(rpcspec_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_D
 
 # Select the rippled backend even for a plain `cmake -Drpcspec_tests=ON` build
 # without the Conan toolchain.
-target_compile_definitions(rpcspec_tests PRIVATE RPCSPEC_IS_RIPPLED=1)
+target_compile_definitions(rpcspec_tests PRIVATE RPCSPEC_IS_XRPLD=1)
 
 add_executable(rpcspec_clio_tests SpecServerConditionalTests.cpp StatusPrinter.cpp)
 target_link_libraries(rpcspec_clio_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)

@@ -20,9 +20,9 @@ inline constexpr uint32_t kLimitDefault = 200;
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     xrpl::AccountID account;
     std::optional<xrpl::AccountID> destinationAccount;
-    LedgerSpecifier ledger;
     uint32_t limit = kLimitDefault;
     std::optional<std::string>
         marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);

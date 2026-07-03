@@ -36,10 +36,10 @@ enum class LedgerShortcut { Validated, Current, Closed };
  */
 #if defined(RPCSPEC_IS_CLIO)
 inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Validated;
-#elif defined(RPCSPEC_IS_RIPPLED)
+#elif defined(RPCSPEC_IS_XRPLD)
 inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Current;
 #else
-#error "rpcspec: define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_RIPPLED=1 (the server backend macro)"
+#error "rpcspec: define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_XRPLD=1 (the server backend macro)"
 #endif
 
 /**

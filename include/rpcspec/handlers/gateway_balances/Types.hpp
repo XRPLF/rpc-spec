@@ -17,9 +17,9 @@ namespace rpc::spec::handlers::gateway_balances {
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     xrpl::AccountID account;
     std::set<xrpl::AccountID> hotWallets;
-    LedgerSpecifier ledger;
 };
 
 }  // namespace rpc::spec::handlers::gateway_balances

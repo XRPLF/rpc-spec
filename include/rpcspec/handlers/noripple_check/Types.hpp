@@ -20,9 +20,9 @@ inline constexpr uint32_t kLimitDefault = 300;
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     xrpl::AccountID account;
     bool roleGateway = false;
-    LedgerSpecifier ledger;
     uint32_t limit = kLimitDefault;
     bool transactions = false;
 };

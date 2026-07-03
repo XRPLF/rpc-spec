@@ -17,11 +17,11 @@ namespace rpc::spec::handlers::amm_info {
  */
 struct Input
 {
+    LedgerSpecifier ledger;
     std::optional<xrpl::AccountID> accountID;
     std::optional<xrpl::AccountID> ammAccount;
     xrpl::Issue issue1 = xrpl::noIssue();
     xrpl::Issue issue2 = xrpl::noIssue();
-    LedgerSpecifier ledger;
 };
 
 }  // namespace rpc::spec::handlers::amm_info

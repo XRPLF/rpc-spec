@@ -1,6 +1,6 @@
 /** @file
  *  GTest coverage for the `subscribe` and `unsubscribe` typed specs.
- *  Compiled under RPCSPEC_IS_RIPPLED (the default for rpcspec_tests).
+ *  Compiled under RPCSPEC_IS_XRPLD (the default for rpcspec_tests).
  */
 
 #include <boost/json/parse.hpp>

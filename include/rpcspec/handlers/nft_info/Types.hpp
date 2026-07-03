@@ -16,8 +16,8 @@ namespace rpc::spec::handlers::nft_info {
  */
 struct Input
 {
-    xrpl::uint256 nftID;
     LedgerSpecifier ledger;
+    xrpl::uint256 nftID;
 };
 
 }  // namespace rpc::spec::handlers::nft_info

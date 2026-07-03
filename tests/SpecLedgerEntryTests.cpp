@@ -1,6 +1,6 @@
 /** @file
  *  GTest coverage for the `ledger_entry` typed spec.
- *  Compiled under RPCSPEC_IS_RIPPLED.
+ *  Compiled under RPCSPEC_IS_XRPLD.
  */
 
 #include <boost/json/parse.hpp>
