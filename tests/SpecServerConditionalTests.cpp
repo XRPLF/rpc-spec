@@ -1,9 +1,12 @@
-// Clio-backend tests: this translation unit is the only one in its executable
-// (rpcspec_clio_tests), compiled with RPCSPEC_IS_CLIO=1. The two server-backend
-// macros are mutually exclusive within a binary, so this is the ONLY place the
-// Clio branch of ifServerClio() / ifServerXrpld() can be exercised. The
-// complementary xrpld branch is covered by RpcSpecDSL_ServerConditional in
-// SpecValidatorTests.cpp.
+/**
+ * @file
+ * @brief Clio-backend tests: this translation unit is the only one in its executable
+ * (rpcspec_clio_tests), compiled with RPCSPEC_IS_CLIO=1. The two server-backend
+ * macros are mutually exclusive within a binary, so this is the ONLY place the
+ * Clio branch of ifServerClio() / ifServerXrpld() can be exercised. The
+ * complementary xrpld branch is covered by RpcSpecDSL_ServerConditional in
+ * SpecValidatorTests.cpp.
+ */
 
 #include <boost/json/parse.hpp>
 

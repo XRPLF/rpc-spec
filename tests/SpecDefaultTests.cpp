@@ -3,10 +3,9 @@
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <cstdint>
 #include <optional>
