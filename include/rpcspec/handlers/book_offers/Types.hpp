@@ -20,7 +20,7 @@ inline constexpr uint32_t kLimitDefault = 60;
 /**
  * @brief Input for the 'book_offers' RPC command.
  *
- * @note The taker is not really used in both Clio and `rippled`, both of them return all the
+ * @note The taker is not really used in both Clio and `xrpld`, both of them return all the
  * offers regardless of the funding status
  */
 struct Input

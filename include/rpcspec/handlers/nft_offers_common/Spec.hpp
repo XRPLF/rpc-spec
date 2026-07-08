@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'nft_buy_offers' / 'nft_sell_offers' RPC commands.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 

@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'account_tx' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 //
 // V1: account, ledger_hash, ledger_index, ledger_index_min/max, ctid, limit, marker, tx_type
 // V2: V1 + binary + forward

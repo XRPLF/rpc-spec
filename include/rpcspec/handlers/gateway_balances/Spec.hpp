@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'gateway_balances' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 //
 // Two versioned specs are exposed:
 //   kInputSpecV1 — uses RpcInvalidHotwallet for type mismatches on 'hotwallet'

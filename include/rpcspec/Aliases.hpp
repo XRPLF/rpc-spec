@@ -129,7 +129,7 @@ section(SubFields... sf)
 /**
  * @brief Applies the given validators only in Clio server builds.
  *
- * Has no effect (and zero overhead) when compiled for rippled.
+ * Has no effect (and zero overhead) when compiled for xrpld.
  *
  * @tparam Vs Processor types to apply conditionally.
  * @param  vs The processors to run in Clio builds.
@@ -143,12 +143,12 @@ ifServerClio(Vs... vs)
 }
 
 /**
- * @brief Applies the given validators only in rippled server builds.
+ * @brief Applies the given validators only in xrpld server builds.
  *
  * Has no effect (and zero overhead) when compiled for Clio.
  *
  * @tparam Vs Processor types to apply conditionally.
- * @param  vs The processors to run in rippled builds.
+ * @param  vs The processors to run in xrpld builds.
  * @return    An `IfServerXrpldValidator` wrapper.
  */
 template <typename... Vs>

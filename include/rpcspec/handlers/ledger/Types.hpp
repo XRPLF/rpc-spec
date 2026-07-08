@@ -20,10 +20,10 @@ struct Input
     JsonBool expand{false};
     JsonBool ownerFunds{false};
     JsonBool transactions{false};
-    JsonBool diff{false};      // Clio extension; validate-only (ifServerClio) in rippled
-    JsonBool full{false};      // rippled; spec rejects-if-true in Clio
-    JsonBool accounts{false};  // rippled; spec rejects-if-true in Clio
-    JsonBool queue{false};     // rippled; spec rejects-if-true in Clio
+    JsonBool diff{false};      // Clio extension; validate-only (ifServerClio) in xrpld
+    JsonBool full{false};      // xrpld; spec rejects-if-true in Clio
+    JsonBool accounts{false};  // xrpld; spec rejects-if-true in Clio
+    JsonBool queue{false};     // xrpld; spec rejects-if-true in Clio
 };
 
 }  // namespace rpc::spec::handlers::ledger

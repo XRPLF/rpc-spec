@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'account_nfts' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 

@@ -57,7 +57,7 @@ enum class EtlError {
  * @brief Clio operates on a combination of Rippled, custom Clio, and ETL error
  * codes.
  *
- * @see RippledError For rippled error codes
+ * @see RippledError For xrpld error codes
  * @see ClioError For custom clio error codes
  * @see EtlError For ETL-layer error codes
  */
@@ -92,7 +92,7 @@ struct Status
     /**
      * @brief Construct a new Status object with a custom message
      *
-     * @note HACK. Some rippled handlers explicitly specify errors. This means
+     * @note HACK. Some xrpld handlers explicitly specify errors. This means
      * that we have to be able to duplicate this functionality.
      *
      * @param message The message
@@ -237,17 +237,13 @@ getWarningInfo(WarningCode code)
     static constexpr WarningInfo kINFOS[]{
         {WarningCode::WarnUnknown, "Unknown warning"},
         {WarningCode::WarnRpcClio,
-         "This is a clio server. clio only serves validated data. If you want to "
-         "talk to rippled, "
-         "include "
-         "'ledger_index':'current' in your request"},
+         "This is a clio server. clio only serves validated data. If you want to talk to xrpld, "
+         "include 'ledger_index':'current' in your request"},
         {WarningCode::WarnRpcOutdated, "This server may be out of date"},
         {WarningCode::WarnRpcRateLimit, "You are about to be rate limited"},
         {WarningCode::WarnRpcDeprecated,
-         "Some fields from your request are deprecated. Please check the "
-         "documentation at "
-         "https://xrpl.org/docs/references/http-websocket-apis/ and update your "
-         "request."}};
+         "Some fields from your request are deprecated. Please check the documentation at "
+         "https://xrpl.org/docs/references/http-websocket-apis/ and update your request."}};
 
     auto matchByCode = [code](auto const& info) { return info.code == code; };
     if (auto it = std::ranges::find_if(kINFOS, matchByCode); it != std::end(kINFOS))

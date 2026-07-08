@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'ledger_entry' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Issue.h>
@@ -615,7 +615,7 @@ inline constexpr auto kInputSpec = spec<Input>(
                 "account",
                 withCustomError(required, rpc::ClioError::RpcMalformedRequest),
                 withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
-            // note: Unlike `rippled`, Clio only supports UInt as input, no string, no
+            // note: Unlike `xrpld`, Clio only supports UInt as input, no string, no
             // `null`, etc.:
             field(
                 "oracle_document_id",

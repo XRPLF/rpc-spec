@@ -21,9 +21,9 @@ enum class StreamType {
     BookChanges,
     Manifests,
     Validations,
-    Server,      ///< rippled only (admin-gated downstream); not served by Clio.
-    PeerStatus,  ///< rippled only (admin-gated downstream); not served by Clio.
-    Consensus,   ///< rippled only; not served by Clio.
+    Server,      ///< xrpld only (admin-gated downstream); not served by Clio.
+    PeerStatus,  ///< xrpld only (admin-gated downstream); not served by Clio.
+    Consensus,   ///< xrpld only; not served by Clio.
 };
 
 /**

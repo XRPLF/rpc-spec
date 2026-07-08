@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'book_changes' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>

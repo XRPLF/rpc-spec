@@ -6,8 +6,8 @@
 // consuming project's build system (set automatically via each project's
 // conanfile).
 //
-// ifServerClio(v...)    — applies validators only in Clio builds
-// ifServerXrpld(v...) — applies validators only in rippled builds
+// ifServerClio(v...)  — applies validators only in Clio builds
+// ifServerXrpld(v...) — applies validators only in xrpld builds
 //
 // Each wrapper satisfies the union of the inner validators' concepts:
 //   SomeRequirement<IfServerClioValidator<Vs...>>  iff (SomeRequirement<Vs> ||
@@ -38,7 +38,7 @@ namespace rpc::spec {
 /**
  * @brief Applies a set of validators only when compiled for the Clio server.
  *
- * In rippled builds every member function is a no-op that returns success, so
+ * In xrpld builds every member function is a no-op that returns success, so
  * the inner validators are entirely elided. The struct satisfies whichever of
  * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
  * one of the inner validators @p Vs.
@@ -62,7 +62,7 @@ struct IfServerClioValidator
     }
 
     /**
-     * @brief Runs the inner requirements in Clio builds; always succeeds in rippled builds.
+     * @brief Runs the inner requirements in Clio builds; always succeeds in xrpld builds.
      *
      * @param f  Field view for the field under validation.
      * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (Clio only).
@@ -94,7 +94,7 @@ struct IfServerClioValidator
     }
 
     /**
-     * @brief Runs the inner checkers in Clio builds; always returns no warning in rippled builds.
+     * @brief Runs the inner checkers in Clio builds; always returns no warning in xrpld builds.
      *
      * @param f  Field view for the field under checking.
      * @return   The first warning produced by an inner checker, or `std::nullopt` (Clio only).
@@ -125,7 +125,7 @@ struct IfServerClioValidator
     }
 
     /**
-     * @brief Runs the inner modifiers in Clio builds; always succeeds in rippled builds.
+     * @brief Runs the inner modifiers in Clio builds; always succeeds in xrpld builds.
      *
      * @param f  Mutable field view for the field under modification.
      * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (Clio only).
@@ -158,7 +158,7 @@ struct IfServerClioValidator
 };
 
 /**
- * @brief Applies a set of validators only when compiled for the rippled server.
+ * @brief Applies a set of validators only when compiled for the xrpld server.
  *
  * In Clio builds every member function is a no-op that returns success, so
  * the inner validators are entirely elided. The struct satisfies whichever of
@@ -167,7 +167,7 @@ struct IfServerClioValidator
  *
  * Use the `ifServerXrpld()` factory alias rather than constructing this directly.
  *
- * @tparam Vs Processor types whose constraints are applied in rippled builds.
+ * @tparam Vs Processor types whose constraints are applied in xrpld builds.
  */
 template <typename... Vs>
 struct IfServerXrpldValidator
@@ -177,17 +177,17 @@ struct IfServerXrpldValidator
     /**
      * @brief Constructs the validator with the given set of inner processors.
      *
-     * @param vs Inner processors to run in rippled builds.
+     * @param vs Inner processors to run in xrpld builds.
      */
     consteval explicit IfServerXrpldValidator(Vs... vs) : inners(vs...)
     {
     }
 
     /**
-     * @brief Runs the inner requirements in rippled builds; always succeeds in Clio builds.
+     * @brief Runs the inner requirements in xrpld builds; always succeeds in Clio builds.
      *
      * @param f  Field view for the field under validation.
-     * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (rippled
+     * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (xrpld
      * only).
      */
     template <SomeFieldView FA>
@@ -217,10 +217,10 @@ struct IfServerXrpldValidator
     }
 
     /**
-     * @brief Runs the inner checkers in rippled builds; always returns no warning in Clio builds.
+     * @brief Runs the inner checkers in xrpld builds; always returns no warning in Clio builds.
      *
      * @param f  Field view for the field under checking.
-     * @return   The first warning produced by an inner checker, or `std::nullopt` (rippled only).
+     * @return   The first warning produced by an inner checker, or `std::nullopt` (xrpld only).
      */
     template <SomeFieldView FA>
     [[nodiscard]] std::optional<Warning>
@@ -248,10 +248,10 @@ struct IfServerXrpldValidator
     }
 
     /**
-     * @brief Runs the inner modifiers in rippled builds; always succeeds in Clio builds.
+     * @brief Runs the inner modifiers in xrpld builds; always succeeds in Clio builds.
      *
      * @param f  Mutable field view for the field under modification.
-     * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (rippled only).
+     * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (xrpld only).
      */
     template <SomeFieldView FA>
     [[nodiscard]] MaybeError

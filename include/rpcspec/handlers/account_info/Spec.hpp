@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'account_info' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 //
 // V1: account, ident (deprecated), ledger_hash, ledger_index, ledger
 //     (deprecated), strict (deprecated)

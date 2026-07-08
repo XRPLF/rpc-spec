@@ -16,7 +16,7 @@ namespace rpc::spec::handlers::account_info {
  * @brief Input for the 'account_info' RPC command.
  *
  * `queue` is not available in Reporting mode
- * `ident` is deprecated, keep it for now, in line with rippled
+ * `ident` is deprecated, keep it for now, in line with xrpld
  */
 struct Input
 {

@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'amm_info' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>

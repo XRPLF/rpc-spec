@@ -64,7 +64,7 @@ static constexpr auto kSubscribeAccountsValidator =
 // Validates the streams field: must be an array of known stream name strings.
 // The accepted set is server-conditional (the spec is shared):
 //   - both servers serve the six common streams below;
-//   - rippled additionally accepts `server`/`peer_status`/`consensus` (the admin
+//   - xrpld additionally accepts `server`/`peer_status`/`consensus` (the admin
 //     role for the first two is enforced later, not here) and the deprecated
 //     `rt_transactions` alias of `transactions_proposed`;
 //   - Clio does not serve those, so it rejects them with RpcNotSupported.
@@ -91,7 +91,7 @@ struct StreamsValidator
         "peer_status",
         "consensus"};
 #else
-    // rippled also accepts these (admin role enforced later); rt_transactions is a
+    // xrpld also accepts these (admin role enforced later); rt_transactions is a
     // deprecated alias for transactions_proposed.
     static constexpr std::array<std::string_view, 4> kRippledExtra{
         "server",

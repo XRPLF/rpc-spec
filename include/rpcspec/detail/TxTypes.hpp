@@ -13,7 +13,7 @@ namespace rpc::spec::detail {
  * @brief The set of known transaction type names, lowercased.
  *
  * Derived at runtime from libxrpl's @ref xrpl::TxFormats, so the list always
- * matches the linked rippled/libxrpl version. Used by the `account_tx` spec to
+ * matches the linked xrpld/libxrpl version. Used by the `account_tx` spec to
  * validate the `tx_type` field.
  *
  * @return A reference to the static set of lowercase transaction type names

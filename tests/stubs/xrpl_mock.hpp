@@ -1,6 +1,6 @@
 /** @file */
 #pragma once
-// Minimal mock of the libxrpl protocol surface that rpcspec's headers (rippled
+// Minimal mock of the libxrpl protocol surface that rpcspec's headers (xrpld
 // backend) reference. This lets the standalone unit tests compile and run with
 // ZERO dependency on libxrpl — only Boost::json is needed.
 //
@@ -464,7 +464,7 @@ enum ErrorCodeI : int {
 
 // ---- protocol/TxFormats.h ---------------------------------------------------
 // Mock of the iterable TxFormats registry. Real libxrpl derives this from the
-// linked rippled version; the mock carries a small representative sample so
+// linked xrpld version; the mock carries a small representative sample so
 // detail::txTypesInLowercase() yields a non-empty set.
 class TxFormats
 {

@@ -276,7 +276,7 @@ struct StringConverter
 
 /**
  * @brief Like AccountIdConverter, but maps every failure (non-string or malformed)
- * to RpcActMalformed with no message — i.e. the rippled default "Account malformed.".
+ * to RpcActMalformed with no message — i.e. the xrpld default "Account malformed.".
  *
  * Mirrors the legacy `withCustomError(account, RpcActMalformed)` field pattern used
  * by handlers (account_lines, account_mptoken_issuances, …) that want the uniform

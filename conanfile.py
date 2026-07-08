@@ -11,7 +11,7 @@ class XrplRpcSpecConan(ConanFile):
     license = "ISC"
     author = "the XRP Ledger developers"
     url = "https://github.com/XRPLF/rpc-spec"
-    description = "Consteval RPC spec DSL for XRPL — shared by Clio and rippled"
+    description = "Consteval RPC spec DSL for XRPL — shared by Clio and xrpld"
     settings = "os", "compiler", "build_type", "arch"
     package_type = "header-library"
     no_copy_source = True
@@ -26,9 +26,9 @@ class XrplRpcSpecConan(ConanFile):
         "README.md",
     )
 
-    # Build-time consumers (Clio, rippled) provide their own xrpl/ripple headers;
+    # Build-time consumers (Clio, xrpld) provide their own xrpl/ripple headers;
     # the only direct dependency of the headers is Boost::json. Keep this aligned
-    # with rippled's boost version to avoid a clash when consumed there.
+    # with xrpld's boost version to avoid a clash when consumed there.
     requires = [
         "boost/1.91.0",
     ]
@@ -41,13 +41,13 @@ class XrplRpcSpecConan(ConanFile):
         "tests": False,
         # boost 1.91's cobalt_io_ssl component fails package_info() unless cobalt
         # is disabled (it expects an OpenSSL-backed build we don't pull in).
-        # We only need Boost::json, so drop cobalt. Mirrors rippled.
+        # We only need Boost::json, so drop cobalt. Mirrors xrpld.
         "boost/*:without_cobalt": True,
     }
 
     def requirements(self):
         if self.options.tests:
-            # Tests run against the rippled (xrpl::) backend, but mock the small
+            # Tests run against the xrpld (xrpl::) backend, but mock the small
             # libxrpl protocol surface they touch (see tests/stubs), so the only
             # real test dependency is gtest. Boost::json comes from the main
             # `requires` above.

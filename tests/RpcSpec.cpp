@@ -1,4 +1,4 @@
-// Core spec DSL — compiles under both Clio (xrpl:: namespace) and rippled (xrpl::).
+// Core spec DSL — compiles under both Clio (xrpl:: namespace) and xrpld (xrpl::).
 // Validators.hpp is Clio-specific (JSON param validation) and not included here.
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>

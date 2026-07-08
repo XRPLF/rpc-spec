@@ -622,9 +622,9 @@ TEST(RpcSpecDSL_ServerConditional, IfServerClioValidatorIsInertInRippledBuild)
 TEST(RpcSpecDSL_ServerConditional, IfServerXrpldValidatorIsApplied)
 {
     static constexpr auto kSPEC = RpcSpec{
-        field("rippled_only", ifServerXrpld(notSupportedIf(true))),
+        field("xrpld_only", ifServerXrpld(notSupportedIf(true))),
     };
-    auto bad = boost::json::parse(R"JSON({ "rippled_only": true })JSON");
+    auto bad = boost::json::parse(R"JSON({ "xrpld_only": true })JSON");
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);

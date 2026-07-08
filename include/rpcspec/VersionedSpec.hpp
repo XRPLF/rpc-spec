@@ -3,7 +3,7 @@
 // A per-handler spec that owns API-version selection.
 //
 // Handlers declare ONE `kSpec = versioned<Input>(v1Spec, v2Spec, ...)` plus an
-// ADL hook `specFor(Input const*)` returning it. Consumers (Clio, rippled) then
+// ADL hook `specFor(Input const*)` returning it. Consumers (Clio, xrpld) then
 // parse / check / dump a request by API version WITHOUT knowing which underlying
 // spec backs which version — the selection lives here, not at the call site.
 

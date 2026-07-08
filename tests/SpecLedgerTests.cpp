@@ -48,7 +48,7 @@ TEST(LedgerSpecifier, ResolvedAppliesServerDefault)
     auto const r = LedgerSpecifier{}.resolved();
     ASSERT_TRUE(r.isShortcut());
     EXPECT_EQ(std::get<LedgerShortcut>(r.value), kDefaultLedgerShortcut);
-    EXPECT_EQ(std::get<LedgerShortcut>(r.value), LedgerShortcut::Current);  // rippled build
+    EXPECT_EQ(std::get<LedgerShortcut>(r.value), LedgerShortcut::Current);  // xrpld build
 }
 
 TEST(LedgerSpecifier, ResolvedLeavesConcreteValueUnchanged)

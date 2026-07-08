@@ -19,10 +19,10 @@
 namespace rpc::spec {
 
 /**
- * @brief A ledger shortcut, mirroring rippled's LedgerShortcut.
+ * @brief A ledger shortcut, mirroring xrpld's LedgerShortcut.
  *
  * Clio only serves @c Validated locally and forwards @c Current / @c Closed to
- * rippled; rippled resolves all three. The spec preserves whichever the request
+ * xrpld; xrpld resolves all three. The spec preserves whichever the request
  * asked for so each server can act on it.
  */
 enum class LedgerShortcut { Validated, Current, Closed };
@@ -31,7 +31,7 @@ enum class LedgerShortcut { Validated, Current, Closed };
  * @brief The default ledger when a request names neither ledger_hash nor
  * ledger_index.
  *
- * Resolved at compile time from the server macro: rippled defaults to the
+ * Resolved at compile time from the server macro: xrpld defaults to the
  * current ledger, Clio to the latest validated one.
  */
 #if defined(RPCSPEC_IS_CLIO)
