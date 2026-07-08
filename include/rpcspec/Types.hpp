@@ -19,17 +19,32 @@ using MaybeError = std::expected<void, rpc::Status>;
 /**
  * @brief A single non-blocking warning emitted by a checker (e.g. field deprecation).
  */
-struct Warning {
+struct Warning
+{
     rpc::WarningCode code;  // grouping key for the wire-format converter
     std::string field;      // identifier for the field that triggered the warning
     std::string message;    // extra context appended to the standard message for `code`
 };
 
+/**
+ * @brief A collection of non-blocking warnings returned alongside a successful result.
+ */
 using Warnings = std::vector<Warning>;
 
 // Marker types for use with Type<T> and is<T>() — keeps validators decoupled from boost::json.
-struct JsonObject {};
-struct JsonArray {};
+/**
+ * @brief Tag type representing a JSON object value; used with Type<T> and is<T>().
+ */
+struct JsonObject
+{
+};
+
+/**
+ * @brief Tag type representing a JSON array value; used with Type<T> and is<T>().
+ */
+struct JsonArray
+{
+};
 
 /**
  * @brief Human-readable name for a JSON/scalar type tag, used by the spec dumper.

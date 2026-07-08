@@ -1,7 +1,7 @@
-#include <rpcspec/FieldView.hpp>
-
 #include <boost/json/parse.hpp>
+
 #include <gtest/gtest.h>
+#include <rpcspec/FieldView.hpp>
 
 using namespace rpc::spec;
 

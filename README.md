@@ -13,11 +13,11 @@ hand-written per-handler validation logic.
 Both backends resolve XRPL protocol types (`AccountID`, `LedgerEntryType`,
 error codes, …) from `xrpl::` (libxrpl). The backend macro instead selects which
 server the spec is compiled for, controlling the server-conditional validators
-`ifServerClio(...)` / `ifServerRippled(...)` — each applies its wrapped
+`ifServerClio(...)` / `ifServerXrpld(...)` — each applies its wrapped
 validators only in the matching build. Exactly one macro must be defined by the
 consumer's build:
 
-- `RPCSPEC_IS_RIPPLED=1` — rippled build; `ifServerRippled(...)` is active.
+- `RPCSPEC_IS_XRPLD=1` — xrpld build; `ifServerXrpld(...)` is active.
 - `RPCSPEC_IS_CLIO=1` — Clio build; `ifServerClio(...)` is active.
 
 Defining both, or neither, is a compile error (see `ServerConditional.hpp`).
@@ -31,10 +31,10 @@ include/rpcspec/
   Concepts.hpp         # SomeFieldView / SomeObjectView backend concepts
   Errors.hpp           # Status / error-code mapping
   Validators.hpp       # built-in JSON param validators
-  ServerConditional.hpp # ifServerClio / ifServerRippled wrappers
+  ServerConditional.hpp # ifServerClio / ifServerXrpld wrappers
   detail/              # backend type resolution + parsing (XrplParse)
   handlers/            # per-handler spec definitions (e.g. ledger)
-tests/                 # standalone unit tests (rippled backend)
+tests/                 # standalone unit tests (xrpld backend)
   stubs/               # libxrpl mock — tests need only gtest + Boost::json
 ```
 
@@ -47,7 +47,7 @@ the XRPL protocol headers come from your project.
 
 ## Local development (editable package)
 
-When hacking on the DSL while building a consumer (Clio or rippled) against it,
+When hacking on the DSL while building a consumer (Clio or xrpld) against it,
 register this repo as an **editable** Conan package. Consumers that require
 `xrpl-rpc-spec/0.1.0` then resolve to your working tree instead of the Conan
 cache, so header edits are picked up on the consumer's next build — no
@@ -75,7 +75,7 @@ sure one is available (`conan create .`) or re-export as needed.
 
 ## Building the tests
 
-The standalone tests run against the rippled (`xrpl::`) backend, but the small
+The standalone tests run against the xrpld (`xrpl::`) backend, but the small
 libxrpl protocol surface the DSL references is mocked in `tests/stubs` — so the
 only test dependencies are `gtest` and `Boost::json` (no libxrpl, no Conan
 remote beyond the defaults).
@@ -83,7 +83,7 @@ remote beyond the defaults).
 ### With Conan (recommended)
 
 Conan provides both dependencies and generates the CMake presets. The `tests`
-option also wires up `RPCSPEC_IS_RIPPLED=1` and `rpcspec_tests=ON` in the
+option also wires up `RPCSPEC_IS_XRPLD=1` and `rpcspec_tests=ON` in the
 generated toolchain, so no extra `-D` flags are needed:
 
 ```sh

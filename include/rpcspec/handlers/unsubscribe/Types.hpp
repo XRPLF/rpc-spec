@@ -1,18 +1,36 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Book.h>
+
 #include <optional>
 #include <string>
 #include <vector>
 
-#include <xrpl/protocol/Book.h>
-
 namespace rpc::spec::handlers::unsubscribe {
+
+/**
+ * @brief A subscribable stream. Mirrors the wire stream names accepted by the
+ * spec; unsupported/unknown names are rejected during validation.
+ */
+enum class StreamType {
+    Ledger,
+    Transactions,
+    TransactionsProposed,  ///< Also the target of the deprecated `rt_transactions` alias.
+    BookChanges,
+    Manifests,
+    Validations,
+    Server,      ///< xrpld only (admin-gated downstream); not served by Clio.
+    PeerStatus,  ///< xrpld only (admin-gated downstream); not served by Clio.
+    Consensus,   ///< xrpld only; not served by Clio.
+};
 
 /**
  * @brief A struct to hold one order book
  */
-struct OrderBook {
+struct OrderBook
+{
     xrpl::Book book;
     bool both = false;
 };
@@ -20,11 +38,12 @@ struct OrderBook {
 /**
  * @brief Input for the 'unsubscribe' RPC command.
  */
-struct Input {
-    std::optional<std::vector<std::string>> accounts;
-    std::optional<std::vector<std::string>> streams;
-    std::optional<std::vector<std::string>> accountsProposed;
+struct Input
+{
+    std::optional<std::vector<xrpl::AccountID>> accounts;
+    std::optional<std::vector<StreamType>> streams;
+    std::optional<std::vector<xrpl::AccountID>> accountsProposed;
     std::optional<std::vector<OrderBook>> books;
 };
 
-} // namespace rpc::spec::handlers::unsubscribe
+}  // namespace rpc::spec::handlers::unsubscribe

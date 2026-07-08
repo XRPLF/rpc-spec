@@ -1,9 +1,12 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+
+#include <rpcspec/Ledger.hpp>
+
 #include <cstdint>
 #include <optional>
-#include <string>
 
 namespace rpc::spec::handlers::nft_offers_common {
 
@@ -14,12 +17,12 @@ inline constexpr uint32_t kLimitDefault = 250;
 /**
  * @brief Input for the 'nft_buy_offers' / 'nft_sell_offers' RPC commands.
  */
-struct Input {
-  std::string nftID;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
-  uint32_t limit = kLimitDefault;
-  std::optional<std::string> marker;
+struct Input
+{
+    LedgerSpecifier ledger;
+    xrpl::uint256 nftID;
+    uint32_t limit; /**< Clamped to [kLimitMin, kLimitMax] */
+    std::optional<xrpl::uint256> marker;
 };
 
-} // namespace rpc::spec::handlers::nft_offers_common
+}  // namespace rpc::spec::handlers::nft_offers_common

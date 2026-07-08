@@ -1,11 +1,14 @@
-#include <rpcspec/Errors.hpp>
+#include <boost/json/parse.hpp>
+
+#include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
+#include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
-
-#include <boost/json/parse.hpp>
-#include <gtest/gtest.h>
 
 #include <cstdint>
 #include <expected>
@@ -160,18 +163,15 @@ TEST(RpcSpecDSL_IfType, UnionTypeLedgerIndex)
     };
 
     auto intValid = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": 42 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": 42 })JSON");
     EXPECT_TRUE(kSPEC.process(intValid).has_value());
 
     auto intNeg = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": -1 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": -1 })JSON");
     EXPECT_FALSE(kSPEC.process(intNeg).has_value());
 
     auto strValid = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": "validated" })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": "validated" })JSON");
     EXPECT_TRUE(kSPEC.process(strValid).has_value());
 
     auto absent =
@@ -179,8 +179,7 @@ TEST(RpcSpecDSL_IfType, UnionTypeLedgerIndex)
     EXPECT_TRUE(kSPEC.process(absent).has_value());
 
     auto wrongType = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": true })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": true })JSON");
     EXPECT_TRUE(kSPEC.process(wrongType).has_value());
 }
 
@@ -192,13 +191,11 @@ TEST(RpcSpecDSL_IfType, PipeStyle)
     };
 
     auto valid = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": 100 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": 100 })JSON");
     EXPECT_TRUE(kSPEC.process(valid).has_value());
 
     auto invalid = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": -5 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "ledger_index": -5 })JSON");
     EXPECT_FALSE(kSPEC.process(invalid).has_value());
 }
 
@@ -207,8 +204,7 @@ TEST(RpcSpecDSL_IfType, CombinedWithOtherValidators)
     static constexpr auto kSPEC = RpcSpec{
         field("account", required, account),
         field(
-            "limit", required, ifType<int64_t>(min(int64_t{1}), clamp(int64_t{10}, int64_t{400}))
-        ),
+            "limit", required, ifType<int64_t>(min(int64_t{1}), clamp(int64_t{10}, int64_t{400}))),
     };
 
     auto noLimit =
@@ -219,19 +215,16 @@ TEST(RpcSpecDSL_IfType, CombinedWithOtherValidators)
     EXPECT_EQ(result.error().message, "Required field 'limit' missing");
 
     auto strLimit = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": "max" })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": "max" })JSON");
     EXPECT_TRUE(kSPEC.process(strLimit).has_value());
 
     auto good = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": 50 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": 50 })JSON");
     ASSERT_TRUE(kSPEC.process(good).has_value());
     EXPECT_EQ(good.as_object().at("limit").as_int64(), 50);
 
     auto low = boost::json::parse(
-        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": 2 })JSON"
-    );
+        R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": 2 })JSON");
     ASSERT_TRUE(kSPEC.process(low).has_value());
     EXPECT_EQ(low.as_object().at("limit").as_int64(), 10);
 }
@@ -256,9 +249,7 @@ TEST(RpcSpecDSL_Section, ValidSubObjectPasses)
         field(
             "taker_pays",
             section(
-                field("currency", required, type<std::string>), field("value", type<std::string>)
-            )
-        ),
+                field("currency", required, type<std::string>), field("value", type<std::string>))),
     };
 
     auto request =
@@ -329,8 +320,8 @@ TEST(RpcSpecDSL_Section, PipeStyle)
     static constexpr auto kSPEC = RpcSpec{
         field("payload") |
             section(
-                field("type", required, type<std::string>), field("value", required, type<int64_t>)
-            ),
+                field("type", required, type<std::string>),
+                field("value", required, type<int64_t>)),
     };
 
     auto good = boost::json::parse(R"JSON({ "payload": { "type": "foo", "value": 1 } })JSON");
@@ -346,7 +337,6 @@ TEST(RpcSpecDSL_IfObject, SkipsWhenFieldIsNotObject)
         field("entry", ifType<JsonObject>(section(field("a", required)))),
     };
 
-    // string value — object branch must not fire
     auto request = boost::json::parse(R"JSON({ "entry": "validated" })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
@@ -379,12 +369,10 @@ TEST(RpcSpecDSL_IfObject, AbsentFieldSkipped)
 
 TEST(RpcSpecDSL_IfArray, SkipsWhenFieldIsNotArray)
 {
-    // A no-op sub-processor just to exercise the type check.
     static constexpr auto kSPEC = RpcSpec{
         field("ids", ifType<JsonArray>(ifType<int64_t>())),
     };
 
-    // object — not an array, should be skipped
     auto request = boost::json::parse(R"JSON({ "ids": {} })JSON");
     EXPECT_TRUE(kSPEC.process(request).has_value());
 }
@@ -438,8 +426,7 @@ TEST(RpcSpecDSL_WithCustomError, AppendsCustomMessageOnFailure)
     static constexpr auto kSPEC = RpcSpec{
         field(
             "marker",
-            withCustomError(required, rpc::RippledError::RpcInvalidParams, "invalidMarker")
-        ),
+            withCustomError(required, rpc::RippledError::RpcInvalidParams, "invalidMarker")),
     };
 
     auto request = boost::json::parse(R"JSON({})JSON");
@@ -456,9 +443,7 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
         field(
             "limit",
             withCustomError(
-                ifType<int64_t>(min(int64_t{1})), rpc::RippledError::RpcInvalidParams, "tooLow"
-            )
-        ),
+                ifType<int64_t>(min(int64_t{1})), rpc::RippledError::RpcInvalidParams, "tooLow")),
     };
 
     auto bad = boost::json::parse(R"JSON({ "limit": 0 })JSON");
@@ -467,7 +452,6 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "tooLow");
 
-    // Type mismatch: IfType skips, no error fires.
     auto skipped = boost::json::parse(R"JSON({ "limit": "default" })JSON");
     EXPECT_TRUE(kSPEC.process(skipped).has_value());
 }
@@ -580,8 +564,7 @@ TEST(RpcSpecDSL_ClampAs, Uint32OverflowClampedToMax)
     EXPECT_TRUE(kSPEC.process(j).has_value());
     EXPECT_EQ(
         j.as_object().at("v").as_uint64(),
-        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())
-    );
+        static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
 }
 
 TEST(RpcSpecDSL_ClampAs, Uint32NegativeClampedToZero)
@@ -597,4 +580,59 @@ TEST(RpcSpecDSL_ClampAs, AbsentFieldPasses)
     static constexpr auto kSPEC = RpcSpec{field("v", clampAs<int32_t>)};
     auto absent = boost::json::parse(R"JSON({})JSON");
     EXPECT_TRUE(kSPEC.process(absent).has_value());
+}
+
+namespace {
+struct TypedLimitInput
+{
+    uint32_t limit = 0;
+};
+struct TypedTxInput
+{
+    std::string txType;
+};
+}  // namespace
+
+TEST(TypedSpecModifier, ClampRunsBeforeConverter)
+{
+    static constexpr auto kSPEC = spec<TypedLimitInput>(
+        field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
+
+    auto tooLow = boost::json::parse(R"JSON({ "limit": 5 })JSON");
+    auto const low = kSPEC.parse(tooLow);
+    ASSERT_TRUE(low.has_value());
+    EXPECT_EQ(low->limit, 10u);  // clamped up, then converted
+
+    auto tooHigh = boost::json::parse(R"JSON({ "limit": 9999 })JSON");
+    auto const high = kSPEC.parse(tooHigh);
+    ASSERT_TRUE(high.has_value());
+    EXPECT_EQ(high->limit, 400u);  // clamped down, then converted
+
+    auto inRange = boost::json::parse(R"JSON({ "limit": 50 })JSON");
+    auto const ok = kSPEC.parse(inRange);
+    ASSERT_TRUE(ok.has_value());
+    EXPECT_EQ(ok->limit, 50u);
+}
+
+TEST(TypedSpecModifier, ToLowerRunsBeforeConverter)
+{
+    static constexpr auto kSPEC =
+        spec<TypedTxInput>(field("tx_type", &TypedTxInput::txType, toLower, asString));
+
+    auto request = boost::json::parse(R"JSON({ "tx_type": "Payment" })JSON");
+    auto const r = kSPEC.parse(request);
+    ASSERT_TRUE(r.has_value());
+    EXPECT_EQ(r->txType, "payment");  // lowercased by the modifier, then converted
+}
+
+TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
+{
+    // The converter still rejects values the modifier left invalid.
+    static constexpr auto kSPEC = spec<TypedLimitInput>(
+        field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
+
+    auto wrongType = boost::json::parse(R"JSON({ "limit": "not a number" })JSON");
+    auto const r = kSPEC.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }

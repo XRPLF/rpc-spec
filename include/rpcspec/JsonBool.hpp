@@ -19,7 +19,8 @@ namespace rpc::spec {
  * Used by handler Input structs that accept the V1 API's lenient bool fields
  * (e.g. account_info's `signer_lists`).
  */
-struct JsonBool {
+struct JsonBool
+{
     bool value = false;
 
     /** @cond */
@@ -37,9 +38,11 @@ struct JsonBool {
  * @return The converted JsonBool
  */
 inline JsonBool
+// NOLINTNEXTLINE(readability-identifier-naming)
 tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const& jsonValue)
 {
-    switch (jsonValue.kind()) {
+    switch (jsonValue.kind())
+    {
         case boost::json::kind::null:
             return JsonBool{false};
         case boost::json::kind::bool_:
@@ -51,7 +54,7 @@ tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const&
         case boost::json::kind::double_:
             return JsonBool{jsonValue.as_double() != 0.0};
         case boost::json::kind::string:
-            // Also should be `jsonValue.as_string() != "false"` but rippled doesn't do
+            // Also should be `jsonValue.as_string() != "false"` but xrpld doesn't do
             // that. Anyway for v2 api we have bool validation
             return JsonBool{!jsonValue.as_string().empty() && jsonValue.as_string()[0] != 0};
         case boost::json::kind::array:

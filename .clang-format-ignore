@@ -1,0 +1,2 @@
+# Vendored third-party code — keep its upstream formatting, don't clang-format it.
+include/admissionspec/folly/TokenBucket.hpp

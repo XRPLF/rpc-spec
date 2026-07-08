@@ -1,11 +1,11 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/Types.hpp>
-
 #include <boost/json/array.hpp>
 #include <boost/json/object.hpp>
 #include <boost/json/string.hpp>
+
+#include <rpcspec/Types.hpp>
 
 #include <map>
 #include <string>
@@ -38,10 +38,12 @@ toJsonArray(Warnings const& warnings)
         grouped[w.code].push_back(w.message);
 
     boost::json::array out;
-    for (auto const& [code, messages] : grouped) {
+    for (auto const& [code, messages] : grouped)
+    {
         auto obj = rpc::makeWarning(code);
         auto& msg = obj["message"].as_string();
-        for (auto const& extra : messages) {
+        for (auto const& extra : messages)
+        {
             msg.append(" ").append(extra);
         }
         out.push_back(std::move(obj));

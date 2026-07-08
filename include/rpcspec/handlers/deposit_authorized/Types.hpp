@@ -1,23 +1,26 @@
 /** @file */
 #pragma once
 
-#include <boost/json/array.hpp>
+#include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
-#include <string>
+#include <vector>
 
 namespace rpc::spec::handlers::deposit_authorized {
 
 /**
  * @brief Input for the 'deposit_authorized' RPC command.
  */
-struct Input {
-  std::string sourceAccount;
-  std::string destinationAccount;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
-  std::optional<boost::json::array> credentials;
+struct Input
+{
+    LedgerSpecifier ledger;
+    xrpl::AccountID sourceAccount;
+    xrpl::AccountID destinationAccount;
+    std::optional<std::vector<xrpl::uint256>> credentials;
 };
 
-} // namespace rpc::spec::handlers::deposit_authorized
+}  // namespace rpc::spec::handlers::deposit_authorized

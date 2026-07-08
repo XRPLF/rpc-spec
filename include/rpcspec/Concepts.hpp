@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace rpc::spec {
 
@@ -57,7 +58,8 @@ namespace detail {
 // Archetype satisfying SomeFieldView. Used as the witness type for
 // validator/modifier/checker concepts so they aren't coupled to any backend.
 // Never instantiated; declarations only.
-struct FieldViewArchetype {
+struct FieldViewArchetype
+{
     [[nodiscard]] std::string_view
     key() const noexcept;
     [[nodiscard]] bool
@@ -129,7 +131,8 @@ namespace detail {
 
 // Archetype satisfying SomeObjectView. Used as the witness type for spec-level
 // concepts so they aren't coupled to any backend. Never instantiated.
-struct ObjectViewArchetype {
+struct ObjectViewArchetype
+{
     [[nodiscard]] bool
     isObject() const noexcept;
     [[nodiscard]] bool
@@ -146,25 +149,76 @@ static_assert(SomeObjectView<detail::ObjectViewArchetype>);
 // are decoupled from any concrete backend. Validators written as templates over
 // SomeFieldView satisfy these concepts automatically.
 
+/**
+ * @brief A type that can validate a field without modifying it.
+ *
+ * Must expose a `verify(FA const&) -> MaybeError` method. Validators that
+ * return an error abort further processing of the field.
+ *
+ * @tparam T The candidate type to check.
+ */
 template <typename T>
 concept SomeRequirement = requires(T const a, detail::FieldViewArchetype const& f) {
     { a.verify(f) } -> std::same_as<MaybeError>;
 };
 
+/**
+ * @brief A type that can modify a field in place during processing.
+ *
+ * Must expose a `modify(FA&) -> MaybeError` method. Modifiers receive a
+ * mutable field view and may rewrite the field value (e.g. toLower, clamp).
+ *
+ * @tparam T The candidate type to check.
+ */
 template <typename T>
 concept SomeModifier = requires(T const a, detail::FieldViewArchetype& f) {
     { a.modify(f) } -> std::same_as<MaybeError>;
 };
 
+/**
+ * @brief A type that can emit non-blocking warnings for a field.
+ *
+ * Must expose a `check(FA const&) -> std::optional<Warning>` method.
+ * Checkers never fail validation; they only advise (e.g. deprecation notices).
+ *
+ * @tparam T The candidate type to check.
+ */
 template <typename T>
 concept SomeCheck = requires(T const a, detail::FieldViewArchetype const& f) {
     { a.check(f) } -> std::same_as<std::optional<Warning>>;
 };
 
+/**
+ * @brief A type that is either a SomeRequirement or a SomeModifier.
+ *
+ * @tparam T The candidate type to check.
+ */
 template <typename T>
 concept SomeProcessor = SomeRequirement<T> || SomeModifier<T>;
 
+/**
+ * @brief A pure default marker: carries the value a bound field receives when absent.
+ *
+ * Neither a requirement, modifier, nor check, so it is a no-op during process()/check().
+ * `BoundField::parseInto` detects it and assigns `value` to the bound member when the
+ * field is omitted from the request (see Typed.hpp / `defaultTo`).
+ *
+ * @tparam T The candidate type to check.
+ */
 template <typename T>
-concept SomeFieldItem = SomeProcessor<T> || SomeCheck<T>;
+concept SomeDefault = requires {
+    requires std::same_as<std::remove_cv_t<decltype(T::kIsDefault)>, bool>;
+    requires T::kIsDefault;
+    typename T::ValueType;
+};
+
+/**
+ * @brief A type that is a SomeProcessor, SomeCheck, or SomeDefault — any item attachable to a
+ * FieldSpec.
+ *
+ * @tparam T The candidate type to check.
+ */
+template <typename T>
+concept SomeFieldItem = SomeProcessor<T> || SomeCheck<T> || SomeDefault<T>;
 
 }  // namespace rpc::spec

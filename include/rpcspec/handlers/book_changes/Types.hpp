@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Ledger.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -12,9 +14,9 @@ namespace rpc::spec::handlers::book_changes {
  *
  * @note Clio does not implement `deletion_blockers_only`
  */
-struct Input {
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
+struct Input
+{
+    LedgerSpecifier ledger;
 };
 
-} // namespace rpc::spec::handlers::book_changes
+}  // namespace rpc::spec::handlers::book_changes

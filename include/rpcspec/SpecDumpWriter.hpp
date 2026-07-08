@@ -22,7 +22,8 @@ namespace rpc::spec {
  *       - type
  *           of: bool
  */
-class SpecDumpWriter {
+class SpecDumpWriter
+{
     std::ostream* os_;
     int indent_ = 0;
 
@@ -31,18 +32,24 @@ public:
     {
     }
 
+    /** @brief Increase the current indentation level by one step. */
     void
     push() noexcept
     {
         ++indent_;
     }
 
+    /** @brief Decrease the current indentation level by one step. */
     void
     pop() noexcept
     {
         --indent_;
     }
 
+    /**
+     * @brief Return the underlying output stream.
+     * @return A reference to the stream passed at construction.
+     */
     [[nodiscard]] std::ostream&
     stream() const noexcept
     {
@@ -117,7 +124,8 @@ public:
         writeIndent();
         *os_ << key << ": [";
         bool first = true;
-        for (auto const& v : values) {
+        for (auto const& v : values)
+        {
             if (!first)
                 *os_ << ", ";
             writeScalar(v);
@@ -126,6 +134,13 @@ public:
         *os_ << "]\n";
     }
 
+    /**
+     * @brief Emit a "key: [a, b, c]" parameter line from a brace-enclosed initializer list.
+     *
+     * @tparam T The element type of the initializer list.
+     * @param key The parameter name to emit.
+     * @param values The values to format as an inline list.
+     */
     template <typename T>
     void
     paramList(std::string_view key, std::initializer_list<T> values)
@@ -156,14 +171,18 @@ private:
     writeScalar(T const& v) const
     {
         using D = std::decay_t<T>;
-        if constexpr (std::is_same_v<D, bool>) {
+        if constexpr (std::is_same_v<D, bool>)
+        {
             *os_ << (v ? "true" : "false");
-        } else if constexpr (
+        }
+        else if constexpr (
             std::is_same_v<D, std::string_view> || std::is_same_v<D, std::string> ||
-            std::is_same_v<D, char const*>
-        ) {
+            std::is_same_v<D, char const*>)
+        {
             *os_ << '"' << v << '"';
-        } else {
+        }
+        else
+        {
             *os_ << v;
         }
     }

@@ -1,6 +1,6 @@
 /** @file */
 #pragma once
-// Minimal mock of the libxrpl protocol surface that rpcspec's headers (rippled
+// Minimal mock of the libxrpl protocol surface that rpcspec's headers (xrpld
 // backend) reference. This lets the standalone unit tests compile and run with
 // ZERO dependency on libxrpl — only Boost::json is needed.
 //
@@ -53,7 +53,8 @@ hexToBytes(std::string_view sv)
         return std::nullopt;
     std::vector<unsigned char> out;
     out.reserve(sv.size() / 2);
-    for (std::size_t i = 0; i < sv.size(); i += 2) {
+    for (std::size_t i = 0; i < sv.size(); i += 2)
+    {
         int const hi = hexVal(static_cast<unsigned char>(sv[i]));
         int const lo = hexVal(static_cast<unsigned char>(sv[i + 1]));
         if (hi < 0 || lo < 0)
@@ -75,23 +76,27 @@ decodeBase58(std::string_view s)
     if (s.empty())
         return std::nullopt;
     std::vector<unsigned char> bytes;  // little-endian during accumulation
-    for (char const ch : s) {
+    for (char const ch : s)
+    {
         auto const pos = kBASE58_ALPHABET.find(ch);
         if (pos == std::string_view::npos)
             return std::nullopt;
         int carry = static_cast<int>(pos);
-        for (auto& b : bytes) {
+        for (auto& b : bytes)
+        {
             carry += 58 * b;
             b = static_cast<unsigned char>(carry & 0xff);
             carry >>= 8;
         }
-        while (carry > 0) {
+        while (carry > 0)
+        {
             bytes.push_back(static_cast<unsigned char>(carry & 0xff));
             carry >>= 8;
         }
     }
     // Each leading alphabet[0] char ('r') maps to a leading zero byte.
-    for (char const ch : s) {
+    for (char const ch : s)
+    {
         if (ch != kBASE58_ALPHABET[0])
             break;
         bytes.push_back(0);
@@ -104,7 +109,8 @@ decodeBase58(std::string_view s)
 
 // ---- basics/base_uint.h -----------------------------------------------------
 template <std::size_t Bits>
-struct base_uint {
+struct base_uint
+{
     std::uint8_t data_[Bits / 8]{};
 
     [[nodiscard]] bool
@@ -146,16 +152,27 @@ using uint192 = base_uint<192>;
 using uint256 = base_uint<256>;
 
 // ---- basics/Slice.h ---------------------------------------------------------
-class Slice {
+class Slice
+{
     std::uint8_t const* data_ = nullptr;
     std::size_t size_ = 0;
 
 public:
     Slice() = default;
-    Slice(void const* p, std::size_t n) : data_(static_cast<std::uint8_t const*>(p)), size_(n) {}
+    Slice(void const* p, std::size_t n) : data_(static_cast<std::uint8_t const*>(p)), size_(n)
+    {
+    }
 
-    [[nodiscard]] std::uint8_t const* data() const noexcept { return data_; }
-    [[nodiscard]] std::size_t size() const noexcept { return size_; }
+    [[nodiscard]] std::uint8_t const*
+    data() const noexcept
+    {
+        return data_;
+    }
+    [[nodiscard]] std::size_t
+    size() const noexcept
+    {
+        return size_;
+    }
 };
 
 template <class Container>
@@ -193,15 +210,28 @@ enum class TokenType {
 };
 
 // ---- protocol/AccountID.h (+ Currency) --------------------------------------
-class AccountID {
+class AccountID
+{
     std::array<std::uint8_t, 20> data_{};
 
 public:
     AccountID() = default;
 
-    [[nodiscard]] std::uint8_t* data() noexcept { return data_.data(); }
-    [[nodiscard]] std::uint8_t const* data() const noexcept { return data_.data(); }
-    [[nodiscard]] static constexpr std::size_t size() noexcept { return 20; }
+    [[nodiscard]] std::uint8_t*
+    data() noexcept
+    {
+        return data_.data();
+    }
+    [[nodiscard]] std::uint8_t const*
+    data() const noexcept
+    {
+        return data_.data();
+    }
+    [[nodiscard]] static constexpr std::size_t
+    size() noexcept
+    {
+        return 20;
+    }
 
     [[nodiscard]] bool
     isZero() const noexcept
@@ -209,17 +239,26 @@ public:
         return std::all_of(data_.begin(), data_.end(), [](auto b) { return b == 0; });
     }
 
-    bool operator==(AccountID const& other) const noexcept = default;
+    bool
+    operator==(AccountID const& other) const noexcept = default;
 };
 
-class Currency {
+class Currency
+{
     bool isXrp_ = false;
 
 public:
     Currency() = default;
-    explicit Currency(bool isXrp) : isXrp_(isXrp) {}
-    [[nodiscard]] bool isXrp() const noexcept { return isXrp_; }
-    bool operator==(Currency const&) const noexcept = default;
+    explicit Currency(bool isXrp) : isXrp_(isXrp)
+    {
+    }
+    [[nodiscard]] bool
+    isXrp() const noexcept
+    {
+        return isXrp_;
+    }
+    bool
+    operator==(Currency const&) const noexcept = default;
 };
 
 [[nodiscard]] inline AccountID
@@ -235,10 +274,12 @@ xrpAccount()
 }
 
 // ---- protocol/Issue.h -------------------------------------------------------
-struct Issue {
+struct Issue
+{
     Currency currency;
     AccountID account;
-    bool operator==(Issue const&) const noexcept = default;
+    bool
+    operator==(Issue const&) const noexcept = default;
 };
 
 [[nodiscard]] inline Issue
@@ -256,15 +297,20 @@ issueFromJson(std::string const&)
 }
 
 // ---- protocol/STXChainBridge.h ----------------------------------------------
-struct STXChainBridge {
-    bool operator==(STXChainBridge const&) const noexcept = default;
+struct STXChainBridge
+{
+    bool
+    operator==(STXChainBridge const&) const noexcept = default;
 };
 
 // ---- protocol/Book.h --------------------------------------------------------
-struct Book {
+struct Book
+{
     Issue in;
     Issue out;
-    bool operator==(Book const&) const noexcept = default;
+    std::optional<uint256> domain;  // libxrpl's Book carries an optional permissioned-domain id
+    bool
+    operator==(Book const&) const noexcept = default;
 };
 
 [[nodiscard]] inline bool
@@ -284,15 +330,18 @@ isXRP(AccountID const& a)
 [[nodiscard]] inline bool
 toCurrency(Currency& currency, std::string const& code)
 {
-    if (code == "XRP") {
+    if (code == "XRP")
+    {
         currency = Currency{true};
         return true;
     }
-    if (code.size() == 3) {
+    if (code.size() == 3)
+    {
         currency = Currency{false};
         return true;
     }
-    if (code.size() == 40 && mock_detail::hexToBytes(code).has_value()) {
+    if (code.size() == 40 && mock_detail::hexToBytes(code).has_value())
+    {
         currency = Currency{false};
         return true;
     }
@@ -300,10 +349,13 @@ toCurrency(Currency& currency, std::string const& code)
 }
 
 // ---- protocol/PublicKey.h ---------------------------------------------------
-class PublicKey {
+class PublicKey
+{
 public:
     PublicKey() = default;
-    explicit PublicKey(Slice const&) {}
+    explicit PublicKey(Slice const&)
+    {
+    }
 };
 
 [[nodiscard]] inline AccountID
@@ -412,13 +464,19 @@ enum ErrorCodeI : int {
 
 // ---- protocol/TxFormats.h ---------------------------------------------------
 // Mock of the iterable TxFormats registry. Real libxrpl derives this from the
-// linked rippled version; the mock carries a small representative sample so
+// linked xrpld version; the mock carries a small representative sample so
 // detail::txTypesInLowercase() yields a non-empty set.
-class TxFormats {
+class TxFormats
+{
 public:
-    struct Item {
+    struct Item
+    {
         std::string name_;
-        [[nodiscard]] std::string const& getName() const noexcept { return name_; }
+        [[nodiscard]] std::string const&
+        getName() const noexcept
+        {
+            return name_;
+        }
     };
 
     [[nodiscard]] static TxFormats const&
@@ -428,8 +486,16 @@ public:
         return kINSTANCE;
     }
 
-    [[nodiscard]] auto begin() const noexcept { return items_.begin(); }
-    [[nodiscard]] auto end() const noexcept { return items_.end(); }
+    [[nodiscard]] auto
+    begin() const noexcept
+    {
+        return items_.begin();
+    }
+    [[nodiscard]] auto
+    end() const noexcept
+    {
+        return items_.end();
+    }
 
 private:
     std::vector<Item> items_{{"Payment"}, {"OfferCreate"}, {"OfferCancel"}, {"AccountSet"}};

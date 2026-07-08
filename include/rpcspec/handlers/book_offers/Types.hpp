@@ -2,7 +2,10 @@
 #pragma once
 
 #include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
+
+#include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
 #include <optional>
@@ -17,20 +20,18 @@ inline constexpr uint32_t kLimitDefault = 60;
 /**
  * @brief Input for the 'book_offers' RPC command.
  *
- * @note The taker is not really used in both Clio and `rippled`, both of them return all the
+ * @note The taker is not really used in both Clio and `xrpld`, both of them return all the
  * offers regardless of the funding status
  */
-struct Input {
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
-    uint32_t limit = kLimitDefault;
+struct Input
+{
+    LedgerSpecifier ledger;
+    uint32_t limit;
     std::optional<xrpl::AccountID> taker;
-    xrpl::Currency paysCurrency;
-    xrpl::Currency getsCurrency;
-    // accountID will be filled by input converter, if no issuer is given, will use XRP issuer
-    xrpl::AccountID paysID = xrpl::xrpAccount();
-    xrpl::AccountID getsID = xrpl::xrpAccount();
-    std::optional<std::string> domain;
+    xrpl::Issue takerPays;
+    xrpl::Issue takerGets;
+    std::optional<std::string>
+        domain; /**< Permissioned-domain id, passed through as a validated hex string. */
 };
 
-} // namespace rpc::spec::handlers::book_offers
+}  // namespace rpc::spec::handlers::book_offers

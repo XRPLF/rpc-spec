@@ -1,18 +1,61 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'nft_info' RPC command.
-// Single source of truth — both Clio and rippled include this file.
+// Single source of truth — both Clio and xrpld include this file.
+
+#include <xrpl/basics/base_uint.h>
 
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Converters.hpp>
+#include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/Typed.hpp>
+#include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/nft_info/Types.hpp>
+
+#include <string_view>
 
 namespace rpc::spec::handlers::nft_info {
 
-inline constexpr auto kSpec = RpcSpec{
-    field("nft_id", required, uint256Hex),
-    field("ledger_hash", uint256Hex),
-    field("ledger_index", ledgerIndex),
+struct Uint256Converter
+{
+    static constexpr std::string_view kName = "uint256";
+    using ValueType = xrpl::uint256;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        auto const err = [&] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams,
+                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+        };
+        if (!f.isString())
+            return err();
+        xrpl::uint256 out;
+        if (!out.parseHex(std::string{f.asString()}.c_str()))
+            return err();
+        return out;
+    }
 };
 
-} // namespace rpc::spec::handlers::nft_info
+// NOLINTBEGIN(readability-identifier-naming)
+inline constexpr auto asUint256 = Uint256Converter{};
+// NOLINTEND(readability-identifier-naming)
+
+inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
+    field("nft_id", &Input::nftID, required, asUint256));
+
+/** @brief Version-selecting spec (resolved from Input via specFor). */
+inline constexpr auto kSpec = versioned<Input>(kInputSpec);
+
+/** @brief ADL hook: resolve the versioned spec from the Input type. */
+[[nodiscard]] constexpr auto const&
+specFor(Input const*) noexcept
+{
+    return kSpec;
+}
+
+}  // namespace rpc::spec::handlers::nft_info
