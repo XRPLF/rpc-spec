@@ -12,7 +12,7 @@
 #include <rpcspec/handlers/ledger_entry/Spec.hpp>
 #include <rpcspec/handlers/ledger_entry/Types.hpp>
 
-#include "xrpl_mock.hpp"
+#include <xrpl_mock.hpp>
 
 #include <sstream>
 #include <string>

@@ -1,6 +1,5 @@
 #include <boost/json/parse.hpp>
 
-#include "rpcspec/Types.hpp"
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -8,6 +7,7 @@
 #include <rpcspec/FieldSpec.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
 
 #include <cstdint>

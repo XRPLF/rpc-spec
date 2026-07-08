@@ -5,7 +5,7 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
-#include "xrpl_mock.hpp"
+#include <xrpl_mock.hpp>
 
 #include <algorithm>
 #include <cstdint>

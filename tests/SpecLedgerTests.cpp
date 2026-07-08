@@ -8,7 +8,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
-#include "xrpl_mock.hpp"
+#include <xrpl_mock.hpp>
 
 #include <cstdint>
 

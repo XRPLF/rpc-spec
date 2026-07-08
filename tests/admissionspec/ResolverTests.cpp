@@ -1,5 +1,5 @@
-#include "admissionspec/Types.hpp"
 #include <admissionspec/Resolver.hpp>
+#include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
 #include <cstdint>
