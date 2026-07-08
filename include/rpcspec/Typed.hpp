@@ -135,9 +135,13 @@ struct BoundField
         if (!pre.has_value())
             return pre;
 
-        // Absent + (optional member | has default) → leave the default value.
+        // Absent → apply a spec-declared default if one is attached (defaultTo), else
+        // leave the value-initialised member (optional stays nullopt; scalars stay zeroed).
         if (!fa.present())
+        {
+            std::apply([&](auto const&... it) { (applyIfDefault(it, out), ...); }, items);
             return {};
+        }
 
         // Validate and transform the (possibly modified) value into the strong type.
         auto res = conv.parse(fa);
@@ -176,6 +180,22 @@ struct BoundField
             std::apply([&](auto const&... it) { (dumpItem(w, it), ...); }, items);
             dumpItem(w, conv);  // the converter renders via its kName
         });
+    }
+
+private:
+    // Assigns a defaultTo() value into the bound member; a no-op for every other item.
+    // Called only on the absent branch, so a present field always wins over the default.
+    template <typename Item>
+    void
+    applyIfDefault(Item const& it, InputT& out) const
+    {
+        if constexpr (SomeDefault<Item>)
+        {
+            static_assert(
+                std::is_assignable_v<Member&, typename Item::ValueType>,
+                "rpcspec: defaultTo value type is not assignable to the bound Input member");
+            out.*member = it.value;
+        }
     }
 };
 

@@ -258,4 +258,27 @@ customModifier(Fn f)
     return CustomModifier<Fn>{f};
 }
 
+/**
+ * @brief Supplies the value assigned to a bound Input member when the field is absent.
+ *
+ * Moves a field's default out of the Input struct's member initialiser and into the spec,
+ * so the spec is the single source of truth for the whole field contract (min/max *and*
+ * default). Only meaningful on a bound `field()` (one with a pointer-to-member); the value
+ * type must be assignable to that member (enforced at compile time in `BoundField`).
+ *
+ * @code
+ * field("limit", &Input::limit, type<uint32_t>, clamp(kMin, kMax), defaultTo(kDefault), asUint32)
+ * @endcode
+ *
+ * @tparam V  The default value type.
+ * @param  v  The value assigned when the field is omitted from the request.
+ * @return    A `Default` field item.
+ */
+template <typename V>
+consteval auto
+defaultTo(V v)
+{
+    return Default<V>{v};
+}
+
 }  // namespace rpc::spec

@@ -22,7 +22,7 @@ struct Input
 {
     LedgerSpecifier ledger;
     xrpl::AccountID account;
-    uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
+    uint32_t limit; /**< Clamped to [kLimitMin, kLimitMax] */
     std::optional<xrpl::uint256> marker;
 };
 

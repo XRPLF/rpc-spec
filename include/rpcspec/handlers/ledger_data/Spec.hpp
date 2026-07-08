@@ -85,7 +85,13 @@ inline constexpr auto ledgerEntryTypeConv = LedgerEntryTypeConverter{};
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, jsonBoolStrict),
-    field("limit", &Input::limit, type<uint32_t>, min(uint32_t{1}), asUint32),
+    field(
+        "limit",
+        &Input::limit,
+        type<uint32_t>,
+        min(uint32_t{1}),
+        defaultTo(kLimitJson),
+        asUint32),
     field("marker", &Input::marker, markerConv),
     field("out_of_order", &Input::outOfOrder, jsonBoolStrict),
     field("type", &Input::type, ledgerEntryTypeConv),

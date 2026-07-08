@@ -54,6 +54,7 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        defaultTo(kLimitDefault),
         asUint32),
     field("transactions", &Input::transactions, jsonBool));
 

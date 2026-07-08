@@ -83,6 +83,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        defaultTo(kLimitDefault),
         asUint32));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

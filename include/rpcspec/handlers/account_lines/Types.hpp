@@ -25,7 +25,7 @@ struct Input
     std::optional<xrpl::AccountID> peer;
     bool ignoreDefault = false;  // TODO: document
                                  // https://github.com/XRPLF/xrpl-dev-portal/issues/1839
-    uint32_t limit = kLimitDefault;
+    uint32_t limit;
     std::optional<std::string>
         marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);
                    re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */

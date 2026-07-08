@@ -19,13 +19,12 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
     field("destination_account", &Input::destinationAccount, type<std::string>, accountId),
-    field(
-        "limit",
-        &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        asUint32),
+    field("limit", &Input::limit)                          //
+        | type<uint32_t>                                   //
+        | min(uint32_t{1})                                 //
+        | defaultTo(kLimitDefault)                         //
+        | clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})  //
+        | asUint32,
     field("marker", &Input::marker, accountMarker, asString));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

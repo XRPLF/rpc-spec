@@ -24,7 +24,7 @@ struct Input
     LedgerSpecifier ledger;
     xrpl::uint192 mptID;
     std::optional<xrpl::AccountID> marker;
-    uint32_t limit = kLimitDefault;
+    uint32_t limit;
 };
 
 }  // namespace rpc::spec::handlers::mpt_holders

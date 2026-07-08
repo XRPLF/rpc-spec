@@ -23,7 +23,7 @@ struct Input
     LedgerSpecifier ledger;
     xrpl::AccountID account;
     bool roleGateway = false;
-    uint32_t limit = kLimitDefault;
+    uint32_t limit;
     bool transactions = false;
 };
 

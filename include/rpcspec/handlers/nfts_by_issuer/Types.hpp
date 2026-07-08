@@ -25,7 +25,7 @@ struct Input
     xrpl::AccountID issuer;
     std::optional<uint32_t> nftTaxon;
     std::optional<xrpl::uint256> marker;
-    uint32_t limit = kLimitDefault; /**< Clamped to [kLimitMin, kLimitMax] */
+    uint32_t limit; /**< Clamped to [kLimitMin, kLimitMax] */
 };
 
 }  // namespace rpc::spec::handlers::nfts_by_issuer

@@ -54,6 +54,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<uint32_t>,
         min(uint32_t{1}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        defaultTo(kLimitDefault),
         asUint32),
     field("marker", &Input::marker, asUint256));
 

@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 namespace rpc::spec {
 
@@ -196,11 +197,28 @@ template <typename T>
 concept SomeProcessor = SomeRequirement<T> || SomeModifier<T>;
 
 /**
- * @brief A type that is a SomeProcessor or a SomeCheck — any item attachable to a FieldSpec.
+ * @brief A pure default marker: carries the value a bound field receives when absent.
+ *
+ * Neither a requirement, modifier, nor check, so it is a no-op during process()/check().
+ * `BoundField::parseInto` detects it and assigns `value` to the bound member when the
+ * field is omitted from the request (see Typed.hpp / `defaultTo`).
  *
  * @tparam T The candidate type to check.
  */
 template <typename T>
-concept SomeFieldItem = SomeProcessor<T> || SomeCheck<T>;
+concept SomeDefault = requires {
+    requires std::same_as<std::remove_cv_t<decltype(T::kIsDefault)>, bool>;
+    requires T::kIsDefault;
+    typename T::ValueType;
+};
+
+/**
+ * @brief A type that is a SomeProcessor, SomeCheck, or SomeDefault — any item attachable to a
+ * FieldSpec.
+ *
+ * @tparam T The candidate type to check.
+ */
+template <typename T>
+concept SomeFieldItem = SomeProcessor<T> || SomeCheck<T> || SomeDefault<T>;
 
 }  // namespace rpc::spec

@@ -26,7 +26,7 @@ inline constexpr uint32_t kLimitDefault = 60;
 struct Input
 {
     LedgerSpecifier ledger;
-    uint32_t limit = kLimitDefault;
+    uint32_t limit;
     std::optional<xrpl::AccountID> taker;
     xrpl::Issue takerPays;
     xrpl::Issue takerGets;

@@ -1361,6 +1361,41 @@ struct AccountTypeValidator
 };
 
 /**
+ * @brief Carries the value assigned to a bound Input member when the field is absent.
+ *
+ * A pure marker item: unlike requirements/modifiers/checks it has no `verify`/`modify`/
+ * `check`, so it is a no-op while items run and only participates via `SomeDefault`.
+ * `BoundField::parseInto` detects it and, when the field is omitted from the request,
+ * assigns `value` to the bound member — making the spec (not the Input struct's member
+ * initialiser) the single source of truth for a field's default. Build via `defaultTo`.
+ *
+ * @tparam V The default value type; must be assignable to the bound member.
+ */
+template <typename V>
+struct Default
+{
+    static constexpr std::string_view kName = "default";
+    static constexpr bool kIsDefault = true;
+    using ValueType = V;
+
+    V value;
+
+    consteval explicit Default(V v) : value{v}
+    {
+    }
+
+    template <typename Writer>
+    void
+    describeParams(Writer& w) const
+    {
+        w.param("value", value);
+    }
+};
+
+template <typename V>
+Default(V) -> Default<V>;
+
+/**
  * @brief Validates that a string field names a recognised ledger entry type.
  *
  * Returns `RpcInvalidParams` if the field is not a string or the string does not map to a

@@ -14,6 +14,7 @@ add_executable(
     RpcSpec.cpp
     StatusPrinter.cpp
     SpecCoreTests.cpp
+    SpecDefaultTests.cpp
     SpecFieldViewTests.cpp
     SpecLedgerEntryTests.cpp
     SpecLedgerTests.cpp
