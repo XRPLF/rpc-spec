@@ -11,18 +11,24 @@ class XrplRpcSpecConan(ConanFile):
     license = "ISC"
     author = "the XRP Ledger developers"
     url = "https://github.com/XRPLF/rpc-spec"
-    description = "Consteval RPC spec DSL for XRPL — shared by Clio and rippled"
+    description = "Consteval RPC spec DSL for XRPL — shared by Clio and xrpld"
     settings = "os", "compiler", "build_type", "arch"
     package_type = "header-library"
     no_copy_source = True
 
     # The headers travel with the recipe so consumers get a real package (not a
     # source build). CMakeLists/tests are exported too for local `conan create`.
-    exports_sources = "include/*", "CMakeLists.txt", "tests/*", "LICENSE.md", "README.md"
+    exports_sources = (
+        "include/*",
+        "CMakeLists.txt",
+        "tests/*",
+        "LICENSE.md",
+        "README.md",
+    )
 
-    # Build-time consumers (Clio, rippled) provide their own xrpl/ripple headers;
+    # Build-time consumers (Clio, xrpld) provide their own xrpl/ripple headers;
     # the only direct dependency of the headers is Boost::json. Keep this aligned
-    # with rippled's boost version to avoid a clash when consumed there.
+    # with xrpld's boost version to avoid a clash when consumed there.
     requires = [
         "boost/1.91.0",
     ]
@@ -35,13 +41,13 @@ class XrplRpcSpecConan(ConanFile):
         "tests": False,
         # boost 1.91's cobalt_io_ssl component fails package_info() unless cobalt
         # is disabled (it expects an OpenSSL-backed build we don't pull in).
-        # We only need Boost::json, so drop cobalt. Mirrors rippled.
+        # We only need Boost::json, so drop cobalt. Mirrors xrpld.
         "boost/*:without_cobalt": True,
     }
 
     def requirements(self):
         if self.options.tests:
-            # Tests run against the rippled (xrpl::) backend, but mock the small
+            # Tests run against the xrpld (xrpl::) backend, but mock the small
             # libxrpl protocol surface they touch (see tests/stubs), so the only
             # real test dependency is gtest. Boost::json comes from the main
             # `requires` above.
@@ -63,8 +69,6 @@ class XrplRpcSpecConan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
-        if self.options.tests:
-            tc.preprocessor_definitions["RPCSPEC_IS_RIPPLED"] = "1"
         tc.generate()
 
     # Header-only: no compilation. Just copy the headers into the package.

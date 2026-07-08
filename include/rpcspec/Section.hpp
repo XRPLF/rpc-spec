@@ -25,30 +25,37 @@ namespace rpc::spec {
  *       field("issuer",   account)
  *   ))
  */
-template <typename... SubFields> struct Section {
-  static constexpr std::string_view kName = "section";
+template <typename... SubFields>
+struct Section
+{
+    static constexpr std::string_view kName = "section";
 
-  std::tuple<SubFields...> subFields;
+    std::tuple<SubFields...> subFields;
 
-  consteval explicit Section(SubFields... sf) : subFields{sf...} {}
+    consteval explicit Section(SubFields... sf) : subFields{sf...}
+    {
+    }
 
-  template <SomeFieldView FA> [[nodiscard]] MaybeError modify(FA &fa) const {
-    if (!fa.present())
-      return {};
-    if (!fa.isObject())
-      return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+    template <SomeFieldView FA>
+    [[nodiscard]] MaybeError
+    modify(FA& fa) const
+    {
+        if (!fa.present())
+            return {};
+        if (!fa.isObject())
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
 
-    MaybeError result{};
-    std::apply(
-        [&](auto const &...subSpec) {
-          (void)((result = subSpec.processNested(fa), result.has_value()) &&
-                 ...);
-        },
-        subFields);
-    return result;
-  }
+        MaybeError result{};
+        std::apply(
+            [&](auto const&... subSpec) {
+                (void)((result = subSpec.processNested(fa), result.has_value()) && ...);
+            },
+            subFields);
+        return result;
+    }
 };
 
-template <typename... Fs> Section(Fs...) -> Section<Fs...>;
+template <typename... Fs>
+Section(Fs...) -> Section<Fs...>;
 
-} // namespace rpc::spec
+}  // namespace rpc::spec

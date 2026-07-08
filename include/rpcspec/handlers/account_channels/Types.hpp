@@ -1,6 +1,10 @@
 /** @file */
 #pragma once
 
+#include <xrpl/protocol/AccountID.h>
+
+#include <rpcspec/Ledger.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -14,13 +18,15 @@ inline constexpr uint32_t kLimitDefault = 200;
 /**
  * @brief Input for the 'account_channels' RPC command.
  */
-struct Input {
-  std::string account;
-  std::optional<std::string> destinationAccount;
-  std::optional<std::string> ledgerHash;
-  std::optional<uint32_t> ledgerIndex;
-  uint32_t limit = kLimitDefault;
-  std::optional<std::string> marker;
+struct Input
+{
+    LedgerSpecifier ledger;
+    xrpl::AccountID account;
+    std::optional<xrpl::AccountID> destinationAccount;
+    uint32_t limit;
+    std::optional<std::string>
+        marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);
+                   re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */
 };
 
-} // namespace rpc::spec::handlers::account_channels
+}  // namespace rpc::spec::handlers::account_channels

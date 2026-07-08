@@ -1,0 +1,11 @@
+# Inherits the project's root .clang-tidy and disables one check for tests only.
+#
+# bugprone-unchecked-optional-access cannot see through GoogleTest's ASSERT_TRUE /
+# ASSERT_*  macros (they are not modeled by its dataflow analysis), so every
+# `r->field` access that is already guarded by `ASSERT_TRUE(r.has_value())` is
+# flagged as a false positive. Restructuring each access with an explicit `if`
+# would make the tests substantially less readable for no real safety gain (a
+# wrong access aborts the test visibly anyway). Every other check still applies.
+---
+InheritParentConfig: true
+Checks: "-bugprone-unchecked-optional-access"

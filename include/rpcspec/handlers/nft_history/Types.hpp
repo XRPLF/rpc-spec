@@ -1,6 +1,11 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
+
+#include <rpcspec/JsonBool.hpp>
+#include <rpcspec/Ledger.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -15,7 +20,8 @@ inline constexpr uint32_t kLimitDefault = 50;
  * @brief A struct to hold the marker data
  */
 // TODO: this marker is same as account_tx, reuse in future
-struct Marker {
+struct Marker
+{
     uint32_t ledger;
     uint32_t seq;
 };
@@ -23,18 +29,20 @@ struct Marker {
 /**
  * @brief Input for the 'nft_history' RPC command.
  */
-struct Input {
-    std::string nftID;
+struct Input
+{
     // You must use at least one of the following fields in your request:
     // ledger_index, ledger_hash, ledger_index_min, or ledger_index_max.
-    std::optional<std::string> ledgerHash;
-    std::optional<uint32_t> ledgerIndex;
+    // `ledger` is unspecified when none of ledger_hash/ledger_index is given, so
+    // the handler can choose between range mode (min/max) and the default ledger.
+    LedgerSpecifier ledger;
+    xrpl::uint256 nftID;
     std::optional<int32_t> ledgerIndexMin;
     std::optional<int32_t> ledgerIndexMax;
-    bool binary = false;
-    bool forward = false;
+    JsonBool binary{false};
+    JsonBool forward{false};
     std::optional<uint32_t> limit;
     std::optional<Marker> marker;
 };
 
-} // namespace rpc::spec::handlers::nft_history
+}  // namespace rpc::spec::handlers::nft_history

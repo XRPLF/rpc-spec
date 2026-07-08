@@ -21,31 +21,40 @@ namespace rpc::spec {
  * hang them directly on the FieldSpec if conditional warning emission is
  * needed.
  */
-template <typename T, SomeProcessor... SubItems> struct IfType {
-  static constexpr std::string_view kName = "ifType";
-  static constexpr std::string_view kBRANCH_TYPE = typeNameOf<T>();
+template <typename T, SomeProcessor... SubItems>
+struct IfType
+{
+    static constexpr std::string_view kName = "ifType";
+    static constexpr std::string_view kBranchType = typeNameOf<T>();
 
-  std::tuple<SubItems...> subItems;
+    std::tuple<SubItems...> subItems;
 
-  consteval explicit IfType(SubItems... s) : subItems{s...} {}
+    consteval explicit IfType(SubItems... s) : subItems{s...}
+    {
+    }
 
-  template <typename Writer> void describeParams(Writer &w) const {
-    w.param("type", kBRANCH_TYPE);
-  }
+    template <typename Writer>
+    void
+    describeParams(Writer& w) const
+    {
+        w.param("type", kBranchType);
+    }
 
-  template <SomeFieldView FA> [[nodiscard]] MaybeError modify(FA &fa) const {
-    if (!fa.present() || !fa.template is<T>())
-      return {};
+    template <SomeFieldView FA>
+    [[nodiscard]] MaybeError
+    modify(FA& fa) const
+    {
+        if (!fa.present() || !fa.template is<T>())
+            return {};
 
-    MaybeError result{};
-    std::apply(
-        [&](auto const &...item) {
-          (void)((result = callIfProcessor(item, fa), result.has_value()) &&
-                 ...);
-        },
-        subItems);
-    return result;
-  }
+        MaybeError result{};
+        std::apply(
+            [&](auto const&... item) {
+                (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
+            },
+            subItems);
+        return result;
+    }
 };
 
-} // namespace rpc::spec
+}  // namespace rpc::spec
