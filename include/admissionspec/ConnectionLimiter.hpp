@@ -58,9 +58,9 @@ public:
      *
      * @param visitor Caller-provided traversal, invoked as `visitor(check)`.
      */
-    template <typename T, typename Walker>
+    template <typename T, typename Visitor>
     AdmissionDecision
-    admit(ConnId const& conn, Walker visitor, TimePoint now)
+    admit(ConnId const& conn, Visitor visitor, TimePoint now)
     {
         // A fresh, state-carrying checker for this one message; the visitor feeds it each event.
         auto check = admission::spec::makeChecker<T>();
