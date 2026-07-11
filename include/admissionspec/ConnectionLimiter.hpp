@@ -10,24 +10,14 @@
 #include <span>
 #include <unordered_map>
 
+namespace json {
+class Value;
+}
+
 namespace admission::spec {
 
 /**
  * @brief Tracks one token bucket per connection and enforces the admission stages against it.
- *
- * This is the runtime that ties the pieces together: it owns the per-connection @ref TokenBucket
- * (capacity/refill from the resolved @ref BucketSettings), runs the per-type admission stages
- * (@ref preAdmit / @ref postAdmit) to compute a token cost, and debits that cost from the
- * connection's bucket — dropping the message if a stage rejects it or the bucket is exhausted. A
- * rejecting stage may carry its own penalty cost, which is debited even though the message is
- * dropped, so cheap-to-generate rejects still apply backpressure rather than being free to spam.
- *
- * A message type only affects the *cost*; every type charges the same single per-connection bucket,
- * so an attacker cannot multiply their budget by fanning out across message types.
- *
- * The bucket map is the one piece of unbounded state, so it is capped at @c maxConnections (the
- * least-recently-seen entry is evicted on overflow) and can be swept of idle entries via @ref
- * sweepIdle.
  *
  * @tparam ConnId The caller's connection identifier (must be hashable and equality-comparable).
  */
@@ -68,16 +58,18 @@ public:
     }
 
     /**
-     * @brief Post-deserialization admission for a hydrated message of type @p T on @p conn.
+     * @brief Streaming admission for a message of type @p T arriving on @p conn.
      *
-     * Runs @ref postAdmit (post hook over the value); if admitted, debits any cost the hook
-     * charged. On a drop, any penalty cost the hook carried is debited too.
+     * @param visitor Caller-provided traversal, invoked as `visitor(check)`.
      */
-    template <typename T>
-    [[nodiscard]] AdmissionDecision
-    admitPost(ConnId const& conn, T const& value, TimePoint now)
+    template <typename T, typename Walker>
+    AdmissionDecision
+    admit(ConnId const& conn, Walker visitor, TimePoint now)
     {
-        auto const decision = postAdmit<T>(value);
+        // A fresh, state-carrying checker for this one message; the visitor feeds it each event.
+        auto check = admission::spec::makeChecker<T>();
+
+        auto decision = visitor(check);
         if (decision.dropped())
         {
             return penalize(conn, decision, now);
@@ -85,7 +77,9 @@ public:
         return charge(conn, decision, now);
     }
 
-    /** @brief Forget a connection's bucket (call on disconnect). */
+    /**
+     * @brief Forget a connection's bucket (call on disconnect).
+     */
     void
     onDisconnect(ConnId const& conn)
     {
@@ -93,7 +87,9 @@ public:
         state_.buckets.erase(conn);
     }
 
-    /** @brief Evict connections not seen since @p now - @p idleFor. */
+    /**
+     * @brief Evict connections not seen since @p now - @p idleFor.
+     */
     void
     sweepIdle(TimePoint now, std::chrono::steady_clock::duration idleFor)
     {
@@ -103,7 +99,9 @@ public:
         });
     }
 
-    /** @return The number of currently tracked connections. */
+    /**
+     * @return The number of currently tracked connections.
+     */
     [[nodiscard]] std::size_t
     size() const
     {
@@ -123,7 +121,8 @@ private:
         std::unordered_map<ConnId, BucketEntry> buckets;
     };
 
-    /** @brief Find @p conn's bucket, creating it (evicting the oldest if at capacity) if absent,
+    /**
+     * @brief Find @p conn's bucket, creating it (evicting the oldest if at capacity) if absent,
      * and stamp it as seen at @p now. Caller must hold @p buckets' lock.
      */
     [[nodiscard]] typename std::unordered_map<ConnId, BucketEntry>::iterator
@@ -160,7 +159,8 @@ private:
         return AdmissionDecision::admit(decision.tokenCost);
     }
 
-    /** @brief Apply a dropped stage's penalty cost to @p conn's bucket and return the drop
+    /**
+     * @brief Apply a dropped stage's penalty cost to @p conn's bucket and return the drop
      * unchanged. The debit is best-effort: if the bucket lacks the tokens it is left as-is (the
      * connection is already at its limit). A drop is always a drop regardless of bucket state.
      */

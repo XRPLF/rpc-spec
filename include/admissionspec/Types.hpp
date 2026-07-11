@@ -7,6 +7,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace admission::spec {
@@ -66,6 +67,55 @@ struct AdmissionDecision
 
     bool
     operator<=>(AdmissionDecision const&) const = default;
+};
+
+/**
+ * @brief The shape of one event in a streaming walk of a not-yet-hydrated payload.
+ *
+ * A walk is a flat stream of SAX-style events: a @c Scalar leaf, or the @c Begin/@c End of a
+ * container. The framework deliberately reports nothing more — no path, index, or child count. A
+ * check that needs structural context (nesting depth, list length, "the value under key X") keeps
+ * its own state across the events of a single message; see @ref AdmissionSpec::withCheck.
+ */
+enum class EventKind : std::uint8_t {
+    Scalar,       ///< a leaf value (see @ref VisitEvent::value)
+    BeginArray,   ///< start of a list / protobuf `repeated` field
+    EndArray,     ///< end of the current list
+    BeginMap,     ///< start of a map (e.g. JSON object used as a map, protobuf `map<>`)
+    EndMap,       ///< end of the current map
+    BeginObject,  ///< start of an object / protobuf sub-message
+    EndObject,    ///< end of the current object
+};
+
+/**
+ * @brief An event handed to a streaming admission check as a visitor decodes a payload.
+ *
+ * The @ref ConnectionLimiter hands a caller-provided visitor a per-message check bound to the
+ * type's
+ * @ref AdmissionSpec; the visitor emits one @c VisitEvent per node it decodes and the check decides
+ * admit/drop — so a message can be rejected before it is ever fully hydrated.
+ */
+struct VisitEvent
+{
+    /// Scalar, or the begin/end of a container.
+    EventKind kind{EventKind::Scalar};
+
+    /// JSON key of this node; empty for protobuf and for array elements.
+    std::string_view name;
+
+    /// Protobuf field number of this node; max uint64_t for JSON.
+    std::uint64_t fieldNumber{std::numeric_limits<std::uint64_t>::max()};
+
+    /// Leaf payload; @c monostate unless @c kind is @c Scalar.
+    std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double, std::string_view> value;
+
+    /// @return Pointer to the scalar value if it holds a @p U, else nullptr.
+    template <typename U>
+    [[nodiscard]] constexpr U const*
+    as() const noexcept
+    {
+        return std::get_if<U>(&value);
+    }
 };
 
 /**
