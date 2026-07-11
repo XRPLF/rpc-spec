@@ -10,10 +10,6 @@
 #include <span>
 #include <unordered_map>
 
-namespace json {
-class Value;
-}
-
 namespace admission::spec {
 
 /**
