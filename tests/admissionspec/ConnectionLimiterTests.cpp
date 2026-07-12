@@ -1,5 +1,6 @@
 #include <admissionspec/AdmissionSpec.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/ProtobufVisitor.hpp>
 #include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
@@ -12,6 +13,7 @@
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 using admission::spec::AdmissionDecision;
 using admission::spec::EventKind;
@@ -21,7 +23,7 @@ namespace {
 
 struct FooMessage
 {
-    std::int64_t foo{0};
+    std::int64_t foo{};
 };
 
 consteval auto
@@ -53,29 +55,118 @@ admissionSpec(std::type_identity<FooMessage>)
 }
 
 [[nodiscard]] auto
-fooWalker(std::int64_t fooValue)
+fooVisitor(std::int64_t fooValue)
 {
     return [fooValue](auto check) -> AdmissionDecision {
         return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = 2, .value = fooValue});
     };
 }
 
-struct CartMessage
+struct ProtobufMessage
 {
 };
 
-struct CartChecker
+// Drives PROTOBUF only. Every field arrives as a Scalar keyed by field number; a length-delimited
+// field's `value` carries a byte span, which the check re-enters with the matching walker
+// (visitProtobuf for the sub-message, visitPackedVarint for the packed list). `inMeta`
+// distinguishes the top-level field 1 (id) from `meta`'s field 1 (priority).
+//   message Bar { string id = 1; repeated int32 items = 2 [packed]; Meta meta = 3; }
+//   message Meta { int32 priority = 1; }
+struct ProtobufChecker
 {
-    bool inItems = false;
-    bool inMeta = false;
-    std::size_t items = 0;
+    bool inMeta{};
+    std::size_t items{};
 
-    // True when this event names the given field, whichever way its format keys things.
-    static bool
-    is(VisitEvent const& e, std::string_view name, std::int32_t number)
+    template <typename Cfg>
+    AdmissionDecision
+    operator()(VisitEvent const& e, Cfg const& cfg)
     {
-        return e.name == name || e.fieldNumber == number;
+        auto self = [&](VisitEvent const& ev) { return (*this)(ev, cfg); };
+
+        if (inMeta)
+        {
+            // Inside `meta`: priority is field 1.
+            if (e.fieldNumber == 1)
+            {
+                if (auto const* v = e.as<std::int64_t>();
+                    v != nullptr && *v > cfg.template get<"max_priority">())
+                {
+                    return AdmissionDecision::drop("priority too high", 8.0);
+                }
+            }
+            return AdmissionDecision::admit();
+        }
+
+        switch (e.fieldNumber)
+        {
+            case 1:  // id: a length-delimited string
+            {
+                auto const* b = e.as<std::span<std::uint8_t const>>();
+                auto const id = b != nullptr
+                    ? std::string_view{reinterpret_cast<char const*>(b->data()), b->size()}
+                    : std::string_view{};
+                if (id.size() > cfg.template get<"max_id_len">())
+                {
+                    return AdmissionDecision::drop("id too long", 2.0);
+                }
+                return AdmissionDecision::admit();
+            }
+            case 2:  // items: packed repeated int32 (a byte span) — re-enter, counting each element
+            {
+                if (auto const* body = e.as<std::span<std::uint8_t const>>(); body != nullptr)
+                {
+                    return admission::spec::visitPackedVarint(*body, e.fieldNumber, self);
+                }
+                if (++items > cfg.template get<"max_items">())
+                {
+                    return AdmissionDecision::drop("too many items", 4.0);
+                }
+                return AdmissionDecision::admit();
+            }
+            case 3:  // meta: a sub-message — descend, bracketing with `inMeta`
+            {
+                if (auto const* body = e.as<std::span<std::uint8_t const>>(); body != nullptr)
+                {
+                    inMeta = true;
+                    auto const d = admission::spec::visitProtobuf(*body, self);
+                    inMeta = false;
+                    return d;
+                }
+                return AdmissionDecision::admit();
+            }
+            default:
+                return AdmissionDecision::admit();
+        }
     }
+};
+
+consteval auto
+admissionSpec(std::type_identity<ProtobufMessage>)
+{
+    using namespace admission::spec;
+    return makeSpec<ProtobufMessage>(
+               tunable<"max_payload_bytes">(
+                   std::uint64_t{64 * 1024}, "admission.protobuf_message.max_payload_bytes"),
+               tunable<"size_ramp">(
+                   ramp({{.upToBytes = 1024, .cost = 0.5}, {.upToBytes = 64 * 1024, .cost = 4.0}}),
+                   "admission.protobuf_message.size_ramp"),
+               tunable<"max_id_len">(std::size_t{8}, "admission.protobuf_message.max_id_len"),
+               tunable<"max_items">(std::size_t{3}, "admission.protobuf_message.max_items"),
+               tunable<"max_priority">(std::int64_t{5}, "admission.protobuf_message.max_priority"))
+        .withCheck(ProtobufChecker{});
+}
+
+struct JsonMessage
+{
+};
+
+// Drives JSON only. Keyed by object key; containers are bracketed by Begin/End, and the check
+// tracks which one it is inside.  { "id": ..., "items": [ ... ], "meta": { "priority": ... } }
+struct JsonChecker
+{
+    bool inItems{};
+    bool inMeta{};
+    std::size_t items{};
 
     template <typename Cfg>
     AdmissionDecision
@@ -85,244 +176,88 @@ struct CartChecker
         {
             using enum EventKind;
             case BeginArray:
-                if (is(e, "items", 2))
+                if (e.name == "items")
                 {
                     inItems = true;
                     items = 0;
                 }
                 return AdmissionDecision::admit();
             case EndArray:
-                if (is(e, "items", 2))
+                if (e.name == "items")
                 {
                     inItems = false;
                 }
                 return AdmissionDecision::admit();
             case BeginObject:
-                if (is(e, "meta", 3))
+                if (e.name == "meta")
                 {
                     inMeta = true;
                 }
                 return AdmissionDecision::admit();
             case EndObject:
-                if (is(e, "meta", 3))
+                if (e.name == "meta")
                 {
                     inMeta = false;
                 }
                 return AdmissionDecision::admit();
-            case BeginMap:
-            case EndMap:
-                return AdmissionDecision::admit();
             case Scalar:
-                // scalar rule: the `id` string may not be too long.
-                if (is(e, "id", 1))
+                if (e.name == "id")
                 {
                     if (auto const* s = e.as<std::string_view>();
                         s != nullptr && s->size() > cfg.template get<"max_id_len">())
                     {
                         return AdmissionDecision::drop("id too long", 2.0);
                     }
+                    return AdmissionDecision::admit();
                 }
-                // list rule: fail on the (max_items+1)th element, as it is decoded.
-                if (inItems && ++items > cfg.template get<"max_items">())
+                if (inItems)
                 {
-                    return AdmissionDecision::drop("too many items", 4.0);
+                    if (++items > cfg.template get<"max_items">())
+                    {
+                        return AdmissionDecision::drop("too many items", 4.0);
+                    }
+                    return AdmissionDecision::admit();
                 }
-                // object rule: `meta.priority` may not be too high.
-                if (inMeta && is(e, "priority", 1))
+                if (inMeta && e.name == "priority")
                 {
-                    std::cout << "checking priority\n";
-                    if (auto const* v = e.as<std::uint64_t>();
+                    if (auto const* v = e.as<std::int64_t>();
                         v != nullptr && *v > cfg.template get<"max_priority">())
                     {
-                        std::cout << "checking priority: DROP\n";
                         return AdmissionDecision::drop("priority too high", 8.0);
                     }
                 }
                 return AdmissionDecision::admit();
+            default:
+                return AdmissionDecision::admit();
         }
-        return AdmissionDecision::admit();
     }
 };
 
 consteval auto
-admissionSpec(std::type_identity<CartMessage>)
+admissionSpec(std::type_identity<JsonMessage>)
 {
     using namespace admission::spec;
-    return makeSpec<CartMessage>(
+    return makeSpec<JsonMessage>(
                tunable<"max_payload_bytes">(
-                   std::uint64_t{64 * 1024}, "admission.cart.max_payload_bytes"),
+                   std::uint64_t{64 * 1024}, "admission.json_message.max_payload_bytes"),
                tunable<"size_ramp">(
                    ramp({{.upToBytes = 1024, .cost = 0.5}, {.upToBytes = 64 * 1024, .cost = 4.0}}),
-                   "admission.cart.size_ramp"),
-               tunable<"max_id_len">(std::size_t{8}, "admission.cart.max_id_len"),
-               tunable<"max_items">(std::size_t{3}, "admission.cart.max_items"),
-               tunable<"max_priority">(std::uint64_t{5}, "admission.cart.max_priority"))
-        .withCheck(CartChecker{});
+                   "admission.json_message.size_ramp"),
+               tunable<"max_id_len">(std::size_t{8}, "admission.json_message.max_id_len"),
+               tunable<"max_items">(std::size_t{3}, "admission.json_message.max_items"),
+               tunable<"max_priority">(std::int64_t{5}, "admission.json_message.max_priority"))
+        .withCheck(JsonChecker{});
 }
 
-enum class LenKind {
-    String,
-    PackedInt32,
-    Message,
-};
-
-[[nodiscard]] bool
-readVarint(std::span<std::uint8_t const> bytes, std::size_t& pos, std::uint64_t& out)
-{
-    auto result = std::uint64_t{};
-    auto shift = std::uint64_t{};
-    while (pos < bytes.size())
-    {
-        auto const b = bytes[pos++];
-        result |= static_cast<std::uint64_t>(b & 0x7F) << shift;
-        if ((b & 0x80) == 0)
-        {
-            out = result;
-            return true;
-        }
-        shift += 7;
-    }
-    return false;
-}
-
-[[nodiscard]] LenKind
-cartShape(std::size_t depth, int field)
-{
-    if (depth == 0)
-    {
-        if (field == 2)
-        {
-            return LenKind::PackedInt32;
-        }
-        if (field == 3)
-        {
-            return LenKind::Message;
-        }
-    }
-    return LenKind::String;
-}
-
+/**
+ * @brief A sax like parser just for testing purposes in this test harness.  This
+ *        is not a true sax parser.
+ */
 template <typename Check>
-[[nodiscard]] AdmissionDecision
-walkProtobuf(std::span<std::uint8_t const> bytes, std::size_t depth, Check& check)
-{
-    auto pos = std::size_t{};
-    while (pos < bytes.size())
-    {
-        auto tag = std::uint64_t{};
-        if (!readVarint(bytes, pos, tag))
-        {
-            break;
-        }
-        auto const field = static_cast<std::uint64_t>(tag >> 3);
-        auto const wireType = static_cast<std::uint64_t>(tag & 0x07);
-
-        if (wireType == 0)  // varint scalar
-        {
-            auto v = std::uint64_t{};
-            if (!readVarint(bytes, pos, v))
-            {
-                break;
-            }
-            if (auto const d =
-                    check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = v});
-                d.dropped())
-            {
-                return d;
-            }
-        }
-        else if (wireType == 2)  // length-delimited
-        {
-            auto len = std::uint64_t{};
-            if (!readVarint(bytes, pos, len) || pos + len > bytes.size())
-            {
-                break;
-            }
-            auto const body = bytes.subspan(pos, static_cast<std::size_t>(len));
-            pos += static_cast<std::size_t>(len);
-
-            switch (cartShape(depth, field))
-            {
-                using enum LenKind;
-                case String: {
-                    if (auto const d = check(
-                            VisitEvent{
-                                .kind = EventKind::Scalar,
-                                .fieldNumber = field,
-                                .value =
-                                    std::string_view{
-                                        reinterpret_cast<char const*>(body.data()), body.size()}});
-                        d.dropped())
-                    {
-                        return d;
-                    }
-                    break;
-                }
-                case PackedInt32: {
-                    if (auto const d =
-                            check(VisitEvent{.kind = EventKind::BeginArray, .fieldNumber = field});
-                        d.dropped())
-                    {
-                        return d;
-                    }
-                    auto p = std::size_t{};
-                    while (p < body.size())
-                    {
-                        auto ev = std::uint64_t{};
-                        if (!readVarint(body, p, ev))
-                        {
-                            break;
-                        }
-                        if (auto const d = check(
-                                VisitEvent{
-                                    .kind = EventKind::Scalar, .fieldNumber = field, .value = ev});
-                            d.dropped())
-                        {
-                            return d;
-                        }
-                    }
-                    if (auto const d =
-                            check(VisitEvent{.kind = EventKind::EndArray, .fieldNumber = field});
-                        d.dropped())
-                    {
-                        return d;
-                    }
-                    break;
-                }
-                case Message: {
-                    if (auto const d =
-                            check(VisitEvent{.kind = EventKind::BeginObject, .fieldNumber = field});
-                        d.dropped())
-                    {
-                        return d;
-                    }
-                    if (auto const d = walkProtobuf(body, depth + 1, check); d.dropped())
-                    {
-                        return d;
-                    }
-                    if (auto const d =
-                            check(VisitEvent{.kind = EventKind::EndObject, .fieldNumber = field});
-                        d.dropped())
-                    {
-                        return d;
-                    }
-                    break;
-                }
-            }
-        }
-        else
-        {
-            break;
-        }
-    }
-    return AdmissionDecision::admit();
-}
-
-template <typename Check>
-struct JsonWalk
+struct JsonVisitor
 {
     std::string_view s;
-    std::size_t i = 0;
+    std::size_t i{};
     Check& check;
 
     void
@@ -351,7 +286,7 @@ struct JsonWalk
         return r;
     }
 
-    std::uint64_t
+    std::int64_t
     parseInt()
     {
         auto const start = i;
@@ -363,7 +298,7 @@ struct JsonWalk
         {
             ++i;
         }
-        auto v = std::uint64_t{};
+        auto v = std::int64_t{};
         std::from_chars(s.data() + start, s.data() + i, v);
         return v;
     }
@@ -478,9 +413,9 @@ struct JsonWalk
 
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-walkJson(std::string_view json, Check& check)
+visitJson(std::string_view json, Check& check)
 {
-    auto w = JsonWalk<Check>{json, 0, check};
+    auto w = JsonVisitor<Check>{json, 0, check};
     return w.value({}, /*topLevel=*/true);
 }
 
@@ -510,7 +445,7 @@ TEST(ConnectionLimiterTests, RateLimit)
 
     {
         // Verify that a droppable streaming check drops the admission and applies its penalty.
-        auto decision = limiter.admit<FooMessage>(0uz, fooWalker(1000), start);
+        auto decision = limiter.admit<FooMessage>(0uz, fooVisitor(1000), start);
         EXPECT_FALSE(decision.admitted());
         EXPECT_TRUE(decision.dropped());
         EXPECT_EQ(decision.tokenCost, 25.0);
@@ -525,7 +460,7 @@ TEST(ConnectionLimiterTests, RateLimit)
         // Try to admit more than 5 connections, should evict old connections.
         for (auto i = 0uz; i < 10; ++i)
         {
-            auto decision = limiter.admit<FooMessage>(i, fooWalker(0), start);
+            auto decision = limiter.admit<FooMessage>(i, fooVisitor(0), start);
             EXPECT_TRUE(decision.admitted());
             EXPECT_FALSE(decision.dropped());
             EXPECT_EQ(decision.tokenCost, 0.0);
@@ -559,23 +494,42 @@ TEST(ConnectionLimiterTests, RateLimit)
     }
 }
 
-// The same Cart spec (scalar `id`, list `items`, object `meta`) admitted through the limiter, once
-// per format. Each protobuf payload and its JSON twin below encode the identical logical message.
+// The same ProtobufMessage spec (scalar `id`, list `items`, object `meta`) admitted through the
+// limiter, once per format. Each protobuf payload and its JSON twin below encode the identical
+// logical message.
 
-TEST(ConnectionLimiterTests, CartAdmissionOverProtobuf)
+TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
 {
     auto limiter = admission::spec::ConnectionLimiter<int>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
     auto admit = [&](std::span<std::uint8_t const> bytes) {
-        return limiter.admit<CartMessage>(
-            /*conn=*/1, [&](auto check) { return walkProtobuf(bytes, 0, check); }, now);
+        return limiter.admit<ProtobufMessage>(
+            /*conn=*/1, [&](auto check) { return visitProtobuf(bytes, check); }, now);
     };
+
+    // ProtobufMessage { string id = 1; repeated int32 items = 2 [packed]; Meta meta = 3; }
+    // Meta { int32 priority = 1; }  — `items` is packed: one field-2 length-delimited blob (tag
+    // 0x12) whose payload is the element varints concatenated. The check expands it via
+    // visitPackedVarint.
 
     // { id: "abc", items: [1,2,3], meta: { priority: 4 } } — within every limit.
     auto const ok = std::array<std::uint8_t, 14>{
-        0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x03, 0x01, 0x02, 0x03, 0x1A, 0x02, 0x08, 0x04};
+        0x0A,
+        0x03,
+        'a',
+        'b',
+        'c',  // id = "abc"
+        0x12,
+        0x03,
+        0x01,
+        0x02,
+        0x03,  // items = [1, 2, 3]  (packed)
+        0x1A,
+        0x02,
+        0x08,
+        0x04};  // meta { priority = 4 }
     EXPECT_TRUE(admit(ok).admitted());
 
     // scalar rule: id = "abcdefghi" (9 > max_id_len 8).
@@ -589,20 +543,20 @@ TEST(ConnectionLimiterTests, CartAdmissionOverProtobuf)
     EXPECT_EQ(admit(manyItems).reason, "too many items");
 
     // object rule: meta.priority = 9 (> max_priority 5).
-    auto const highPriority = std::array<std::uint8_t, 14>{
-        0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x03, 0x01, 0x02, 0x03, 0x1A, 0x02, 0x08, 0x09};
+    auto const highPriority = std::array<std::uint8_t, 12>{
+        0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x01, 0x01, 0x1A, 0x02, 0x08, 0x09};
     EXPECT_EQ(admit(highPriority).reason, "priority too high");
 }
 
-TEST(ConnectionLimiterTests, CartAdmissionOverJson)
+TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverJson)
 {
     auto limiter = admission::spec::ConnectionLimiter<int>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
     auto admit = [&](std::string_view json) {
-        return limiter.admit<CartMessage>(
-            /*conn=*/1, [&](auto check) { return walkJson(json, check); }, now);
+        return limiter.admit<JsonMessage>(
+            /*conn=*/1, [&](auto check) { return visitJson(json, check); }, now);
     };
 
     EXPECT_TRUE(admit(R"({"id":"abc","items":[1,2,3],"meta":{"priority":4}})").admitted());
@@ -610,4 +564,87 @@ TEST(ConnectionLimiterTests, CartAdmissionOverJson)
     EXPECT_EQ(admit(R"({"id":"abc","items":[1,2,3,4]})").reason, "too many items");
     EXPECT_EQ(
         admit(R"({"id":"abc","items":[1],"meta":{"priority":9}})").reason, "priority too high");
+}
+
+// The packed fixed-width visitor: a tagless run of 4- or 8-byte little-endian elements, emitted as
+// sibling scalars of the given field. Decodes each element (with the schema's signedness),
+// propagates the field number, and short-circuits on the first drop.
+TEST(ProtobufVisitor, PackedFixed)
+{
+    using admission::spec::visitPackedFixed;
+
+    // packed sfixed32 [1, 2, -1] — three little-endian 4-byte values.
+    auto const f32 = std::array<std::uint8_t, 12>{
+        0x01,
+        0x00,
+        0x00,
+        0x00,  // 1
+        0x02,
+        0x00,
+        0x00,
+        0x00,  // 2
+        0xFF,
+        0xFF,
+        0xFF,
+        0xFF};  // -1 (sign comes from the sfixed32 element type)
+    {
+        auto got = std::vector<std::int64_t>{};
+        auto record = [&](VisitEvent const& e) {
+            EXPECT_EQ(e.fieldNumber, 7u);
+            if (auto const* v = e.as<std::int64_t>(); v != nullptr)
+            {
+                got.push_back(*v);
+            }
+            return AdmissionDecision::admit();
+        };
+        auto const d = visitPackedFixed<std::int32_t>(f32, /*field=*/7, record);
+        EXPECT_TRUE(d.admitted());
+        EXPECT_EQ(got, (std::vector<std::int64_t>{1, 2, -1}));
+    }
+
+    // packed fixed64 [1, 300] — two little-endian 8-byte values (300 = 0x12C).
+    auto const f64 = std::array<std::uint8_t, 16>{
+        0x01,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,  // 1
+        0x2C,
+        0x01,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00};  // 300
+    {
+        auto got = std::vector<std::int64_t>{};
+        auto record = [&](VisitEvent const& e) {
+            if (auto const* v = e.as<std::int64_t>(); v != nullptr)
+            {
+                got.push_back(*v);
+            }
+            return AdmissionDecision::admit();
+        };
+        auto const d = visitPackedFixed<std::int64_t>(f64, /*field=*/9, record);
+        EXPECT_TRUE(d.admitted());
+        EXPECT_EQ(got, (std::vector<std::int64_t>{1, 300}));
+    }
+
+    // Stops on the first drop: only the elements up to and including the drop are visited.
+    {
+        auto seen = 0;
+        auto stopAtTwo = [&](VisitEvent const& e) {
+            ++seen;
+            auto const* v = e.as<std::int64_t>();
+            return (v != nullptr && *v == 2) ? AdmissionDecision::drop("stop")
+                                             : AdmissionDecision::admit();
+        };
+        auto const d = visitPackedFixed<std::int32_t>(f32, /*field=*/7, stopAtTwo);
+        EXPECT_TRUE(d.dropped());
+        EXPECT_EQ(seen, 2);  // 1 (admit), 2 (drop) — the third element (-1) is never decoded
+    }
 }

@@ -110,8 +110,19 @@ struct VisitEvent
     /// Protobuf field number of this node; max uint64_t for JSON.
     std::uint64_t fieldNumber{std::numeric_limits<std::uint64_t>::max()};
 
-    /// Leaf payload; @c monostate unless @c kind is @c Scalar.
-    std::variant<std::monostate, bool, std::int64_t, std::uint64_t, double, std::string_view> value;
+    /// Leaf payload; @c monostate unless @c kind is @c Scalar. A length-delimited protobuf field
+    /// (string / packed list / sub-message) is reported as a span over exactly that field's bytes —
+    /// the spec author, who has the schema, picks a walker (@ref visitProtobuf / @ref
+    /// visitPackedVarint) to re-enter over it, or reads it as a scalar.
+    std::variant<
+        std::monostate,
+        bool,
+        std::int64_t,
+        std::uint64_t,
+        double,
+        std::string_view,
+        std::span<std::uint8_t const>>
+        value;
 
     /// @return Pointer to the scalar value if it holds a @p U, else nullptr.
     template <typename U>
@@ -296,7 +307,7 @@ template <FixedString Name, typename... Tunables>
 tunableIndex() noexcept
 {
     std::size_t idx = sizeof...(Tunables);
-    std::size_t i = 0;
+    std::size_t i{};
     ((Tunables::kName == Name.view() ? static_cast<void>(idx = i) : static_cast<void>(0), ++i),
      ...);
     return idx;

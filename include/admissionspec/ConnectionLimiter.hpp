@@ -191,7 +191,7 @@ private:
     }
 
     BucketSettings settings_;
-    std::size_t maxConnections_;
+    std::size_t maxConnections_{};
     mutable std::mutex mutex_;
     State state_;
 };
