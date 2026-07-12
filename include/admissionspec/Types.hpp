@@ -70,9 +70,9 @@ struct AdmissionDecision
 };
 
 /**
- * @brief The shape of one event in a streaming walk of a not-yet-hydrated payload.
+ * @brief The shape of one event in a streaming visit of a not-yet-hydrated payload.
  *
- * A walk is a flat stream of SAX-style events: a @c Scalar leaf, or the @c Begin/@c End of a
+ * A visit is a flat stream of SAX-style events: a @c Scalar leaf, or the @c Begin/@c End of a
  * container. The framework deliberately reports nothing more — no path, index, or child count. A
  * check that needs structural context (nesting depth, list length, "the value under key X") keeps
  * its own state across the events of a single message; see @ref AdmissionSpec::withCheck.
