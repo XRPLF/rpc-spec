@@ -78,13 +78,17 @@ struct AdmissionDecision
  * its own state across the events of a single message; see @ref AdmissionSpec::withCheck.
  */
 enum class EventKind : std::uint8_t {
-    Scalar,       ///< a leaf value (see @ref VisitEvent::value)
-    BeginArray,   ///< start of a list / protobuf `repeated` field
-    EndArray,     ///< end of the current list
-    BeginMap,     ///< start of a map (e.g. JSON object used as a map, protobuf `map<>`)
-    EndMap,       ///< end of the current map
-    BeginObject,  ///< start of an object / protobuf sub-message
-    EndObject,    ///< end of the current object
+    Scalar = 0,       ///< a leaf value (see @ref VisitEvent::value)
+    BeginArray = 1,   ///< start of a list / protobuf `repeated` field
+    EndArray = 2,     ///< end of the current list
+    BeginMap = 3,     ///< start of a map (e.g. JSON object used as a map, protobuf `map<>`)
+    EndMap = 4,       ///< end of the current map
+    BeginObject = 5,  ///< start of an object / protobuf sub-message
+    EndObject = 6,    ///< end of the current object
+    BeginKey = 7,     ///< start of a map key
+    EndKey = 8,       ///< end of a map key
+    BeginValue = 9,   ///< start of a map value
+    EndValue = 10,    ///< end of a map value
 };
 
 /**
