@@ -416,7 +416,7 @@ template <typename Check>
 visitJson(std::string_view json, Check& check)
 {
     auto w = JsonVisitor<Check>{json, 0, check};
-    return w.value({}, /*topLevel=*/true);
+    return w.value({}, true);
 }
 
 }  // namespace
@@ -597,7 +597,7 @@ TEST(ProtobufVisitor, PackedFixed)
             }
             return AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int32_t>(f32, /*field=*/7, record);
+        auto const d = visitPackedFixed<std::int32_t>(f32, 7, record);
         EXPECT_TRUE(d.admitted());
         EXPECT_EQ(got, (std::vector<std::int64_t>{1, 2, -1}));
     }
@@ -629,7 +629,7 @@ TEST(ProtobufVisitor, PackedFixed)
             }
             return AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int64_t>(f64, /*field=*/9, record);
+        auto const d = visitPackedFixed<std::int64_t>(f64, 9, record);
         EXPECT_TRUE(d.admitted());
         EXPECT_EQ(got, (std::vector<std::int64_t>{1, 300}));
     }
@@ -643,7 +643,7 @@ TEST(ProtobufVisitor, PackedFixed)
             return (v != nullptr && *v == 2) ? AdmissionDecision::drop("stop")
                                              : AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int32_t>(f32, /*field=*/7, stopAtTwo);
+        auto const d = visitPackedFixed<std::int32_t>(f32, 7, stopAtTwo);
         EXPECT_TRUE(d.dropped());
         EXPECT_EQ(seen, 2);  // 1 (admit), 2 (drop) — the third element (-1) is never decoded
     }
