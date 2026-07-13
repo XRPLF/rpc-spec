@@ -153,7 +153,7 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForI
 
                 // Report the raw span. Its meaning (string / packed list / sub-message) is schema,
                 // so the author decides: read it as a scalar, or re-enter with visitProtobuf /
-                // visitPackedVarint over these bytes.
+                // visitPackedVarint / visitPackedFixed over these bytes.
                 if (auto const d = check(
                         VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = body});
                     d.dropped())

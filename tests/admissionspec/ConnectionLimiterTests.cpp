@@ -500,13 +500,13 @@ TEST(ConnectionLimiterTests, RateLimit)
 
 TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
 {
-    auto limiter = admission::spec::ConnectionLimiter<int>{
+    auto limiter = admission::spec::ConnectionLimiter<std::int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
     auto admit = [&](std::span<std::uint8_t const> bytes) {
         return limiter.admit<ProtobufMessage>(
-            /*conn=*/1, [&](auto check) { return visitProtobuf(bytes, check); }, now);
+            1, [&](auto check) { return visitProtobuf(bytes, check); }, now);
     };
 
     // ProtobufMessage { string id = 1; repeated int32 items = 2 [packed]; Meta meta = 3; }
@@ -550,13 +550,13 @@ TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
 
 TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverJson)
 {
-    auto limiter = admission::spec::ConnectionLimiter<int>{
+    auto limiter = admission::spec::ConnectionLimiter<std::int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
     auto admit = [&](std::string_view json) {
         return limiter.admit<JsonMessage>(
-            /*conn=*/1, [&](auto check) { return visitJson(json, check); }, now);
+            1, [&](auto check) { return visitJson(json, check); }, now);
     };
 
     EXPECT_TRUE(admit(R"({"id":"abc","items":[1,2,3],"meta":{"priority":4}})").admitted());
