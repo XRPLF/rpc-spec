@@ -43,11 +43,11 @@ evaluation
  * consteval auto admissionSpec(std::type_identity<MyMessage>) {
  *     using namespace util::admission;
  *     return makeSpec<MyMessage>(
- *                tunable<"max_payload_bytes">(std::uint64_t{64 * 1024},
+ *                tunable<"max_payload_bytes">(uint64_t{64 * 1024},
 "admission.my_message.max_payload_bytes"),
  *                tunable<"size_ramp">(ramp({{1024, 0.5}, {64 * 1024, 4.0}}),
 "admission.my_message.size_ramp"),
- *                tunable<"max_entries">(std::size_t{100}, "admission.my_message.max_entries")
+ *                tunable<"max_entries">(size_t{100}, "admission.my_message.max_entries")
  *            )
  *         // streaming: the check sees one event at a time and keeps whatever state it needs, so an
  *         // amplification attempt is rejected before the message is ever fully hydrated.
@@ -58,7 +58,7 @@ evaluation
  * // buffering, no waiting for the list to close. A fresh EntriesCap runs per message.
  * struct EntriesCap {
  *     bool inEntries{};
- *     std::size_t count{};
+ *     size_t count{};
  *     AdmissionDecision operator()(VisitEvent const& e, auto const& cfg) {
  *         if (e.kind == EventKind::BeginArray && e.fieldNumber == 3)
  *         {
@@ -89,7 +89,7 @@ The
  * // Constructed once at startup from resolved config (see Resolver.hpp / BucketSettings).
  * auto limiter = ConnectionLimiter<ConnectionId>{bucketSettings, maxConnections};
  *
- * void onFrame(ConnectionId conn, std::span<std::byte const> frame) {
+ * void onFrame(ConnectionId conn, std::span<uint8_t const> frame) {
  *     auto const now = std::chrono::steady_clock::now();
  *
  *     // 1. Pre-parse gate: hard byte cap + size-ramp cost, debited from conn's bucket.
@@ -157,10 +157,10 @@ public:
      * @brief Pre-deserialization stage: enforce the hard byte cap and compute the size cost.
      */
     [[nodiscard]] AdmissionDecision
-    preAdmit(std::span<std::byte const> payload, Resolved const& cfg) const
+    preAdmit(std::span<uint8_t const> payload, Resolved const& cfg) const
     {
         double cost =
-            costFor(cfg.template get<"size_ramp">(), static_cast<std::uint64_t>(payload.size()));
+            costFor(cfg.template get<"size_ramp">(), static_cast<uint64_t>(payload.size()));
 
         if (payload.size() > cfg.template get<"max_payload_bytes">())
         {
@@ -295,7 +295,7 @@ resolvedFor()
 template <typename T>
     requires HasAdmissionSpec<T>
 [[nodiscard]] AdmissionDecision
-preAdmit(std::span<std::byte const> payload)
+preAdmit(std::span<uint8_t const> payload)
 {
     static constexpr auto kSpec = admissionSpecFor<T>();
     return kSpec.preAdmit(payload, resolvedFor<T>());

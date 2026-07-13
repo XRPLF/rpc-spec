@@ -23,7 +23,7 @@ namespace {
 
 struct FooMessage
 {
-    std::int64_t foo{};
+    int64_t foo{};
 };
 
 consteval auto
@@ -31,12 +31,11 @@ admissionSpec(std::type_identity<FooMessage>)
 {
     using namespace admission::spec;
     return makeSpec<FooMessage>(
-               tunable<"max_payload_bytes">(
-                   std::uint64_t{64 * 1024}, "admission.foo.max_payload_bytes"),
+               tunable<"max_payload_bytes">(uint64_t{64 * 1024}, "admission.foo.max_payload_bytes"),
                tunable<"size_ramp">(
                    ramp({{.upToBytes = 1024, .cost = 0.5}, {.upToBytes = 64 * 1024, .cost = 10.0}}),
                    "admission.foo.size_ramp"),
-               tunable<"max_foo_value">(std::int64_t{100}, "admission.foo.max_foo_value"))
+               tunable<"max_foo_value">(int64_t{100}, "admission.foo.max_foo_value"))
         .withCheck([](VisitEvent const& e, auto const& cfg) -> AdmissionDecision {
             if (e.fieldNumber == 2)  // `foo`
             {
@@ -44,7 +43,7 @@ admissionSpec(std::type_identity<FooMessage>)
                 {
                     return AdmissionDecision::drop("foo value is invalid", 25.0);
                 }
-                if (auto const* v = e.as<std::int64_t>();
+                if (auto const* v = e.as<int64_t>();
                     v != nullptr && *v > cfg.template get<"max_foo_value">())
                 {
                     return AdmissionDecision::drop("foo value is invalid", 25.0);
@@ -55,7 +54,7 @@ admissionSpec(std::type_identity<FooMessage>)
 }
 
 [[nodiscard]] auto
-fooVisitor(std::int64_t fooValue)
+fooVisitor(int64_t fooValue)
 {
     return [fooValue](auto check) -> AdmissionDecision {
         return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = 2, .value = fooValue});
@@ -75,7 +74,7 @@ struct ProtobufMessage
 struct ProtobufChecker
 {
     bool inMeta{};
-    std::size_t items{};
+    size_t items{};
 
     template <typename Cfg>
     AdmissionDecision
@@ -88,7 +87,7 @@ struct ProtobufChecker
             // Inside `meta`: priority is field 1.
             if (e.fieldNumber == 1)
             {
-                if (auto const* v = e.as<std::int64_t>();
+                if (auto const* v = e.as<int64_t>();
                     v != nullptr && *v > cfg.template get<"max_priority">())
                 {
                     return AdmissionDecision::drop("priority too high", 8.0);
@@ -101,7 +100,7 @@ struct ProtobufChecker
         {
             case 1:  // id: a length-delimited string
             {
-                auto const* b = e.as<std::span<std::uint8_t const>>();
+                auto const* b = e.as<std::span<uint8_t const>>();
                 auto const id = b != nullptr
                     ? std::string_view{reinterpret_cast<char const*>(b->data()), b->size()}
                     : std::string_view{};
@@ -113,7 +112,7 @@ struct ProtobufChecker
             }
             case 2:  // items: packed repeated int32 (a byte span) — re-enter, counting each element
             {
-                if (auto const* body = e.as<std::span<std::uint8_t const>>(); body != nullptr)
+                if (auto const* body = e.as<std::span<uint8_t const>>(); body != nullptr)
                 {
                     return admission::spec::visitPackedVarint(*body, e.fieldNumber, self);
                 }
@@ -125,7 +124,7 @@ struct ProtobufChecker
             }
             case 3:  // meta: a sub-message — descend, bracketing with `inMeta`
             {
-                if (auto const* body = e.as<std::span<std::uint8_t const>>(); body != nullptr)
+                if (auto const* body = e.as<std::span<uint8_t const>>(); body != nullptr)
                 {
                     inMeta = true;
                     auto const d = admission::spec::visitProtobuf(*body, self);
@@ -146,13 +145,13 @@ admissionSpec(std::type_identity<ProtobufMessage>)
     using namespace admission::spec;
     return makeSpec<ProtobufMessage>(
                tunable<"max_payload_bytes">(
-                   std::uint64_t{64 * 1024}, "admission.protobuf_message.max_payload_bytes"),
+                   uint64_t{64 * 1024}, "admission.protobuf_message.max_payload_bytes"),
                tunable<"size_ramp">(
                    ramp({{.upToBytes = 1024, .cost = 0.5}, {.upToBytes = 64 * 1024, .cost = 4.0}}),
                    "admission.protobuf_message.size_ramp"),
-               tunable<"max_id_len">(std::size_t{8}, "admission.protobuf_message.max_id_len"),
-               tunable<"max_items">(std::size_t{3}, "admission.protobuf_message.max_items"),
-               tunable<"max_priority">(std::int64_t{5}, "admission.protobuf_message.max_priority"))
+               tunable<"max_id_len">(size_t{8}, "admission.protobuf_message.max_id_len"),
+               tunable<"max_items">(size_t{3}, "admission.protobuf_message.max_items"),
+               tunable<"max_priority">(int64_t{5}, "admission.protobuf_message.max_priority"))
         .withCheck(ProtobufChecker{});
 }
 
@@ -166,7 +165,7 @@ struct JsonChecker
 {
     bool inItems{};
     bool inMeta{};
-    std::size_t items{};
+    size_t items{};
 
     template <typename Cfg>
     AdmissionDecision
@@ -220,7 +219,7 @@ struct JsonChecker
                 }
                 if (inMeta && e.name == "priority")
                 {
-                    if (auto const* v = e.as<std::int64_t>();
+                    if (auto const* v = e.as<int64_t>();
                         v != nullptr && *v > cfg.template get<"max_priority">())
                     {
                         return AdmissionDecision::drop("priority too high", 8.0);
@@ -239,13 +238,13 @@ admissionSpec(std::type_identity<JsonMessage>)
     using namespace admission::spec;
     return makeSpec<JsonMessage>(
                tunable<"max_payload_bytes">(
-                   std::uint64_t{64 * 1024}, "admission.json_message.max_payload_bytes"),
+                   uint64_t{64 * 1024}, "admission.json_message.max_payload_bytes"),
                tunable<"size_ramp">(
                    ramp({{.upToBytes = 1024, .cost = 0.5}, {.upToBytes = 64 * 1024, .cost = 4.0}}),
                    "admission.json_message.size_ramp"),
-               tunable<"max_id_len">(std::size_t{8}, "admission.json_message.max_id_len"),
-               tunable<"max_items">(std::size_t{3}, "admission.json_message.max_items"),
-               tunable<"max_priority">(std::int64_t{5}, "admission.json_message.max_priority"))
+               tunable<"max_id_len">(size_t{8}, "admission.json_message.max_id_len"),
+               tunable<"max_items">(size_t{3}, "admission.json_message.max_items"),
+               tunable<"max_priority">(int64_t{5}, "admission.json_message.max_priority"))
         .withCheck(JsonChecker{});
 }
 
@@ -257,7 +256,7 @@ template <typename Check>
 struct JsonVisitor
 {
     std::string_view s;
-    std::size_t i{};
+    size_t i{};
     Check& check;
 
     void
@@ -286,7 +285,7 @@ struct JsonVisitor
         return r;
     }
 
-    std::int64_t
+    int64_t
     parseInt()
     {
         auto const start = i;
@@ -298,7 +297,7 @@ struct JsonVisitor
         {
             ++i;
         }
-        auto v = std::int64_t{};
+        auto v = int64_t{};
         std::from_chars(s.data() + start, s.data() + i, v);
         return v;
     }
@@ -425,13 +424,13 @@ TEST(ConnectionLimiterTests, RateLimit)
 {
     auto bucketSettings =
         admission::spec::BucketSettings{.capacity = 50, .refillRatePerSecond = 10};
-    auto limiter = admission::spec::ConnectionLimiter<std::size_t>{bucketSettings, 5};
+    auto limiter = admission::spec::ConnectionLimiter<size_t>{bucketSettings, 5};
 
     auto const start = std::chrono::steady_clock::now();
 
     {
         // Verify that the built-in pre-deserialization size gate drops an oversize payload.
-        auto tooLarge = std::array<std::byte, (64 * 1024) + 1>{};
+        auto tooLarge = std::array<uint8_t, (64 * 1024) + 1>{};
         auto decision = limiter.admitPre<FooMessage>(0uz, tooLarge, start);
         EXPECT_FALSE(decision.admitted());
         EXPECT_TRUE(decision.dropped());
@@ -471,7 +470,7 @@ TEST(ConnectionLimiterTests, RateLimit)
 
     {
         // Try a "DoS attack"
-        auto buffer = std::array<std::byte, 1025>{};  // This costs 10 tokens
+        auto buffer = std::array<uint8_t, 1025>{};  // This costs 10 tokens
         for (auto i = 0uz; i < 6; ++i)
         {
             auto decision = limiter.admitPre<FooMessage>(0uz, buffer, start);
@@ -500,11 +499,11 @@ TEST(ConnectionLimiterTests, RateLimit)
 
 TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
 {
-    auto limiter = admission::spec::ConnectionLimiter<std::int32_t>{
+    auto limiter = admission::spec::ConnectionLimiter<int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
-    auto admit = [&](std::span<std::uint8_t const> bytes) {
+    auto admit = [&](std::span<uint8_t const> bytes) {
         return limiter.admit<ProtobufMessage>(
             1, [&](auto check) { return visitProtobuf(bytes, check); }, now);
     };
@@ -515,7 +514,7 @@ TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
     // visitPackedVarint.
 
     // { id: "abc", items: [1,2,3], meta: { priority: 4 } } — within every limit.
-    auto const ok = std::array<std::uint8_t, 14>{
+    auto const ok = std::array<uint8_t, 14>{
         0x0A,
         0x03,
         'a',
@@ -533,24 +532,24 @@ TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
     EXPECT_TRUE(admit(ok).admitted());
 
     // scalar rule: id = "abcdefghi" (9 > max_id_len 8).
-    auto const longId = std::array<std::uint8_t, 14>{
+    auto const longId = std::array<uint8_t, 14>{
         0x0A, 0x09, 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 0x12, 0x01, 0x01};
     EXPECT_EQ(admit(longId).reason, "id too long");
 
     // list rule: items = [1,2,3,4] (4 > max_items 3).
     auto const manyItems =
-        std::array<std::uint8_t, 11>{0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x04, 0x01, 0x02, 0x03, 0x04};
+        std::array<uint8_t, 11>{0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x04, 0x01, 0x02, 0x03, 0x04};
     EXPECT_EQ(admit(manyItems).reason, "too many items");
 
     // object rule: meta.priority = 9 (> max_priority 5).
-    auto const highPriority = std::array<std::uint8_t, 12>{
+    auto const highPriority = std::array<uint8_t, 12>{
         0x0A, 0x03, 'a', 'b', 'c', 0x12, 0x01, 0x01, 0x1A, 0x02, 0x08, 0x09};
     EXPECT_EQ(admit(highPriority).reason, "priority too high");
 }
 
 TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverJson)
 {
-    auto limiter = admission::spec::ConnectionLimiter<std::int32_t>{
+    auto limiter = admission::spec::ConnectionLimiter<int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
     auto const now = decltype(limiter)::Clock::now();
 
@@ -574,7 +573,7 @@ TEST(ProtobufVisitor, PackedFixed)
     using admission::spec::visitPackedFixed;
 
     // packed sfixed32 [1, 2, -1] — three little-endian 4-byte values.
-    auto const f32 = std::array<std::uint8_t, 12>{
+    auto const f32 = std::array<uint8_t, 12>{
         0x01,
         0x00,
         0x00,
@@ -588,22 +587,22 @@ TEST(ProtobufVisitor, PackedFixed)
         0xFF,
         0xFF};  // -1 (sign comes from the sfixed32 element type)
     {
-        auto got = std::vector<std::int64_t>{};
+        auto got = std::vector<int64_t>{};
         auto record = [&](VisitEvent const& e) {
             EXPECT_EQ(e.fieldNumber, 7u);
-            if (auto const* v = e.as<std::int64_t>(); v != nullptr)
+            if (auto const* v = e.as<int64_t>(); v != nullptr)
             {
                 got.push_back(*v);
             }
             return AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int32_t>(f32, 7, record);
+        auto const d = visitPackedFixed<int32_t>(f32, 7, record);
         EXPECT_TRUE(d.admitted());
-        EXPECT_EQ(got, (std::vector<std::int64_t>{1, 2, -1}));
+        EXPECT_EQ(got, (std::vector<int64_t>{1, 2, -1}));
     }
 
     // packed fixed64 [1, 300] — two little-endian 8-byte values (300 = 0x12C).
-    auto const f64 = std::array<std::uint8_t, 16>{
+    auto const f64 = std::array<uint8_t, 16>{
         0x01,
         0x00,
         0x00,
@@ -621,17 +620,17 @@ TEST(ProtobufVisitor, PackedFixed)
         0x00,
         0x00};  // 300
     {
-        auto got = std::vector<std::int64_t>{};
+        auto got = std::vector<int64_t>{};
         auto record = [&](VisitEvent const& e) {
-            if (auto const* v = e.as<std::int64_t>(); v != nullptr)
+            if (auto const* v = e.as<int64_t>(); v != nullptr)
             {
                 got.push_back(*v);
             }
             return AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int64_t>(f64, 9, record);
+        auto const d = visitPackedFixed<int64_t>(f64, 9, record);
         EXPECT_TRUE(d.admitted());
-        EXPECT_EQ(got, (std::vector<std::int64_t>{1, 300}));
+        EXPECT_EQ(got, (std::vector<int64_t>{1, 300}));
     }
 
     // Stops on the first drop: only the elements up to and including the drop are visited.
@@ -639,11 +638,11 @@ TEST(ProtobufVisitor, PackedFixed)
         auto seen = 0;
         auto stopAtTwo = [&](VisitEvent const& e) {
             ++seen;
-            auto const* v = e.as<std::int64_t>();
+            auto const* v = e.as<int64_t>();
             return (v != nullptr && *v == 2) ? AdmissionDecision::drop("stop")
                                              : AdmissionDecision::admit();
         };
-        auto const d = visitPackedFixed<std::int32_t>(f32, 7, stopAtTwo);
+        auto const d = visitPackedFixed<int32_t>(f32, 7, stopAtTwo);
         EXPECT_TRUE(d.dropped());
         EXPECT_EQ(seen, 2);  // 1 (admit), 2 (drop) — the third element (-1) is never decoded
     }

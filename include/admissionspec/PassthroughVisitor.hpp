@@ -12,7 +12,7 @@ namespace admission::spec {
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-visitPassthrough(std::span<std::uint8_t const> bytes, Check& check)
+visitPassthrough(std::span<uint8_t const> bytes, Check& check)
 {
     return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = bytes});
 }

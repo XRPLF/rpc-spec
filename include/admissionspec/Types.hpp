@@ -77,7 +77,7 @@ struct AdmissionDecision
  * check that needs structural context (nesting depth, list length, "the value under key X") keeps
  * its own state across the events of a single message; see @ref AdmissionSpec::withCheck.
  */
-enum class EventKind : std::uint8_t {
+enum class EventKind : uint8_t {
     Scalar = 0,       ///< a leaf value (see @ref VisitEvent::value)
     BeginArray = 1,   ///< start of a list / protobuf `repeated` field
     EndArray = 2,     ///< end of the current list
@@ -108,7 +108,7 @@ struct VisitEvent
     std::string_view name;
 
     /// Protobuf field number of this node; max uint64_t for JSON.
-    std::uint64_t fieldNumber{std::numeric_limits<std::uint64_t>::max()};
+    uint64_t fieldNumber{std::numeric_limits<uint64_t>::max()};
 
     /// Leaf payload; @c monostate unless @c kind is @c Scalar. A length-delimited protobuf field
     /// (string / packed list / sub-message) is reported as a span over exactly that field's bytes —
@@ -117,11 +117,11 @@ struct VisitEvent
     std::variant<
         std::monostate,
         bool,
-        std::int64_t,
-        std::uint64_t,
+        int64_t,
+        uint64_t,
         double,
         std::string_view,
-        std::span<std::uint8_t const>>
+        std::span<uint8_t const>>
         value;
 
     /// @return Pointer to the scalar value if it holds a @p U, else nullptr.
@@ -136,14 +136,14 @@ struct VisitEvent
 /**
  * @brief A compile-time string usable as a non-type template parameter (for naming tunables).
  */
-template <std::size_t N>
+template <size_t N>
 struct FixedString
 {
     char value[N]{};
 
     consteval FixedString(char const (&str)[N]) noexcept
     {
-        for (std::size_t i = 0; i < N; ++i)
+        for (size_t i = 0; i < N; ++i)
         {
             value[i] = str[i];
         }
@@ -159,7 +159,7 @@ struct FixedString
     operator<=>(FixedString const&) const = default;
 };
 
-template <std::size_t N>
+template <size_t N>
 FixedString(char const (&)[N]) -> FixedString<N>;
 
 /**
@@ -167,8 +167,8 @@ FixedString(char const (&)[N]) -> FixedString<N>;
  */
 struct SizeTier
 {
-    std::uint64_t upToBytes{};  ///< inclusive upper bound, in bytes, for this tier
-    double cost{};              ///< tokens charged for a payload whose size falls in this tier
+    uint64_t upToBytes{};  ///< inclusive upper bound, in bytes, for this tier
+    double cost{};         ///< tokens charged for a payload whose size falls in this tier
 
     bool
     operator<=>(SizeTier const&) const = default;
@@ -181,7 +181,7 @@ struct SizeTier
  * when resolved (see @ref ResolvedTypeOf) it becomes a @c std::vector<SizeTier> so config can
  * replace the whole ramp, tier count and all.
  */
-template <std::size_t N>
+template <size_t N>
 struct SizeCostRamp
 {
     std::array<SizeTier, N> tiers{};
@@ -196,19 +196,19 @@ struct SizeCostRamp
     operator<=>(SizeCostRamp const&) const = default;
 };
 
-template <std::size_t N>
+template <size_t N>
 SizeCostRamp(std::array<SizeTier, N>) -> SizeCostRamp<N>;
 
 /**
  * @brief Build a @ref SizeCostRamp from a braced list of tiers, e.g.
  *        @code ramp({{1024, 0.5}, {5 * 1024, 1.0}, {64 * 1024, 4.0}}) @endcode
  */
-template <std::size_t N>
+template <size_t N>
 [[nodiscard]] consteval SizeCostRamp<N>
 ramp(SizeTier const (&tiers)[N])
 {
     std::array<SizeTier, N> arr{};
-    for (std::size_t i = 0; i < N; ++i)
+    for (size_t i = 0; i < N; ++i)
     {
         arr[i] = tiers[i];
     }
@@ -217,7 +217,7 @@ ramp(SizeTier const (&tiers)[N])
 
 /** @brief Token cost for a payload of @p bytes against a (resolved) list of tiers. */
 [[nodiscard]] constexpr double
-costFor(std::span<SizeTier const> tiers, std::uint64_t bytes) noexcept
+costFor(std::span<SizeTier const> tiers, uint64_t bytes) noexcept
 {
     for (auto const& tier : tiers)
     {
@@ -255,7 +255,7 @@ struct Tunable
 
 /**
  * @brief Build a named @ref Tunable, e.g.
- *        @code tunable<"max_entries">(std::size_t{100}, "admission.x.max_entries") @endcode
+ *        @code tunable<"max_entries">(size_t{100}, "admission.x.max_entries") @endcode
  */
 template <FixedString Name, typename T>
 [[nodiscard]] consteval Tunable<Name, T>
@@ -276,7 +276,7 @@ struct ResolvedTypeOf
     using type = T;
 };
 
-template <std::size_t N>
+template <size_t N>
 struct ResolvedTypeOf<SizeCostRamp<N>>
 {
     using type = std::vector<SizeTier>;
@@ -293,7 +293,7 @@ toResolved(T const& value)
     return value;
 }
 
-template <std::size_t N>
+template <size_t N>
 [[nodiscard]] inline std::vector<SizeTier>
 toResolved(SizeCostRamp<N> const& r)
 {
@@ -303,11 +303,11 @@ toResolved(SizeCostRamp<N> const& r)
 namespace detail {
 
 template <FixedString Name, typename... Tunables>
-[[nodiscard]] consteval std::size_t
+[[nodiscard]] consteval size_t
 tunableIndex() noexcept
 {
-    std::size_t idx = sizeof...(Tunables);
-    std::size_t i{};
+    size_t idx = sizeof...(Tunables);
+    size_t i{};
     ((Tunables::kName == Name.view() ? static_cast<void>(idx = i) : static_cast<void>(0), ++i),
      ...);
     return idx;
@@ -337,7 +337,7 @@ public:
     [[nodiscard]] constexpr auto const&
     get() const noexcept
     {
-        constexpr std::size_t kIDX = detail::tunableIndex<Name, Tunables...>();
+        constexpr size_t kIDX = detail::tunableIndex<Name, Tunables...>();
         static_assert(kIDX < sizeof...(Tunables), "ResolvedTunables::get: unknown tunable name");
         return std::get<kIDX>(values_);
     }

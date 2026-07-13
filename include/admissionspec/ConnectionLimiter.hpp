@@ -28,7 +28,7 @@ public:
      * @param settings Resolved per-connection bucket parameters (capacity, refill rate).
      * @param maxConnections Hard cap on the number of tracked connections (bounds memory).
      */
-    ConnectionLimiter(BucketSettings settings, std::size_t maxConnections)
+    ConnectionLimiter(BucketSettings settings, size_t maxConnections)
         : settings_{settings}, maxConnections_{maxConnections}
     {
     }
@@ -43,7 +43,7 @@ public:
      */
     template <typename T>
     [[nodiscard]] AdmissionDecision
-    admitPre(ConnId const& conn, std::span<std::byte const> payload, TimePoint now)
+    admitPre(ConnId const& conn, std::span<uint8_t const> payload, TimePoint now)
     {
         auto const decision = preAdmit<T>(payload);
         if (decision.dropped())
@@ -98,7 +98,7 @@ public:
     /**
      * @return The number of currently tracked connections.
      */
-    [[nodiscard]] std::size_t
+    [[nodiscard]] size_t
     size() const
     {
         auto _ = std::scoped_lock<std::mutex>{mutex_};
@@ -191,7 +191,7 @@ private:
     }
 
     BucketSettings settings_;
-    std::size_t maxConnections_{};
+    size_t maxConnections_{};
     mutable std::mutex mutex_;
     State state_;
 };

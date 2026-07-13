@@ -17,29 +17,29 @@ struct PackedTrait;
 template <>
 struct PackedTrait<uint32_t>
 {
-    using ReadType = std::uint32_t;
-    using WriteType = std::int32_t;
+    using ReadType = uint32_t;
+    using WriteType = int32_t;
 };
 
 template <>
 struct PackedTrait<int32_t>
 {
-    using ReadType = std::uint32_t;
-    using WriteType = std::int32_t;
+    using ReadType = uint32_t;
+    using WriteType = int32_t;
 };
 
 template <>
 struct PackedTrait<uint64_t>
 {
-    using ReadType = std::uint64_t;
-    using WriteType = std::int64_t;
+    using ReadType = uint64_t;
+    using WriteType = int64_t;
 };
 
 template <>
 struct PackedTrait<int64_t>
 {
-    using ReadType = std::uint64_t;
-    using WriteType = std::int64_t;
+    using ReadType = uint64_t;
+    using WriteType = int64_t;
 };
 
 enum class WireType {
@@ -51,14 +51,14 @@ enum class WireType {
 
 /** Read a base-128 varint from @p bytes at @p pos, advancing it. Returns false if truncated. */
 [[nodiscard]] inline bool
-readVarint(std::span<std::uint8_t const> bytes, std::size_t& pos, std::uint64_t& out)
+readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
 {
-    auto result = std::uint64_t{};
-    auto shift = std::uint64_t{};
+    auto result = uint64_t{};
+    auto shift = uint64_t{};
     while (pos < bytes.size())
     {
         auto const b = bytes[pos++];
-        result |= static_cast<std::uint64_t>(b & 0x7F) << shift;
+        result |= static_cast<uint64_t>(b & 0x7F) << shift;
         if ((b & 0x80) == 0)
         {
             out = result;
@@ -83,20 +83,20 @@ readVarint(std::span<std::uint8_t const> bytes, std::size_t& pos, std::uint64_t&
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForInvalidPayload = 10)
+visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvalidPayload = 10)
 {
-    auto pos = std::size_t{};
+    auto pos = size_t{};
     while (pos < bytes.size())
     {
-        auto tag = std::uint64_t{};
+        auto tag = uint64_t{};
         if (!detail::readVarint(bytes, pos, tag))
         {
             return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
         }
-        auto const field = static_cast<std::uint64_t>(tag >> 3);
-        auto const wireType = static_cast<std::uint64_t>(tag & 0x07);
+        auto const field = static_cast<uint64_t>(tag >> 3);
+        auto const wireType = static_cast<uint64_t>(tag & 0x07);
 
-        auto scalar = [&](std::int64_t v) {
+        auto scalar = [&](int64_t v) {
             return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = v});
         };
 
@@ -105,23 +105,23 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForI
             {
                 return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
             }
-            auto v = std::uint64_t{};
+            auto v = uint64_t{};
             std::memcpy(&v, &bytes[pos], size);
             pos += size;
-            return scalar(static_cast<std::int64_t>(v));
+            return scalar(static_cast<int64_t>(v));
         };
 
         switch (static_cast<detail::WireType>(wireType))
         {
             using enum detail::WireType;
             case Varint: {
-                auto v = std::uint64_t{};
+                auto v = uint64_t{};
                 if (!detail::readVarint(bytes, pos, v))
                 {
                     return AdmissionDecision::drop(
                         "Invalid protobuf payload", costForInvalidPayload);
                 }
-                if (auto const d = scalar(static_cast<std::int64_t>(v)); d.dropped())
+                if (auto const d = scalar(static_cast<int64_t>(v)); d.dropped())
                 {
                     return d;
                 }
@@ -142,14 +142,14 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForI
             }
             break;
             case Len: {
-                auto len = std::uint64_t{};
+                auto len = uint64_t{};
                 if (!detail::readVarint(bytes, pos, len) || pos + len > bytes.size())
                 {
                     return AdmissionDecision::drop(
                         "Invalid protobuf payload", costForInvalidPayload);
                 }
-                auto const body = bytes.subspan(pos, static_cast<std::size_t>(len));
-                pos += static_cast<std::size_t>(len);
+                auto const body = bytes.subspan(pos, static_cast<size_t>(len));
+                pos += static_cast<size_t>(len);
 
                 // Report the raw span. Its meaning (string / packed list / sub-message) is schema,
                 // so the author decides: read it as a scalar, or re-enter with visitProtobuf /
@@ -180,15 +180,15 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForI
 template <typename Check>
 [[nodiscard]] AdmissionDecision
 visitPackedVarint(
-    std::span<std::uint8_t const> body,
-    std::uint64_t field,
+    std::span<uint8_t const> body,
+    uint64_t field,
     Check& check,
     double costForInvalidPayload = 10)
 {
-    auto pos = std::size_t{};
+    auto pos = size_t{};
     while (pos < body.size())
     {
-        auto v = std::uint64_t{};
+        auto v = uint64_t{};
         if (!detail::readVarint(body, pos, v))
         {
             return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
@@ -197,7 +197,7 @@ visitPackedVarint(
                 VisitEvent{
                     .kind = EventKind::Scalar,
                     .fieldNumber = field,
-                    .value = static_cast<std::int64_t>(v)});
+                    .value = static_cast<int64_t>(v)});
             d.dropped())
         {
             return d;
@@ -213,14 +213,14 @@ visitPackedVarint(
  */
 template <typename T, typename Check>
 [[nodiscard]] AdmissionDecision
-visitPackedFixed(std::span<std::uint8_t const> body, std::uint64_t field, Check& check)
+visitPackedFixed(std::span<uint8_t const> body, uint64_t field, Check& check)
 {
     using Trait = detail::PackedTrait<T>;
     using ReadType = typename Trait::ReadType;
     using WriteType = typename Trait::WriteType;
     static constexpr auto Size = sizeof(ReadType);
 
-    for (auto pos = std::size_t{}; pos + Size <= body.size(); pos += Size)
+    for (auto pos = size_t{}; pos + Size <= body.size(); pos += Size)
     {
         auto v = ReadType{};
         std::memcpy(&v, &body[pos], Size);
@@ -230,7 +230,7 @@ visitPackedFixed(std::span<std::uint8_t const> body, std::uint64_t field, Check&
                 VisitEvent{
                     .kind = EventKind::Scalar,
                     .fieldNumber = field,
-                    .value = static_cast<std::int64_t>(static_cast<WriteType>(v))});
+                    .value = static_cast<int64_t>(static_cast<WriteType>(v))});
             d.dropped())
         {
             return d;
