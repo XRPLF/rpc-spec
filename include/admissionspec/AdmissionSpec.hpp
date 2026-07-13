@@ -57,8 +57,8 @@ evaluation
  * // Counts elements of the `entries` list (field 3) and fails on the (max_entries+1)th — no
  * // buffering, no waiting for the list to close. A fresh EntriesCap runs per message.
  * struct EntriesCap {
- *     bool inEntries = false;
- *     std::size_t count = 0;
+ *     bool inEntries{};
+ *     std::size_t count{};
  *     AdmissionDecision operator()(VisitEvent const& e, auto const& cfg) {
  *         if (e.kind == EventKind::BeginArray && e.fieldNumber == 3)
  *         {

@@ -91,13 +91,24 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
         auto tag = std::uint64_t{};
         if (!detail::readVarint(bytes, pos, tag))
         {
-            break;
+            return AdmissionDecision::drop("Invalid protobuf payload", 1);
         }
         auto const field = static_cast<std::uint64_t>(tag >> 3);
         auto const wireType = static_cast<std::uint64_t>(tag & 0x07);
 
         auto scalar = [&](std::int64_t v) {
             return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = v});
+        };
+
+        auto handleInt = [&](auto size) {
+            if (pos + size > bytes.size())
+            {
+                return AdmissionDecision::drop("Invalid protobuf payload", 1);
+            }
+            auto v = std::uint64_t{};
+            std::memcpy(&v, &bytes[pos], size);
+            pos += size;
+            return scalar(static_cast<std::int64_t>(v));
         };
 
         switch (static_cast<detail::WireType>(wireType))
@@ -107,7 +118,7 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
                 auto v = std::uint64_t{};
                 if (!detail::readVarint(bytes, pos, v))
                 {
-                    break;
+                    return AdmissionDecision::drop("Invalid protobuf payload", 1);
                 }
                 if (auto const d = scalar(static_cast<std::int64_t>(v)); d.dropped())
                 {
@@ -116,28 +127,14 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
             }
             break;
             case I64: {
-                if (pos + 8 > bytes.size())
-                {
-                    break;
-                }
-                auto v = std::uint64_t{};
-                std::memcpy(&v, &bytes[pos], 8);
-                pos += 8;
-                if (auto const d = scalar(static_cast<std::int64_t>(v)); d.dropped())
+                if (auto const d = handleInt(8); d.dropped())
                 {
                     return d;
                 }
             }
             break;
             case I32: {
-                if (pos + 4 > bytes.size())
-                {
-                    break;
-                }
-                auto v = std::uint32_t{};
-                std::memcpy(&v, &bytes[pos], 4);
-                pos += 4;
-                if (auto const d = scalar(static_cast<std::int64_t>(v)); d.dropped())
+                if (auto const d = handleInt(4); d.dropped())
                 {
                     return d;
                 }
@@ -147,7 +144,7 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
                 auto len = std::uint64_t{};
                 if (!detail::readVarint(bytes, pos, len) || pos + len > bytes.size())
                 {
-                    break;
+                    return AdmissionDecision::drop("Invalid protobuf payload", 1);
                 }
                 auto const body = bytes.subspan(pos, static_cast<std::size_t>(len));
                 pos += static_cast<std::size_t>(len);
@@ -188,7 +185,7 @@ visitPackedVarint(std::span<std::uint8_t const> body, std::uint64_t field, Check
         auto v = std::uint64_t{};
         if (!detail::readVarint(body, pos, v))
         {
-            break;
+            return AdmissionDecision::drop("Invalid protobuf payload", 1);
         }
         if (auto const d = check(
                 VisitEvent{
