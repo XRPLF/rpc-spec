@@ -83,7 +83,7 @@ readVarint(std::span<std::uint8_t const> bytes, std::size_t& pos, std::uint64_t&
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
+visitProtobuf(std::span<std::uint8_t const> bytes, Check& check, double costForInvalidPayload = 10)
 {
     auto pos = std::size_t{};
     while (pos < bytes.size())
@@ -91,7 +91,7 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
         auto tag = std::uint64_t{};
         if (!detail::readVarint(bytes, pos, tag))
         {
-            return AdmissionDecision::drop("Invalid protobuf payload", 1);
+            return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
         }
         auto const field = static_cast<std::uint64_t>(tag >> 3);
         auto const wireType = static_cast<std::uint64_t>(tag & 0x07);
@@ -103,7 +103,7 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
         auto handleInt = [&](auto size) {
             if (pos + size > bytes.size())
             {
-                return AdmissionDecision::drop("Invalid protobuf payload", 1);
+                return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
             }
             auto v = std::uint64_t{};
             std::memcpy(&v, &bytes[pos], size);
@@ -118,7 +118,8 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
                 auto v = std::uint64_t{};
                 if (!detail::readVarint(bytes, pos, v))
                 {
-                    return AdmissionDecision::drop("Invalid protobuf payload", 1);
+                    return AdmissionDecision::drop(
+                        "Invalid protobuf payload", costForInvalidPayload);
                 }
                 if (auto const d = scalar(static_cast<std::int64_t>(v)); d.dropped())
                 {
@@ -144,7 +145,8 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
                 auto len = std::uint64_t{};
                 if (!detail::readVarint(bytes, pos, len) || pos + len > bytes.size())
                 {
-                    return AdmissionDecision::drop("Invalid protobuf payload", 1);
+                    return AdmissionDecision::drop(
+                        "Invalid protobuf payload", costForInvalidPayload);
                 }
                 auto const body = bytes.subspan(pos, static_cast<std::size_t>(len));
                 pos += static_cast<std::size_t>(len);
@@ -177,7 +179,11 @@ visitProtobuf(std::span<std::uint8_t const> bytes, Check& check)
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-visitPackedVarint(std::span<std::uint8_t const> body, std::uint64_t field, Check& check)
+visitPackedVarint(
+    std::span<std::uint8_t const> body,
+    std::uint64_t field,
+    Check& check,
+    double costForInvalidPayload = 10)
 {
     auto pos = std::size_t{};
     while (pos < body.size())
@@ -185,7 +191,7 @@ visitPackedVarint(std::span<std::uint8_t const> body, std::uint64_t field, Check
         auto v = std::uint64_t{};
         if (!detail::readVarint(body, pos, v))
         {
-            return AdmissionDecision::drop("Invalid protobuf payload", 1);
+            return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
         }
         if (auto const d = check(
                 VisitEvent{
