@@ -1,7 +1,7 @@
 import os
 
 from conan import ConanFile
-from conan.tools.cmake import CMakeToolchain, cmake_layout
+from conan.tools.cmake import CMakeDeps, CMakeToolchain, cmake_layout
 from conan.tools.files import copy
 
 
@@ -70,6 +70,9 @@ class XrplRpcSpecConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
         tc.generate()
+        # Emit find_package() configs so the standalone test build can locate
+        # gtest (and boost) from the Conan cache instead of the system.
+        CMakeDeps(self).generate()
 
     # Header-only: no compilation. Just copy the headers into the package.
     def package(self):

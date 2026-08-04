@@ -18,11 +18,10 @@
 namespace rpc::spec::handlers::account_info {
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("account", &Input::account, accountId),
     field("ident", &Input::ident) | deprecated | accountId,
     field("signer_lists", &Input::signerLists, jsonBool),
-    field("ledger", deprecated),
     field("strict", deprecated));
 
 inline constexpr auto kInputSpecV2 =

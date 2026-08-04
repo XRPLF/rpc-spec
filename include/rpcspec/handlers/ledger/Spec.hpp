@@ -12,7 +12,7 @@
 namespace rpc::spec::handlers::ledger {
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("transactions", &Input::transactions, type<bool>, jsonBool),
     field("expand", &Input::expand, type<bool>, jsonBool),
     field("binary", &Input::binary, type<bool>, jsonBool),
@@ -29,7 +29,6 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         | type<bool>                     //
         | ifServerClio(notSupportedIf(true), deprecated) | jsonBool,
 
-    field("ledger", deprecated),
     field("type", deprecated));
 
 inline constexpr auto kInputSpecV2 = extend(

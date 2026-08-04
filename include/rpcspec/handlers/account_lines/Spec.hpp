@@ -58,7 +58,7 @@ inline constexpr auto asBool = AsBoolConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("account", &Input::account, required, accountIdActMalformed),
     field("peer", &Input::peer, accountIdActMalformed),
     field("ignore_default", &Input::ignoreDefault, type<bool>, asBool),
@@ -71,7 +71,6 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         defaultTo(kLimitDefault),
         asUint32),
     field("marker", &Input::marker, accountMarker, asString),
-    field("ledger", deprecated),
     field("peer_index", deprecated));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

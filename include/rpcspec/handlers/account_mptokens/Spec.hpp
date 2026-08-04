@@ -16,7 +16,7 @@
 namespace rpc::spec::handlers::account_mptokens {
 
 inline constexpr auto kInputSpec = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("account", &Input::account, required, accountIdActMalformed),
     field(
         "limit",
@@ -26,8 +26,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
         defaultTo(kLimitDefault),
         asUint32),
-    field("marker", &Input::marker, accountMarker, asString),
-    field("ledger", deprecated));
+    field("marker", &Input::marker, accountMarker, asString));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);

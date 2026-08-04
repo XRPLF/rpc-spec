@@ -62,7 +62,7 @@ struct AccountMarkerStrConverter
 inline constexpr auto accountMarkerStr = AccountMarkerStrConverter{};
 
 inline constexpr auto kInputSpecV1 = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("account", &Input::account, required, accountId),
     field(
         "limit",
@@ -73,7 +73,6 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         defaultTo(kLimitDefault),
         asUint32),
     field("marker", &Input::marker, accountMarkerStr),
-    field("ledger", deprecated),
     field("strict", deprecated));
 
 inline constexpr auto kInputSpecV2 = kInputSpecV1;

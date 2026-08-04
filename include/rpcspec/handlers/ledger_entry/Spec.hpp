@@ -481,7 +481,7 @@ inline constexpr auto xChainCreateAccountClaimIdConv = XChainCreateAccountClaimI
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("binary", &Input::binary, type<bool>, jsonBool),
     field("index", &Input::index, kMalformedRequestHexStringValidator, asUint256),
     field("account_root", &Input::accountRoot, accountBase58, accountId),
@@ -747,7 +747,6 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("nft_offer", &Input::nftOffer, kMalformedRequestHexStringValidator, asUint256),
     field("nunl", &Input::nunl, kMalformedRequestHexStringValidator, asUint256),
     field("signer_list", &Input::signerList, kMalformedRequestHexStringValidator, asUint256),
-    field("ledger", deprecated),
     field("include_deleted", &Input::includeDeleted, type<bool>, jsonBool));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

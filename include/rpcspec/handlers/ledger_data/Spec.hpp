@@ -83,7 +83,7 @@ inline constexpr auto ledgerEntryTypeConv = LedgerEntryTypeConverter{};
 // marker and diffMarker are unified into a single optional<MarkerValue> member;
 // cross-field validation (outOfOrder + marker type) stays in process().
 inline constexpr auto kInputSpec = spec<Input>(
-    ledgerSelector(&Input::ledger),
+    ledgerSelector(&Input::ledger, withLegacyLedgerField),
     field("binary", &Input::binary, jsonBoolStrict),
     field(
         "limit",
@@ -94,9 +94,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         asUint32),
     field("marker", &Input::marker, markerConv),
     field("out_of_order", &Input::outOfOrder, jsonBoolStrict),
-    field("type", &Input::type, ledgerEntryTypeConv),
-    field("ledger", deprecated)  // validate-only: emits a deprecation warning, not stored
-);
+    field("type", &Input::type, ledgerEntryTypeConv));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
