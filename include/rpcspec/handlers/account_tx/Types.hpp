@@ -1,6 +1,7 @@
 /** @file */
 #pragma once
 
+#include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
 
 #include <rpcspec/JsonBool.hpp>
@@ -45,6 +46,7 @@ struct Input
                                        than a strong enum: the valid set is version-dependent
                                        (derived at runtime from libxrpl TxFormats), so a repo-local
                                        enum would duplicate xrpl::TxType and risk drift. */
+    std::optional<xrpl::uint192> mptIssuanceId;
 };
 
 }  // namespace rpc::spec::handlers::account_tx

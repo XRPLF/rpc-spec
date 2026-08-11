@@ -3,7 +3,8 @@
 // Shared constexpr spec for the 'account_tx' RPC command.
 // Single source of truth — both Clio and xrpld include this file.
 //
-// V1: account, ledger_hash, ledger_index, ledger_index_min/max, ctid, limit, marker, tx_type
+// V1: account, ledger_hash, ledger_index, ledger_index_min/max, ctid, limit, marker,
+//     tx_type, mpt_issuance_id
 // V2: V1 + binary + forward
 
 #include <rpcspec/Aliases.hpp>
@@ -102,7 +103,8 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     // not part of the V1 schema), V2 retightens them to a strict bool below.
     field("binary", &Input::binary, jsonBool),
     field("forward", &Input::forward, jsonBool),
-    field("tx_type", &Input::transactionTypeInLowercase, toLower, kTxTypeValidator, asString));
+    field("tx_type", &Input::transactionTypeInLowercase, toLower, kTxTypeValidator, asString),
+    field("mpt_issuance_id", &Input::mptIssuanceId, asUint192));
 
 inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
