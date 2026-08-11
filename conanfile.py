@@ -7,7 +7,6 @@ from conan.tools.files import copy
 
 class XrplRpcSpecConan(ConanFile):
     name = "xrpl-rpc-spec"
-    version = "0.1.0"
     license = "ISC"
     author = "the XRP Ledger developers"
     url = "https://github.com/XRPLF/rpc-spec"
