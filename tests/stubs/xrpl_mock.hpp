@@ -528,6 +528,8 @@ enum LedgerEntryType : int {
     ltORACLE,
     ltCREDENTIAL,
     ltVAULT,
+    ltLOAN_BROKER,
+    ltLOAN,
     ltNEGATIVE_UNL,
     ltMPTOKEN_ISSUANCE,
     ltMPTOKEN,

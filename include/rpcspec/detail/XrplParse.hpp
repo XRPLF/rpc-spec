@@ -138,7 +138,7 @@ struct LedgerTypeEntry
 };
 
 // clang-format off
-constexpr std::array<LedgerTypeEntry, 28> kLedgerTypesTable{{
+constexpr std::array<LedgerTypeEntry, 30> kLedgerTypesTable{{
     {.name = "AccountRoot",                     .rpcName = "account",                              .type = xrpl::ltACCOUNT_ROOT,                          .category = LedgerCategory::AccountOwned},
     {.name = "Amendments",                      .rpcName = "amendments",                           .type = xrpl::ltAMENDMENTS,                            .category = LedgerCategory::Chain},
     {.name = "Check",                           .rpcName = "check",                                .type = xrpl::ltCHECK,                                 .category = LedgerCategory::DeletionBlocker},
@@ -162,6 +162,9 @@ constexpr std::array<LedgerTypeEntry, 28> kLedgerTypesTable{{
     {.name = "Oracle",                          .rpcName = "oracle",                               .type = xrpl::ltORACLE,                                .category = LedgerCategory::AccountOwned},
     {.name = "Credential",                      .rpcName = "credential",                           .type = xrpl::ltCREDENTIAL,                            .category = LedgerCategory::AccountOwned},
     {.name = "Vault",                           .rpcName = "vault",                                .type = xrpl::ltVAULT,                                 .category = LedgerCategory::AccountOwned},
+    // loan broker is a pseudo-account object, like AMM and Vault
+    {.name = "LoanBroker",                      .rpcName = "loan_broker",                          .type = xrpl::ltLOAN_BROKER,                           .category = LedgerCategory::AccountOwned},
+    {.name = "Loan",                            .rpcName = "loan",                                 .type = xrpl::ltLOAN,                                  .category = LedgerCategory::DeletionBlocker},
     {.name = "NegativeUNL",                     .rpcName = "nunl",                                 .type = xrpl::ltNEGATIVE_UNL,                          .category = LedgerCategory::Chain},
     {.name = "MPTokenIssuance",                 .rpcName = "mpt_issuance",                         .type = xrpl::ltMPTOKEN_ISSUANCE,                      .category = LedgerCategory::DeletionBlocker},
     {.name = "MPToken",                         .rpcName = "mptoken",                              .type = xrpl::ltMPTOKEN,                               .category = LedgerCategory::DeletionBlocker},
