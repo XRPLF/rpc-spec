@@ -458,9 +458,7 @@ struct UnsubscribeBooksConverter
             }
 
             ob.book = xrpl::Book{
-                .in = xrpl::Issue{.currency = payCurrency, .account = payIssuer},
-                .out = xrpl::Issue{.currency = getCurrency, .account = getIssuer},
-                .domain = domainID};
+                xrpl::Issue{payCurrency, payIssuer}, xrpl::Issue{getCurrency, getIssuer}, domainID};
 
             result.push_back(ob);
         }

@@ -71,10 +71,10 @@ issueFromCurrencyIssue(FA const& fa)
     auto const currency =
         rpc::spec::detail::currencyFromValidated(std::string{fa.child("currency").asString()});
     if (xrpl::isXRP(currency))
-        return xrpl::Issue{.currency = currency, .account = xrpl::AccountID{}};
+        return xrpl::Issue{currency, xrpl::AccountID{}};
     auto const issuer =
         rpc::spec::detail::issuerFromValidated(std::string{fa.child("issuer").asString()});
-    return xrpl::Issue{.currency = currency, .account = issuer};
+    return xrpl::Issue{currency, issuer};
 }
 
 template <typename FA>
