@@ -465,7 +465,7 @@ enum ErrorCodeI : int {
 // ---- protocol/TxFormats.h ---------------------------------------------------
 // Mock of the iterable TxFormats registry. Real libxrpl derives this from the
 // linked xrpld version; the mock carries a small representative sample so
-// detail::txTypesInLowercase() yields a non-empty set.
+// txTypesInLowercase() yields a non-empty set.
 class TxFormats
 {
 public:
