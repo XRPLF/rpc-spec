@@ -12,7 +12,6 @@
 #include <xrpl/protocol/tokens.h>
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <chrono>
 #include <cstddef>
@@ -20,8 +19,6 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <unordered_map>
 #include <utility>
 
 namespace rpc::spec::detail {
@@ -125,111 +122,6 @@ systemTpFromUtcStr(std::string const& dateStr, std::string const& format)
     if (strptime(dateStr.c_str(), format.c_str(), &ts) == nullptr)
         return std::nullopt;
     return std::chrono::system_clock::from_time_t(timegm(&ts));
-}
-
-enum class LedgerCategory { AccountOwned, Chain, DeletionBlocker };
-
-struct LedgerTypeEntry
-{
-    std::string_view name;
-    std::string_view rpcName;
-    xrpl::LedgerEntryType type;
-    LedgerCategory category;
-};
-
-// clang-format off
-constexpr std::array<LedgerTypeEntry, 30> kLedgerTypesTable{{
-    {.name = "AccountRoot",                     .rpcName = "account",                              .type = xrpl::ltACCOUNT_ROOT,                          .category = LedgerCategory::AccountOwned},
-    {.name = "Amendments",                      .rpcName = "amendments",                           .type = xrpl::ltAMENDMENTS,                            .category = LedgerCategory::Chain},
-    {.name = "Check",                           .rpcName = "check",                                .type = xrpl::ltCHECK,                                 .category = LedgerCategory::DeletionBlocker},
-    {.name = "DepositPreauth",                  .rpcName = "deposit_preauth",                      .type = xrpl::ltDEPOSIT_PREAUTH,                       .category = LedgerCategory::AccountOwned},
-    {.name = "DirectoryNode",                   .rpcName = "directory",                            .type = xrpl::ltDIR_NODE,                              .category = LedgerCategory::Chain},
-    {.name = "Escrow",                          .rpcName = "escrow",                               .type = xrpl::ltESCROW,                                .category = LedgerCategory::DeletionBlocker},
-    {.name = "FeeSettings",                     .rpcName = "fee",                                  .type = xrpl::ltFEE_SETTINGS,                          .category = LedgerCategory::Chain},
-    {.name = "LedgerHashes",                    .rpcName = "hashes",                               .type = xrpl::ltLEDGER_HASHES,                         .category = LedgerCategory::Chain},
-    {.name = "Offer",                           .rpcName = "offer",                                .type = xrpl::ltOFFER,                                 .category = LedgerCategory::AccountOwned},
-    {.name = "PayChannel",                      .rpcName = "payment_channel",                      .type = xrpl::ltPAYCHAN,                               .category = LedgerCategory::DeletionBlocker},
-    {.name = "SignerList",                      .rpcName = "signer_list",                          .type = xrpl::ltSIGNER_LIST,                           .category = LedgerCategory::AccountOwned},
-    {.name = "RippleState",                     .rpcName = "state",                                .type = xrpl::ltRIPPLE_STATE,                          .category = LedgerCategory::DeletionBlocker},
-    {.name = "Ticket",                          .rpcName = "ticket",                               .type = xrpl::ltTICKET,                                .category = LedgerCategory::AccountOwned},
-    {.name = "NFTokenOffer",                    .rpcName = "nft_offer",                            .type = xrpl::ltNFTOKEN_OFFER,                         .category = LedgerCategory::AccountOwned},
-    {.name = "NFTokenPage",                     .rpcName = "nft_page",                             .type = xrpl::ltNFTOKEN_PAGE,                          .category = LedgerCategory::DeletionBlocker},
-    {.name = "AMM",                             .rpcName = "amm",                                  .type = xrpl::ltAMM,                                   .category = LedgerCategory::AccountOwned},
-    {.name = "Bridge",                          .rpcName = "bridge",                               .type = xrpl::ltBRIDGE,                                .category = LedgerCategory::DeletionBlocker},
-    {.name = "XChainOwnedClaimID",              .rpcName = "xchain_owned_claim_id",                .type = xrpl::ltXCHAIN_OWNED_CLAIM_ID,                 .category = LedgerCategory::DeletionBlocker},
-    {.name = "XChainOwnedCreateAccountClaimID", .rpcName = "xchain_owned_create_account_claim_id", .type = xrpl::ltXCHAIN_OWNED_CREATE_ACCOUNT_CLAIM_ID, .category = LedgerCategory::DeletionBlocker},
-    {.name = "DID",                             .rpcName = "did",                                  .type = xrpl::ltDID,                                   .category = LedgerCategory::AccountOwned},
-    {.name = "Oracle",                          .rpcName = "oracle",                               .type = xrpl::ltORACLE,                                .category = LedgerCategory::AccountOwned},
-    {.name = "Credential",                      .rpcName = "credential",                           .type = xrpl::ltCREDENTIAL,                            .category = LedgerCategory::AccountOwned},
-    {.name = "Vault",                           .rpcName = "vault",                                .type = xrpl::ltVAULT,                                 .category = LedgerCategory::AccountOwned},
-    // loan broker is a pseudo-account object, like AMM and Vault
-    {.name = "LoanBroker",                      .rpcName = "loan_broker",                          .type = xrpl::ltLOAN_BROKER,                           .category = LedgerCategory::AccountOwned},
-    {.name = "Loan",                            .rpcName = "loan",                                 .type = xrpl::ltLOAN,                                  .category = LedgerCategory::DeletionBlocker},
-    {.name = "NegativeUNL",                     .rpcName = "nunl",                                 .type = xrpl::ltNEGATIVE_UNL,                          .category = LedgerCategory::Chain},
-    {.name = "MPTokenIssuance",                 .rpcName = "mpt_issuance",                         .type = xrpl::ltMPTOKEN_ISSUANCE,                      .category = LedgerCategory::DeletionBlocker},
-    {.name = "MPToken",                         .rpcName = "mptoken",                              .type = xrpl::ltMPTOKEN,                               .category = LedgerCategory::DeletionBlocker},
-    {.name = "PermissionedDomain",              .rpcName = "permissioned_domain",                  .type = xrpl::ltPERMISSIONED_DOMAIN,                   .category = LedgerCategory::DeletionBlocker},
-    {.name = "Delegate",                        .rpcName = "delegate",                             .type = xrpl::ltDELEGATE,                              .category = LedgerCategory::AccountOwned},
-}};
-// clang-format on
-
-struct LedgerTypeInfo
-{
-    xrpl::LedgerEntryType type;
-    LedgerCategory category;
-};
-
-[[nodiscard]] inline std::optional<LedgerTypeInfo>
-ledgerTypeInfoFromStr(std::string const& entryName)
-{
-    // Exact rpc-name match (e.g. "account", "nft_offer").
-    static auto const kRpcMap = []() {
-        std::unordered_map<std::string, LedgerTypeInfo> m;
-        for (auto const& e : kLedgerTypesTable)
-        {
-            m.emplace(
-                std::string{e.rpcName}, LedgerTypeInfo{.type = e.type, .category = e.category});
-        }
-        return m;
-    }();
-    // Case-insensitive canonical-name match (e.g. "AccountRoot" → "accountroot").
-    static auto const kNameMap = []() {
-        std::unordered_map<std::string, LedgerTypeInfo> m;
-        for (auto const& e : kLedgerTypesTable)
-        {
-            std::string lower{e.name};
-            std::ranges::transform(
-                lower, lower.begin(), [](unsigned char c) { return std::tolower(c); });
-            m.emplace(std::move(lower), LedgerTypeInfo{.type = e.type, .category = e.category});
-        }
-        return m;
-    }();
-
-    if (auto it = kRpcMap.find(entryName); it != kRpcMap.end())
-        return it->second;
-
-    std::string lower{entryName};
-    std::ranges::transform(lower, lower.begin(), [](unsigned char c) { return std::tolower(c); });
-    if (auto it = kNameMap.find(lower); it != kNameMap.end())
-        return it->second;
-
-    return std::nullopt;
-}
-
-[[nodiscard]] inline xrpl::LedgerEntryType
-ledgerEntryTypeFromStr(std::string const& name)
-{
-    auto const info = ledgerTypeInfoFromStr(name);
-    return info ? info->type : xrpl::ltANY;
-}
-
-[[nodiscard]] inline xrpl::LedgerEntryType
-accountOwnedLedgerTypeFromStr(std::string const& name)
-{
-    auto const info = ledgerTypeInfoFromStr(name);
-    if (info && info->category != LedgerCategory::Chain)
-        return info->type;
-    return xrpl::ltANY;
 }
 
 }  // namespace rpc::spec::detail

@@ -10,6 +10,7 @@
 
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/LedgerTypes.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
@@ -1350,7 +1351,7 @@ struct AccountTypeValidator
                 rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", f.key())}};
         }
-        auto const type = detail::accountOwnedLedgerTypeFromStr(std::string{f.asString()});
+        auto const type = accountOwnedLedgerTypeFromStr(std::string{f.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
@@ -1417,7 +1418,7 @@ struct LedgerEntryTypeValidator
                 rpc::RippledError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", f.key())}};
         }
-        auto const type = detail::ledgerEntryTypeFromStr(std::string{f.asString()});
+        auto const type = ledgerEntryTypeFromStr(std::string{f.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
