@@ -11,10 +11,10 @@
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/TxTypes.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/VersionedSpec.hpp>
-#include <rpcspec/detail/TxTypes.hpp>
 #include <rpcspec/handlers/account_tx/Types.hpp>
 
 #include <charconv>
@@ -34,7 +34,7 @@ inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> Ma
     {
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
-    auto const& validTypes = detail::txTypesInLowercase();
+    auto const& validTypes = txTypesInLowercase();
     auto const sv = f.asString();
     if (!validTypes.contains(std::string{sv}))
     {

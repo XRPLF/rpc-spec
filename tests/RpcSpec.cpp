@@ -2,6 +2,7 @@
 // Validators.hpp is Clio-specific (JSON param validation) and not included here.
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/LedgerTypes.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
@@ -27,7 +28,7 @@ TEST(RpcSpec, StatusDefault)
 
 TEST(RpcSpec, LedgerTypesTable)
 {
-    constexpr auto& table = rpc::spec::detail::kLedgerTypesTable;
+    constexpr auto& table = rpc::spec::kLedgerTypesTable;
     static_assert(!table.empty());
 
     auto const it =
@@ -38,10 +39,10 @@ TEST(RpcSpec, LedgerTypesTable)
 
 TEST(RpcSpec, DeletionBlockersPresent)
 {
-    constexpr auto& table = rpc::spec::detail::kLedgerTypesTable;
+    constexpr auto& table = rpc::spec::kLedgerTypesTable;
 
     auto count = std::ranges::count_if(table, [](auto const& e) {
-        return e.category == rpc::spec::detail::LedgerCategory::DeletionBlocker;
+        return e.category == rpc::spec::LedgerCategory::DeletionBlocker;
     });
     EXPECT_GT(count, 0);
 }

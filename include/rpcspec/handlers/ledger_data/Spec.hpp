@@ -6,6 +6,7 @@
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
+#include <rpcspec/LedgerTypes.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/VersionedSpec.hpp>
@@ -64,14 +65,14 @@ struct LedgerEntryTypeConverter
                 rpc::RippledError::RpcInvalidParams,
                 "Invalid field '" + std::string{f.key()} + "', not string."}};
         }
-        auto const t = detail::ledgerEntryTypeFromStr(std::string{f.asString()});
-        if (t == xrpl::ltANY)
+        auto const entryType = ledgerEntryTypeFromStr(std::string{f.asString()});
+        if (entryType == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
                 "Invalid field '" + std::string{f.key()} + "'."}};
         }
-        return t;
+        return entryType;
     }
 };
 
