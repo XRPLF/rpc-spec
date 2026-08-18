@@ -27,7 +27,7 @@ resolveOne(Config const& config, Tunable<Name, T> const& t)
 /** @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
  * the default.
  */
-template <typename Config, FixedString Name, std::size_t N>
+template <typename Config, FixedString Name, size_t N>
 [[nodiscard]] std::vector<admission::spec::SizeTier>
 resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& t)
 {
