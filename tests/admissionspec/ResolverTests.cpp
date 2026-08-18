@@ -15,7 +15,7 @@
 struct Config
 {
     using ConfigValue =
-        std::variant<std::uint64_t, double, std::string, std::vector<std::pair<uint64_t, double>>>;
+        std::variant<uint64_t, double, std::string, std::vector<std::pair<uint64_t, double>>>;
 
     template <typename T>
     [[nodiscard]] std::optional<T>
@@ -38,7 +38,7 @@ struct Config
 TEST(ResolverTests, ReadConfig)
 {
     auto config = Config{};
-    config.values["foo.max_payload_bytes"] = std::uint64_t{1024};
+    config.values["foo.max_payload_bytes"] = uint64_t{1024};
     config.values["foo.size_ramp"] =
         std::vector<std::pair<uint64_t, double>>{{512, 5.0}, {1024, 10.0}};
     config.values["foo.bar"] = std::string{"hello"};
@@ -58,7 +58,7 @@ TEST(ResolverTests, ReadConfig)
 
     auto resolved = admission::spec::detail::resolveTuple(tunables, config);
 
-    EXPECT_EQ(resolved.template get<"foo.max_payload_bytes">(), std::uint64_t{1024});
+    EXPECT_EQ(resolved.template get<"foo.max_payload_bytes">(), uint64_t{1024});
     auto expectedRamp = std::vector<admission::spec::SizeTier>{{512, 5.0}, {1024, 10.0}};
     EXPECT_EQ(resolved.template get<"foo.size_ramp">(), expectedRamp);
     EXPECT_EQ(resolved.template get<"foo.bar">(), std::string{"hello"});
