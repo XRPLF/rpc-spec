@@ -1,6 +1,7 @@
 import os
 
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.cmake import CMakeToolchain, cmake_layout
 from conan.tools.files import copy
 
@@ -32,11 +33,14 @@ class XrplRpcSpecConan(ConanFile):
         "boost/1.91.0",
     ]
 
-    # Standalone test build only. Consumers never enable this.
     options = {
+        "server": [None, "clio", "xrpld"],
         "tests": [True, False],
     }
+
     default_options = {
+        # Defaults to None so that consumers are forced to override
+        "server": None,
         "tests": False,
         # boost 1.91's cobalt_io_ssl component fails package_info() unless cobalt
         # is disabled (it expects an OpenSSL-backed build we don't pull in).
@@ -51,6 +55,13 @@ class XrplRpcSpecConan(ConanFile):
             # real test dependency is gtest. Boost::json comes from the main
             # `requires` above.
             self.test_requires("gtest/1.17.0")
+
+    def validate(self):
+        if self.options.server == None:
+            raise ConanInvalidConfiguration(
+                "xrpl-rpc-spec: the 'server' option must be set to 'clio' or 'xrpld'; "
+                'add \'"xrpl-rpc-spec/*:server": "clio"\' to your conanfile\'s default_options'
+            )
 
     def layout(self):
         cmake_layout(self)
@@ -91,3 +102,4 @@ class XrplRpcSpecConan(ConanFile):
         self.cpp_info.includedirs = ["include"]
         self.cpp_info.set_property("cmake_target_name", "rpcspec::rpcspec")
         self.cpp_info.requires = ["boost::json"]
+        self.cpp_info.defines = [f"RPCSPEC_IS_{str(self.options.server).upper()}=1"]
