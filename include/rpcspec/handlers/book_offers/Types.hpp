@@ -2,6 +2,7 @@
 #pragma once
 
 #include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Asset.h>
 #include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
 
@@ -28,8 +29,8 @@ struct Input
     LedgerSpecifier ledger;
     uint32_t limit;
     std::optional<xrpl::AccountID> taker;
-    xrpl::Issue takerPays;
-    xrpl::Issue takerGets;
+    xrpl::Asset takerPays = xrpl::xrpIssue();
+    xrpl::Asset takerGets = xrpl::xrpIssue();
     std::optional<std::string>
         domain; /**< Permissioned-domain id, passed through as a validated hex string. */
 };

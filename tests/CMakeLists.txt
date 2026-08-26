@@ -11,6 +11,9 @@ add_executable(
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
     RpcSpec.cpp
+    SpecAccountTxDelegateTests.cpp
+    SpecBookOffersTests.cpp
+    SpecMPTokenIssuanceHistoryTests.cpp
     StatusPrinter.cpp
     SpecCoreTests.cpp
     SpecDefaultTests.cpp

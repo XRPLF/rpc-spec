@@ -197,6 +197,60 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
     EXPECT_EQ(cred.credentialType, "ABCD");
 }
 
+TEST(LedgerEntrySpec, AuthorizedCredentialsIssuerRejectsZeroAccount)
+{
+    auto const r = parse(R"JSON({
+        "deposit_preauth": {
+            "owner": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+            "authorized_credentials": [
+                {"issuer": "rrrrrrrrrrrrrrrrrrrrrhoLvTp", "credential_type": "ABCD"}
+            ]
+        }
+    })JSON");
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::ClioError::RpcMalformedAuthorizedCredentials);
+}
+
+TEST(LedgerEntrySpec, CredentialObjectTypeAcceptsHex)
+{
+    auto const r = parse(R"JSON({
+        "credential": {
+            "subject": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+            "issuer": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK",
+            "credential_type": "ABCD"
+        }
+    })JSON");
+    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
+}
+
+TEST(LedgerEntrySpec, CredentialObjectTypeRejectsNonHex)
+{
+    auto const r = parse(R"JSON({
+        "credential": {
+            "subject": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+            "issuer": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK",
+            "credential_type": "not-hex"
+        }
+    })JSON");
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::ClioError::RpcMalformedAuthorizedCredentials);
+    EXPECT_EQ(r.error().message, "credential_type NotHexString");
+}
+
+TEST(LedgerEntrySpec, CredentialObjectTypeRejectsEmpty)
+{
+    auto const r = parse(R"JSON({
+        "credential": {
+            "subject": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+            "issuer": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK",
+            "credential_type": ""
+        }
+    })JSON");
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::ClioError::RpcMalformedAuthorizedCredentials);
+    EXPECT_EQ(r.error().message, "credential_type is empty");
+}
+
 TEST(LedgerEntrySpec, BridgeObjectLocator)
 {
     auto const r = parse(R"JSON({
