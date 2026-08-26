@@ -14,13 +14,19 @@ Both backends resolve XRPL protocol types (`AccountID`, `LedgerEntryType`,
 error codes, …) from `xrpl::` (libxrpl). The backend macro instead selects which
 server the spec is compiled for, controlling the server-conditional validators
 `ifServerClio(...)` / `ifServerXrpld(...)` — each applies its wrapped
-validators only in the matching build. Exactly one macro must be defined by the
-consumer's build:
+validators only in the matching build.
 
-- `RPCSPEC_IS_XRPLD=1` — xrpld build; `ifServerXrpld(...)` is active.
-- `RPCSPEC_IS_CLIO=1` — Clio build; `ifServerClio(...)` is active.
+Consumers pick a backend through the package's `server` Conan option, which the
+package turns into exactly one macro:
 
-Defining both, or neither, is a compile error (see `ServerConditional.hpp`).
+| `server` option | macro             | active wrapper       |
+| --------------- | ----------------- | -------------------- |
+| `xrpld`         | `RPCSPEC_IS_XRPLD=1` | `ifServerXrpld(...)` |
+| `clio`          | `RPCSPEC_IS_CLIO=1`  | `ifServerClio(...)`  |
+
+The option has no default, so leaving it unset fails the Conan graph rather than
+producing a build with neither macro. Defining both, or neither, by hand is a
+compile error (see `ServerConditional.hpp`).
 
 ## Layout
 
@@ -41,9 +47,18 @@ tests/                 # standalone unit tests (xrpld backend)
 ## Consuming it
 
 The library is distributed as a Conan `header-library` package exporting the
-CMake target `rpcspec::rpcspec`. Add it to your requirements and define the
-backend macro in your toolchain. Its only direct dependency is `Boost::json`;
-the XRPL protocol headers come from your project.
+CMake target `rpcspec::rpcspec`. Add it to your requirements and select a
+backend with the `server` option:
+
+```python
+requires = ["xrpl-rpc-spec/<version>"]
+default_options = {"xrpl-rpc-spec/*:server": "clio"}  # or "xrpld"
+```
+
+The backend macro rides on `rpcspec::rpcspec` as an interface compile
+definition, so only the CMake targets that link the DSL see it — consumers do
+not add a global define of their own. Its only direct dependency is
+`Boost::json`; the XRPL protocol headers come from your project.
 
 ## Local development (editable package)
 
