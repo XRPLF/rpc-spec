@@ -908,7 +908,7 @@ struct CredentialTypeValidator
  * `"credential_type"`.
  *
  * Enforces that the field is a non-empty array with at most `xrpl::kMaxCredentialsArraySize`
- * elements, and that each element is an object passing both `IssuerValidator` and
+ * elements, and that each element is an object passing both `AccountBase58Validator` and
  * `CredentialTypeValidator`. Returns `RpcMalformedRequest` or `RpcMalformedAuthorizedCredentials`
  * on any violation.
  */
@@ -958,7 +958,7 @@ struct AuthorizeCredentialValidator
                     rpc::ClioError::RpcMalformedAuthorizedCredentials,
                     "Field 'Issuer' is required but missing."}};
             }
-            if (auto err = IssuerValidator::verify(issuerFa); !err)
+            if (auto err = AccountBase58Validator::verify(issuerFa); !err)
             {
                 return std::unexpected{rpc::Status{
                     rpc::ClioError::RpcMalformedAuthorizedCredentials, "issuer NotString"}};

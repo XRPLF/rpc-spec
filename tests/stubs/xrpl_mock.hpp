@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 namespace xrpl {
@@ -264,7 +265,9 @@ public:
 [[nodiscard]] inline AccountID
 noAccount()
 {
-    return {};
+    AccountID a;
+    a.data()[19] = 1;
+    return a;
 }
 
 [[nodiscard]] inline AccountID
@@ -296,7 +299,65 @@ issueFromJson(std::string const&)
     return {};
 }
 
-// ---- protocol/STXChainBridge.h ----------------------------------------------
+[[nodiscard]] inline Issue
+xrpIssue()
+{
+    return Issue{Currency{true}, xrpAccount()};
+}
+
+using MPTID = uint192;
+
+class MPTIssue
+{
+    MPTID mptID_;
+
+public:
+    MPTIssue() = default;
+    explicit MPTIssue(MPTID const& id) : mptID_(id)
+    {
+    }
+
+    [[nodiscard]] MPTID const&
+    getMptID() const noexcept
+    {
+        return mptID_;
+    }
+
+    bool
+    operator==(MPTIssue const&) const noexcept = default;
+};
+
+class Asset
+{
+    std::variant<Issue, MPTIssue> issue_{xrpIssue()};
+
+public:
+    Asset() = default;
+    Asset(Issue const& issue) : issue_(issue)  // NOLINT(google-explicit-constructor)
+    {
+    }
+    Asset(MPTIssue const& mpt) : issue_(mpt)  // NOLINT(google-explicit-constructor)
+    {
+    }
+
+    template <class T>
+    [[nodiscard]] bool
+    holds() const noexcept
+    {
+        return std::holds_alternative<T>(issue_);
+    }
+
+    template <class T>
+    [[nodiscard]] T const&
+    get() const
+    {
+        return std::get<T>(issue_);
+    }
+
+    bool
+    operator==(Asset const&) const noexcept = default;
+};
+
 struct STXChainBridge
 {
     bool

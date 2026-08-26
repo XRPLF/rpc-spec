@@ -73,6 +73,71 @@ struct MarkerConverter
     }
 };
 
+inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& f) -> MaybeError {
+    if (!f.isObject())
+    {
+        return std::unexpected{
+            rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"}};
+    }
+
+    auto const filterFa = f.child("delegate_filter");
+    if (!filterFa.present())
+    {
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcInvalidParams,
+            "Field 'delegate_filter' is required but missing."}};
+    }
+
+    if (!filterFa.isString() ||
+        (filterFa.asString() != "actor" && filterFa.asString() != "authorizer"))
+    {
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcInvalidParams,
+            "Field 'delegate_filter' value must be 'actor' or 'authorizer'."}};
+    }
+
+    auto const counterPartyFa = f.child("counter_party");
+    if (counterPartyFa.present())
+    {
+        if (auto const err = AccountFormat::verify(counterPartyFa); !err)
+        {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcActMalformed,
+                "Field 'counter_party' value must be a valid account."}};
+        }
+    }
+
+    return {};
+}};
+
+/**
+ * @brief Builds the DelegateFilter once kDelegateValidator has accepted the object.
+ */
+struct DelegateConverter
+{
+    static constexpr std::string_view kName = "delegate";
+    using ValueType = DelegateFilter;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        DelegateFilter out{};
+        out.delegateType = f.child("delegate_filter").asString() == "actor"
+            ? DelegateFilter::Role::Actor
+            : DelegateFilter::Role::Authorizer;
+
+        auto const counterPartyFa = f.child("counter_party");
+        if (counterPartyFa.present())
+            out.counterParty = std::string{counterPartyFa.asString()};
+
+        return out;
+    }
+};
+
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr auto delegateConv = DelegateConverter{};
+
 // NOLINTBEGIN(readability-identifier-naming)
 inline constexpr auto int32Bound = Int32BoundConverter{};
 inline constexpr auto markerConv = MarkerConverter{};
@@ -104,7 +169,8 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("binary", &Input::binary, jsonBool),
     field("forward", &Input::forward, jsonBool),
     field("tx_type", &Input::transactionTypeInLowercase, toLower, kTxTypeValidator, asString),
-    field("mpt_issuance_id", &Input::mptIssuanceId, asUint192));
+    field("mpt_issuance_id", &Input::mptIssuanceId, asUint192),
+    field("delegate", &Input::delegateFilter, kDelegateValidator, delegateConv));
 
 inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
