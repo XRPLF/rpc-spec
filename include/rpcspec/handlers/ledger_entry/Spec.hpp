@@ -644,7 +644,8 @@ inline constexpr auto kInputSpec = spec<Input>(
             field(
                 "credential_type",
                 withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<std::string>, rpc::ClioError::RpcMalformedRequest)))),
+                withCustomError(type<std::string>, rpc::ClioError::RpcMalformedRequest),
+                credentialType))),
         credentialConv),
     field(
         "mpt_issuance",

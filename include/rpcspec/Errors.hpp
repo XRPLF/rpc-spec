@@ -34,34 +34,23 @@ enum class ClioError {
     RpcCommandNotString = 6002,
     RpcCommandIsEmpty = 6003,
     RpcParamsUnparsable = 6004,
+
+    RpcForwardingConnectionError = 7000,
+    RpcForwardingRequestError = 7001,
+    RpcForwardingTimeout = 7002,
+    RpcForwardingInvalidResponse = 7003,
 };
 
 /** @brief Clio uses compatible Rippled error codes for most RPC errors. */
 using RippledError = xrpl::ErrorCodeI;
 
 /**
- * @brief ETL-layer error codes.
- *
- * Higher value = better progress made before failure; LoadBalancer picks
- * std::max. Defined here so Status and CombinedError can include them without a
- * Clio ETL dep. Clio's etl::EtlError aliases this type.
- */
-enum class EtlError {
-    ConnectionError = 7000,
-    RequestError = 7001,
-    RequestTimeout = 7002,
-    InvalidResponse = 7003,
-};
-
-/**
- * @brief Clio operates on a combination of Rippled, custom Clio, and ETL error
- * codes.
+ * @brief Clio operates on a combination of Rippled and custom Clio error codes.
  *
  * @see RippledError For xrpld error codes
  * @see ClioError For custom clio error codes
- * @see EtlError For ETL-layer error codes
  */
-using CombinedError = std::variant<RippledError, ClioError, EtlError>;
+using CombinedError = std::variant<RippledError, ClioError>;
 
 /** @brief A status returned from any RPC handler. */
 struct Status
@@ -136,7 +125,7 @@ struct Status
         if (auto err = std::get_if<RippledError>(&code))
             return *err != xrpl::RpcSuccess;
 
-        return true;  // ClioError or EtlError are always truthy
+        return true;  // ClioError is always truthy
     }
 
     /**
@@ -165,21 +154,6 @@ struct Status
     operator==(ClioError other) const
     {
         if (auto err = std::get_if<ClioError>(&code))
-            return *err == other;
-
-        return false;
-    }
-
-    /**
-     * @brief Returns true if the Status contains the desired @ref EtlError
-     *
-     * @param other The EtlError to match
-     * @return true if status matches given error; false otherwise
-     */
-    bool
-    operator==(EtlError other) const
-    {
-        if (auto err = std::get_if<EtlError>(&code))
             return *err == other;
 
         return false;

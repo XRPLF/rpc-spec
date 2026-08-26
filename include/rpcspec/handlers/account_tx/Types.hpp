@@ -25,6 +25,29 @@ struct Marker
 };
 
 /**
+ * @brief Delegation filter for the 'account_tx' command.
+ *
+ * Selects transactions where the queried account acted in the given role, optionally
+ * narrowed to a single counter party.
+ */
+struct DelegateFilter
+{
+    /** @brief The side of a delegated transaction the queried account is on. */
+    enum class Role : std::uint8_t {
+        Actor,     /**< The *active* sender, acting on behalf of another party.
+                    * e.g. Account A in "A sends payment to B on behalf of C." */
+        Authorizer /**< The *passive* party whose funds are moved.
+                    * e.g. Account C in "A sends payment to B on behalf of C." */
+    };
+
+    Role delegateType;
+    std::optional<std::string> counterParty;
+
+    bool
+    operator==(DelegateFilter const&) const = default;
+};
+
+/**
  * @brief Input for the 'account_tx' RPC command.
  */
 struct Input
@@ -47,6 +70,7 @@ struct Input
                                        (derived at runtime from libxrpl TxFormats), so a repo-local
                                        enum would duplicate xrpl::TxType and risk drift. */
     std::optional<xrpl::uint192> mptIssuanceId;
+    std::optional<DelegateFilter> delegateFilter;
 };
 
 }  // namespace rpc::spec::handlers::account_tx
