@@ -131,6 +131,11 @@ public:
     {
         return 0;
     }
+    [[nodiscard]] static std::size_t
+    objectSize() noexcept
+    {
+        return 0;
+    }
 
     template <typename T>
     [[nodiscard]] bool

@@ -16,7 +16,12 @@
 
 namespace rpc {
 
-/** @brief Custom clio RPC Errors. */
+#if defined(RPCSPEC_IS_CLIO)
+
+/**
+ * @brief Custom Clio RPC Errors.
+ * @note Clio builds only.
+ */
 enum class ClioError {
     // normal clio errors start with 5000
     RpcMalformedCurrency = 5000,
@@ -41,9 +46,14 @@ enum class ClioError {
     RpcForwardingInvalidResponse = 7003,
 };
 
+#elif !defined(RPCSPEC_IS_XRPLD)
+#error "rpcspec: define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_XRPLD=1 (the server backend macro)"
+#endif
+
 /** @brief Clio uses compatible Rippled error codes for most RPC errors. */
 using RippledError = xrpl::ErrorCodeI;
 
+#if defined(RPCSPEC_IS_CLIO)
 /**
  * @brief Clio operates on a combination of Rippled and custom Clio error codes.
  *
@@ -51,6 +61,49 @@ using RippledError = xrpl::ErrorCodeI;
  * @see ClioError For custom clio error codes
  */
 using CombinedError = std::variant<RippledError, ClioError>;
+#else
+/**
+ * @brief In xrpld builds the only error surface is xrpld's own; there are no Clio codes.
+ * @see RippledError For xrpld error codes
+ */
+using CombinedError = std::variant<RippledError>;
+#endif
+
+// TODO: these are possibly worth unifying at some point instead of trying to keep separated and
+// mimic what original Clio/xrpld was doing. NOLINTBEGIN(readability-identifier-naming)
+#if defined(RPCSPEC_IS_CLIO)
+/** @brief Malformed request (Clio: 5001 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedRequest = ClioError::RpcMalformedRequest;
+/** @brief Malformed address (Clio: 5003 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedAddress = ClioError::RpcMalformedAddress;
+/** @brief Malformed owner account (Clio: 5002 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedOwner = ClioError::RpcMalformedOwner;
+/** @brief Malformed currency (Clio: 5000 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedCurrency = ClioError::RpcMalformedCurrency;
+/** @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedOracleDocumentId = ClioError::RpcMalformedOracleDocumentId;
+/** @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedAuthorizedCredentials =
+    ClioError::RpcMalformedAuthorizedCredentials;
+/** @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params). */
+inline constexpr CombinedError kFieldNotFoundTransaction = ClioError::RpcFieldNotFoundTransaction;
+#else
+/** @brief Malformed request (Clio: 5001 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedRequest = xrpl::RpcInvalidParams;
+/** @brief Malformed address (Clio: 5003 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedAddress = xrpl::RpcInvalidParams;
+/** @brief Malformed owner account (Clio: 5002 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedOwner = xrpl::RpcInvalidParams;
+/** @brief Malformed currency (Clio: 5000 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedCurrency = xrpl::RpcInvalidParams;
+/** @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedOracleDocumentId = xrpl::RpcInvalidParams;
+/** @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params). */
+inline constexpr CombinedError kMalformedAuthorizedCredentials = xrpl::RpcInvalidParams;
+/** @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params). */
+inline constexpr CombinedError kFieldNotFoundTransaction = xrpl::RpcInvalidParams;
+#endif
+// NOLINTEND(readability-identifier-naming)
 
 /** @brief A status returned from any RPC handler. */
 struct Status
@@ -125,7 +178,7 @@ struct Status
         if (auto err = std::get_if<RippledError>(&code))
             return *err != xrpl::RpcSuccess;
 
-        return true;  // ClioError is always truthy
+        return true;
     }
 
     /**
@@ -144,6 +197,7 @@ struct Status
         return false;
     }
 
+#if defined(RPCSPEC_IS_CLIO)
     /**
      * @brief Returns true if the Status contains the desired @ref ClioError
      *
@@ -158,6 +212,7 @@ struct Status
 
         return false;
     }
+#endif
 
     /**
      * @brief Custom output stream for Status

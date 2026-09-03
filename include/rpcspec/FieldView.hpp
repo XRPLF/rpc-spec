@@ -168,6 +168,14 @@ public:
         return readValue_->as_array().size();
     }
 
+    [[nodiscard]] std::size_t
+    objectSize() const noexcept
+    {
+        if (readValue_ == nullptr || !readValue_->is_object())
+            return 0;
+        return readValue_->as_object().size();
+    }
+
     /**
      * @brief Return a view for a named sub-field within this field (must be an object).
      *

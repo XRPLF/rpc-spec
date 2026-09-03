@@ -11,6 +11,7 @@
 
 #include <charconv>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -130,8 +131,6 @@ ledgerSpecifierFromIndex(FA const& f)
         return invalid();
 
     auto const sv = f.asString();
-    if (sv.empty())
-        return LedgerSpecifier{};  // unspecified; the handler applies its default
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
     if (sv == "current")
@@ -201,8 +200,15 @@ struct LedgerSelectorField
         auto const hashFa = root.child("ledger_hash");
         auto const indexFa = root.child("ledger_index");
 
-        // ledger_hash takes precedence over ledger_index (the two are not
-        // mutually exclusive — accepting both preserves the existing contract).
+        std::optional<LedgerSpecifier> fromIndex;
+        if (indexFa.present())
+        {
+            auto res = detail::ledgerSpecifierFromIndex(indexFa);
+            if (!res.has_value())
+                return std::unexpected{std::move(res).error()};
+            fromIndex = std::move(res).value();
+        }
+
         if (hashFa.present())
         {
             auto res = detail::ledgerSpecifierFromHash(hashFa);
@@ -212,14 +218,8 @@ struct LedgerSelectorField
             return {};
         }
 
-        if (indexFa.present())
-        {
-            auto res = detail::ledgerSpecifierFromIndex(indexFa);
-            if (!res.has_value())
-                return std::unexpected{std::move(res).error()};
-            out.*member = std::move(res).value();
-            return {};
-        }
+        if (fromIndex.has_value())
+            out.*member = std::move(fromIndex).value();
 
         return {};
     }
