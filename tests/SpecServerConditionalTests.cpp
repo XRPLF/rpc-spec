@@ -23,8 +23,14 @@
 
 #include <sstream>
 #include <string>
+#include <variant>
 
 using namespace rpc::spec;
+
+static_assert(
+    std::variant_size_v<rpc::CombinedError> == 2,
+    "Clio build: CombinedError must be variant<RippledError, ClioError>");
+static_assert(std::is_same_v<std::variant_alternative_t<1, rpc::CombinedError>, rpc::ClioError>);
 
 namespace {
 // `clio_only` rejects a true value only in Clio builds; `xrpld_only` rejects a

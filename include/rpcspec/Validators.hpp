@@ -683,7 +683,7 @@ struct AccountBase58Validator
         auto const account = detail::parseBase58Wrapper<xrpl::AccountID>(std::string{f.asString()});
         if (!account || account->isZero())
         {
-            return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedAddress}};
+            return std::unexpected{rpc::Status{rpc::kMalformedAddress}};
         }
         return {};
     }
@@ -719,8 +719,7 @@ struct CurrencyValidator
         xrpl::Currency currency;
         if (!xrpl::toCurrency(currency, str))
         {
-            return std::unexpected{
-                rpc::Status{rpc::ClioError::RpcMalformedCurrency, "malformedCurrency"}};
+            return std::unexpected{rpc::Status{rpc::kMalformedCurrency, "malformedCurrency"}};
         }
         return {};
     }
@@ -789,31 +788,31 @@ struct CurrencyIssueValidator
         auto const currFa = f.child("currency");
         if (!currFa.present() || !currFa.isString())
         {
-            return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+            return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
         }
         xrpl::Currency currency{};
         if (!xrpl::toCurrency(currency, std::string{currFa.asString()}))
         {
-            return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+            return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
         }
         auto const issuerFa = f.child("issuer");
         if (xrpl::isXRP(currency))
         {
             if (issuerFa.present())
             {
-                return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+                return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
         }
         else
         {
             if (!issuerFa.present() || !issuerFa.isString())
             {
-                return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+                return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
             xrpl::AccountID issuer;
             if (!xrpl::toIssuer(issuer, std::string{issuerFa.asString()}))
             {
-                return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+                return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
         }
         return {};
@@ -872,8 +871,7 @@ struct CredentialTypeValidator
         if (!f.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " NotString"}};
+                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " NotString"}};
         }
         // Materialise a std::string so this compiles against both libxrpl versions:
         // newer libxrpl exposes strUnHex(std::string_view) (accepts a std::string via
@@ -884,19 +882,17 @@ struct CredentialTypeValidator
         if (!decoded)
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " NotHexString"}};
+                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " NotHexString"}};
         }
         if (decoded->empty())
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
-                std::string{f.key()} + " is empty"}};
+                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " is empty"}};
         }
         if (decoded->size() > xrpl::kMaxCredentialTypeLength)
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                rpc::kMalformedAuthorizedCredentials,
                 std::string{f.key()} + " greater than max length"}};
         }
         return {};
@@ -924,20 +920,20 @@ struct AuthorizeCredentialValidator
             return {};
         if (!f.isArray())
         {
-            return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedRequest, std::string{f.key()} + " not array"}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedRequest, std::string{f.key()} + " not array"}};
         }
         auto const sz = f.arraySize();
         if (sz == 0)
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                rpc::kMalformedAuthorizedCredentials,
                 "Requires at least one element in authorized_credentials array."}};
         }
         if (sz > xrpl::kMaxCredentialsArraySize)
         {
             return std::unexpected{rpc::Status{
-                rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                rpc::kMalformedAuthorizedCredentials,
                 std::format(
                     "Max {} number of credentials in authorized_credentials array",
                     xrpl::kMaxCredentialsArraySize)}};
@@ -948,26 +944,26 @@ struct AuthorizeCredentialValidator
             if (!elem.isObject())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                    rpc::kMalformedAuthorizedCredentials,
                     "authorized_credentials elements in array are not objects."}};
             }
             auto const issuerFa = elem.child("issuer");
             if (!issuerFa.present())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                    rpc::kMalformedAuthorizedCredentials,
                     "Field 'Issuer' is required but missing."}};
             }
             if (auto err = AccountBase58Validator::verify(issuerFa); !err)
             {
-                return std::unexpected{rpc::Status{
-                    rpc::ClioError::RpcMalformedAuthorizedCredentials, "issuer NotString"}};
+                return std::unexpected{
+                    rpc::Status{rpc::kMalformedAuthorizedCredentials, "issuer NotString"}};
             }
             auto const credFa = elem.child("credential_type");
             if (!credFa.present())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::ClioError::RpcMalformedAuthorizedCredentials,
+                    rpc::kMalformedAuthorizedCredentials,
                     "Field 'CredentialType' is required but missing."}};
             }
             if (auto err = CredentialTypeValidator::verify(credFa); !err)

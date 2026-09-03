@@ -37,6 +37,7 @@ concept SomeFieldView = requires(T f, T const cf) {
     { cf.isObject() } -> std::convertible_to<bool>;
     { cf.isArray() } -> std::convertible_to<bool>;
     { cf.arraySize() } -> std::convertible_to<std::size_t>;
+    { cf.objectSize() } -> std::convertible_to<std::size_t>;
     { cf.template is<JsonObject>() } -> std::convertible_to<bool>;
     { cf.template is<JsonArray>() } -> std::convertible_to<bool>;
     { cf.template is<int64_t>() } -> std::convertible_to<bool>;
@@ -90,6 +91,9 @@ struct FieldViewArchetype
     isArray() const noexcept;
     [[nodiscard]] std::size_t
     arraySize() const noexcept;
+
+    [[nodiscard]] std::size_t
+    objectSize() const noexcept;
     template <typename T>
     [[nodiscard]] bool
     is() const noexcept;
