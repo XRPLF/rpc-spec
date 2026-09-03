@@ -4,6 +4,7 @@
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
@@ -65,10 +66,22 @@ TEST(LedgerSelector, NeitherFieldYieldsUnspecified)
     EXPECT_EQ(std::get<LedgerShortcut>(led.resolved().value), LedgerShortcut::Current);
 }
 
-TEST(LedgerSelector, EmptyIndexStringYieldsUnspecified)
+TEST(LedgerSelector, EmptyIndexStringFails)
 {
-    auto const led = parseLedger(R"JSON({ "ledger_index": "" })JSON");
-    EXPECT_TRUE(led.isUnspecified());
+    // An empty ledger_index is malformed. Only an ABSENT ledger_index means "use the
+    // server default" — see NeitherFieldYieldsUnspecified above.
+    auto value = boost::json::parse(R"JSON({ "ledger_index": "" })JSON");
+    auto const r = kLedgerSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+}
+
+TEST(LedgerSelector, TrailingGarbageIndexStringFails)
+{
+    auto value = boost::json::parse(R"JSON({ "ledger_index": "30abc" })JSON");
+    auto const r = kLedgerSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, ShortcutValidated)
@@ -175,6 +188,17 @@ TEST(LedgerSelector, BothHashAndIndexPrefersHash)
     EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 
+TEST(LedgerSelector, BothHashAndMalformedIndexFails)
+{
+    // ledger_hash wins when both are valid, but a malformed ledger_index must still be
+    // reported rather than skipped just because a usable hash accompanied it.
+    auto value = boost::json::parse(
+        R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "nonsense" })JSON");
+    auto const r = kLedgerSpec.parse(value);
+    ASSERT_FALSE(r.has_value());
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+}
+
 namespace {
 struct AccountAndLedgerInput
 {
@@ -212,4 +236,42 @@ TEST(LedgerSelector, SpecIsConstantEvaluable)
     static constexpr auto kSpec = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInput::ledger));
     (void)kSpec;
     SUCCEED();
+}
+
+namespace {
+struct FlagInput
+{
+    JsonBool flag{false};
+};
+
+constexpr auto kFlagSpec = spec<FlagInput>(field("flag", &FlagInput::flag, jsonBool));
+
+JsonBool
+parseFlag(char const* json)
+{
+    auto value = boost::json::parse(json);
+    auto const r = kFlagSpec.parse(value);
+    EXPECT_TRUE(r.has_value());
+    return r->flag;
+}
+}  // namespace
+
+TEST(JsonBoolConverter, NonEmptyObjectIsTrue)
+{
+    EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": {"a": 1} })JSON")));
+}
+
+TEST(JsonBoolConverter, EmptyObjectIsFalse)
+{
+    EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": {} })JSON")));
+}
+
+TEST(JsonBoolConverter, NonEmptyArrayIsTrue)
+{
+    EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": [1] })JSON")));
+}
+
+TEST(JsonBoolConverter, EmptyArrayIsFalse)
+{
+    EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": [] })JSON")));
 }

@@ -95,3 +95,14 @@ TEST(RpcSpecDSL_FieldView, ConstRootYieldsReadOnlyChild)
     EXPECT_TRUE(fa.isInt64());
     EXPECT_EQ(fa.asInt64(), 1);
 }
+
+TEST(RpcSpecDSL_FieldView, ObjectSizeReportsMemberCount)
+{
+    auto request = boost::json::parse(R"JSON({ "empty": {}, "one": {"a": 1}, "arr": [1, 2] })JSON");
+    ObjectView root{request};
+    EXPECT_EQ(root.child("empty").objectSize(), 0);
+    EXPECT_EQ(root.child("one").objectSize(), 1);
+    // non-objects report 0 rather than the array/scalar size
+    EXPECT_EQ(root.child("arr").objectSize(), 0);
+    EXPECT_EQ(root.child("missing").objectSize(), 0);
+}

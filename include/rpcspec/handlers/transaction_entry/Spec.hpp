@@ -18,7 +18,7 @@ inline constexpr auto kInputSpec = spec<Input>(
     field(
         "tx_hash",
         &Input::txHash,
-        withCustomError(required, ClioError::RpcFieldNotFoundTransaction),
+        withCustomError(required, rpc::kFieldNotFoundTransaction),
         asUint256));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

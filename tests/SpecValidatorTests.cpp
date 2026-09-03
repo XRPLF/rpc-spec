@@ -10,8 +10,14 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 
 using namespace rpc::spec;
+
+static_assert(
+    std::variant_size_v<rpc::CombinedError> == 1,
+    "xrpld build: CombinedError must be variant<RippledError> only");
+static_assert(std::is_same_v<std::variant_alternative_t<0, rpc::CombinedError>, rpc::RippledError>);
 
 TEST(RpcSpecDSL_Type, StringDirect)
 {
@@ -526,7 +532,7 @@ TEST(RpcSpecDSL_AccountBase58, RejectsInvalidAccount)
     auto req = boost::json::parse(R"JSON({ "account": "rNotValid" })JSON");
     auto const r = kSPEC.process(req);
     ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::ClioError::RpcMalformedAddress);
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_AccountBase58, AbsentFieldSkipped)
@@ -577,7 +583,7 @@ TEST(RpcSpecDSL_Currency, RejectsMalformed)
         boost::json::parse(R"JSON({ "currency": "NOT_VALID_CURRENCY_STRING_TOO_LONG" })JSON");
     auto const r = kSPEC.process(req);
     ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::ClioError::RpcMalformedCurrency);
+    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Currency, AbsentFieldSkipped)

@@ -44,17 +44,16 @@ inline constexpr auto kRippleStateAccountsValidator =
             rpc::spec::detail::parseBase58Wrapper<xrpl::AccountID>(std::string{elem1.asString()});
         if (!id1 || !id2)
         {
-            return std::unexpected{
-                rpc::Status{rpc::ClioError::RpcMalformedAddress, "malformedAddresses"}};
+            return std::unexpected{rpc::Status{rpc::kMalformedAddress, "malformedAddresses"}};
         }
         return {};
     }};
 
 inline constexpr auto kMalformedRequestHexStringValidator =
-    withCustomError(uint256Hex, rpc::ClioError::RpcMalformedRequest);
+    withCustomError(uint256Hex, rpc::kMalformedRequest);
 
 inline constexpr auto kMalformedRequestIntValidator =
-    withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest);
+    withCustomError(type<uint32_t>, rpc::kMalformedRequest);
 
 inline constexpr auto kBridgeJsonValidator = withCustomError(
     ifType<JsonObject>(section(
@@ -62,7 +61,7 @@ inline constexpr auto kBridgeJsonValidator = withCustomError(
         field("IssuingChainDoor", required, accountBase58),
         field("LockingChainIssue", required, currencyIssue),
         field("IssuingChainIssue", required, currencyIssue))),
-    rpc::ClioError::RpcMalformedRequest);
+    rpc::kMalformedRequest);
 
 template <typename FA>
 inline xrpl::Issue
@@ -493,10 +492,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<std::string, JsonObject>,
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
-            field(
-                "owner",
-                required,
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedOwner)),
+            field("owner", required, withCustomError(accountBase58, rpc::kMalformedOwner)),
             field("authorized", accountBase58),
             field("authorized_credentials", authorizeCredential))),
         depositPreauthConv),
@@ -516,10 +512,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<std::string, JsonObject>,
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
-            field(
-                "owner",
-                required,
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedOwner)),
+            field("owner", required, withCustomError(accountBase58, rpc::kMalformedOwner)),
             field("seq", required, kMalformedRequestIntValidator))),
         escrowConv),
     field(
@@ -562,185 +555,181 @@ inline constexpr auto kInputSpec = spec<Input>(
         ifType<JsonObject>(section(
             field(
                 "asset",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<JsonObject>, rpc::ClioError::RpcMalformedRequest),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<JsonObject>, rpc::kMalformedRequest),
                 currencyIssue),
             field(
                 "asset2",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<JsonObject>, rpc::ClioError::RpcMalformedRequest),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<JsonObject>, rpc::kMalformedRequest),
                 currencyIssue))),
         ammConv),
     field(
         "bridge",
         &Input::bridge,
-        withCustomError(type<JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<JsonObject>, rpc::kMalformedRequest),
         kBridgeJsonValidator,
         bridgeConv),
     field(
         "bridge_account",
         &Input::bridgeAccount,
-        withCustomError(accountBase58, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(accountBase58, rpc::kMalformedRequest),
         accountId),
     field(
         "xchain_owned_claim_id",
         &Input::xchainOwnedClaimId,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         kBridgeJsonValidator,
         withCustomError(
             ifType<JsonObject>(section(field("xchain_owned_claim_id", required, type<uint32_t>))),
-            rpc::ClioError::RpcMalformedRequest),
+            rpc::kMalformedRequest),
         xChainClaimIdConv),
     field(
         "xchain_owned_create_account_claim_id",
         &Input::xchainOwnedCreateAccountClaimId,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         kBridgeJsonValidator,
         withCustomError(
             ifType<JsonObject>(
                 section(field("xchain_owned_create_account_claim_id", required, type<uint32_t>))),
-            rpc::ClioError::RpcMalformedRequest),
+            rpc::kMalformedRequest),
         xChainCreateAccountClaimIdConv),
     field(
         "oracle",
         &Input::oracle,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
-        ifType<std::string>(withCustomError(
-            kMalformedRequestHexStringValidator,
-            rpc::ClioError::RpcMalformedAddress)),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
+        ifType<std::string>(
+            withCustomError(kMalformedRequestHexStringValidator, rpc::kMalformedAddress)),
         ifType<JsonObject>(section(
             field(
                 "account",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
             // note: Unlike `xrpld`, Clio only supports UInt as input, no string, no
             // `null`, etc.:
             field(
                 "oracle_document_id",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(
-                    type<uint32_t, std::string>,
-                    rpc::ClioError::RpcMalformedOracleDocumentId),
-                withCustomError(toNumber, rpc::ClioError::RpcMalformedOracleDocumentId)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<uint32_t, std::string>, rpc::kMalformedOracleDocumentId),
+                withCustomError(toNumber, rpc::kMalformedOracleDocumentId)))),
         oracleConv),
     field(
         "credential",
         &Input::credential,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
-        ifType<std::string>(withCustomError(
-            kMalformedRequestHexStringValidator,
-            rpc::ClioError::RpcMalformedAddress)),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
+        ifType<std::string>(
+            withCustomError(kMalformedRequestHexStringValidator, rpc::kMalformedAddress)),
         ifType<JsonObject>(section(
             field(
                 "subject",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
             field(
                 "issuer",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
             field(
                 "credential_type",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<std::string>, rpc::ClioError::RpcMalformedRequest),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<std::string>, rpc::kMalformedRequest),
                 credentialType))),
         credentialConv),
     field(
         "mpt_issuance",
         &Input::mptIssuance,
-        withCustomError(uint192Hex, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(uint192Hex, rpc::kMalformedRequest),
         asUint192),
     field(
         "mptoken",
         &Input::mptoken,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "account",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
             field(
                 "mpt_issuance_id",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(uint192Hex, rpc::ClioError::RpcMalformedRequest)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(uint192Hex, rpc::kMalformedRequest)))),
         mptokenConv),
     field(
         "permissioned_domain",
         &Input::permissionedDomain,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "seq",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<uint32_t>, rpc::kMalformedRequest)),
             field(
                 "account",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)))),
         permissionedDomainConv),
     field(
         "vault",
         &Input::vault,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "seq",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<uint32_t>, rpc::kMalformedRequest)),
             field(
                 "owner",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedOwner)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedOwner)))),
         vaultConv),
     field(
         "loan_broker",
         &Input::loanBroker,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "seq",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<uint32_t>, rpc::kMalformedRequest)),
             field(
                 "owner",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedOwner)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedOwner)))),
         loanBrokerConv),
     field(
         "loan",
         &Input::loan,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "loan_seq",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(type<uint32_t>, rpc::kMalformedRequest)),
             field(
                 "loan_broker_id",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(uint256Hex, rpc::ClioError::RpcMalformedRequest)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(uint256Hex, rpc::kMalformedRequest)))),
         loanConv),
     field(
         "delegate",
         &Input::delegate,
-        withCustomError(type<std::string, JsonObject>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
         ifType<std::string>(kMalformedRequestHexStringValidator),
         ifType<JsonObject>(section(
             field(
                 "account",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
             field(
                 "authorize",
-                withCustomError(required, rpc::ClioError::RpcMalformedRequest),
-                withCustomError(accountBase58, rpc::ClioError::RpcMalformedAddress)))),
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)))),
         delegateConv),
     field("amendments", &Input::amendments, kMalformedRequestHexStringValidator, asUint256),
     field("fee", &Input::fee, kMalformedRequestHexStringValidator, asUint256),

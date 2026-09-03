@@ -230,6 +230,8 @@ struct JsonBoolConverterT
             }
             if (f.isArray())
                 return JsonBool{f.arraySize() != 0};
+            if (f.isObject())
+                return JsonBool{f.objectSize() != 0};
             return JsonBool{false};
         }
     }

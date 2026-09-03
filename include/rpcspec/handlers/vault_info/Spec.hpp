@@ -27,11 +27,13 @@ struct VaultIdConverter
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
+        // xrpld returns RpcInvalidParams for a malformed vault_id (VaultInfo.cpp:
+        // `injectError(RpcInvalidParams, ...)` when uNodeIndex.parseHex fails).
         if (!f.isString())
-            return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         xrpl::uint256 out;
         if (!out.parseHex(std::string{f.asString()}.c_str()))
-            return std::unexpected{rpc::Status{rpc::ClioError::RpcMalformedRequest}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return out;
     }
 };
@@ -50,8 +52,10 @@ struct OwnerConverter
             if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
                 return *id;
         }
-        return std::unexpected{
-            rpc::Status{rpc::ClioError::RpcMalformedRequest, "OwnerNotHexString"}};
+        // xrpld returns RpcActMalformed for a malformed owner (VaultInfo.cpp:
+        // `injectError(RpcActMalformed, ...)` when parseBase58<AccountID> fails), which
+        // carries the standard "Account malformed." message — so no custom message here.
+        return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
     }
 };
 
@@ -67,7 +71,7 @@ inline constexpr auto kInputSpec = spec<Input>(
     field(
         "seq",
         &Input::tnxSequence,
-        withCustomError(type<uint32_t>, rpc::ClioError::RpcMalformedRequest),
+        withCustomError(type<uint32_t>, rpc::RippledError::RpcInvalidParams),
         asUint32));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
