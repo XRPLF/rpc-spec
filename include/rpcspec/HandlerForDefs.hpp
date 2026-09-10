@@ -1,12 +1,18 @@
 /** @file */
 #pragma once
-// Out-of-line definitions for HandlerFor<Input>. Include ONLY from a handler's .cpp (which also
-// includes that handler's <rpcspec/handlers/<name>/Spec.hpp>, so `specFor` is visible to ADL), and
-// emit the single explicit instantiation:
+// Out-of-line definitions for HandlerFor<Input>. Included ONLY from the generated
+// per-handler instantiation TU, which also includes that handler's
+// <rpcspec/handlers/<name>/Spec.hpp> (so `specFor` is visible to ADL) and emits the single
+// explicit instantiation:
 //
 //     template struct rpc::spec::HandlerFor<rpc::spec::handlers::<name>::Input>;
 //
-// That confines the handler's consteval spec instantiation to its own translation unit.
+// That confines each handler's consteval spec instantiation to a translation unit of its
+// own, so the TUs that merely dispatch (a handler registry, a request processor) see the
+// declarations in HandlerFor.hpp and nothing more.
+//
+// Consumers do not write those TUs: cmake/RpcSpecInstantiations.cmake generates one per
+// handler from cmake/Instantiate.cpp.in. See rpcspec_generate_instantiations().
 
 #include <boost/json/value.hpp>
 
