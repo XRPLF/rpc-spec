@@ -20,6 +20,7 @@ class XrplRpcSpecConan(ConanFile):
     # source build). CMakeLists/tests are exported too for local `conan create`.
     exports_sources = (
         "include/*",
+        "cmake/*",
         "CMakeLists.txt",
         "tests/*",
         "LICENSE.md",
@@ -81,13 +82,18 @@ class XrplRpcSpecConan(ConanFile):
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
         tc.generate()
 
-    # Header-only: no compilation. Just copy the headers into the package.
     def package(self):
         copy(
             self,
             "*",
             src=os.path.join(self.source_folder, "include"),
             dst=os.path.join(self.package_folder, "include"),
+        )
+        copy(
+            self,
+            "*",
+            src=os.path.join(self.source_folder, "cmake"),
+            dst=os.path.join(self.package_folder, "lib", "cmake", "rpcspec"),
         )
         copy(
             self,
@@ -103,3 +109,10 @@ class XrplRpcSpecConan(ConanFile):
         self.cpp_info.set_property("cmake_target_name", "rpcspec::rpcspec")
         self.cpp_info.requires = ["boost::json"]
         self.cpp_info.defines = [f"RPCSPEC_IS_{str(self.options.server).upper()}=1"]
+
+        cmake_dir = os.path.join("lib", "cmake", "rpcspec")
+        self.cpp_info.builddirs = [cmake_dir]
+        self.cpp_info.set_property(
+            "cmake_build_modules",
+            [os.path.join(cmake_dir, "RpcSpecInstantiations.cmake")],
+        )

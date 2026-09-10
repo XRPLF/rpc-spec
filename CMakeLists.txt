@@ -18,9 +18,18 @@ find_package(Boost REQUIRED COMPONENTS json)
 
 target_link_libraries(rpcspec INTERFACE Boost::json)
 
+# Generates the per-handler explicit-instantiation TUs; see the module for the rationale.
+# Conan consumers get this automatically via cmake_build_modules, so it is included here
+# only for in-tree (add_subdirectory / sibling-checkout) consumers.
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/RpcSpecInstantiations.cmake)
+
 # --- Install / export (used by the Conan package) -----------------------------
 include(GNUInstallDirs)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+    FILES cmake/RpcSpecInstantiations.cmake cmake/Instantiate.cpp.in
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rpcspec
+)
 install(TARGETS rpcspec EXPORT rpcspecTargets)
 install(
     EXPORT rpcspecTargets
