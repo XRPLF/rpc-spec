@@ -89,13 +89,18 @@ function(rpcspec_generate_instantiations)
     endforeach()
   endif()
 
+  set(outdir "${CMAKE_CURRENT_BINARY_DIR}/rpcspec-instantiations")
+
+  # Generated code is not reviewed, so it is not linted either.
+  file(WRITE "${outdir}/.clang-tidy" "# Generated code - not linted.\nChecks: '-*'\n")
+
   set(generated "")
   foreach(handler IN LISTS handlers)
     if(NOT EXISTS "${root}/rpcspec/handlers/${handler}/Spec.hpp")
       message(FATAL_ERROR "rpcspec: no spec for handler '${handler}'")
     endif()
 
-    set(out "${CMAKE_CURRENT_BINARY_DIR}/rpcspec-instantiations/${handler}.cpp")
+    set(out "${outdir}/${handler}.cpp")
     set(RPCSPEC_HANDLER "${handler}")
     configure_file("${RPCSPEC_CMAKE_DIR}/Instantiate.cpp.in" "${out}" @ONLY)
     list(APPEND generated "${out}")
