@@ -119,8 +119,7 @@ ledgerSpecifierFromIndex(FA const& f)
 {
     auto const invalid = [&] {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
-            "Invalid field 'ledger_index', not string or number."}};
+            rpc::kMalformedField, rpc::expectedFieldMessage("ledger_index", "string or number")}};
     };
 
     if (f.isUint32())
@@ -150,15 +149,17 @@ template <SomeFieldView FA>
 [[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
 ledgerSpecifierFromHash(FA const& f)
 {
-    auto const invalid = [&] {
-        return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field 'ledger_hash', not hex string."}};
-    };
     if (!f.isString())
-        return invalid();
+    {
+        return std::unexpected{
+            rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "string")}};
+    }
     xrpl::uint256 hash;
     if (!hash.parseHex(std::string{f.asString()}.c_str()))
-        return invalid();
+    {
+        return std::unexpected{
+            rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage("ledger_hash")}};
+    }
     return LedgerSpecifier{hash};
 }
 

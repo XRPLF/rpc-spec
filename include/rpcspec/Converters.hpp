@@ -79,9 +79,8 @@ struct LedgerHashConverter
     parse(FA const& f) const
     {
         auto const err = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (!f.isString())
             return err();
@@ -108,9 +107,8 @@ struct Uint256HexConverter
     parse(FA const& f) const
     {
         auto const err = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (!f.isString())
             return err();
@@ -136,9 +134,8 @@ struct Uint192HexConverter
     parse(FA const& f) const
     {
         auto const err = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (!f.isString())
             return err();
@@ -174,7 +171,7 @@ struct LedgerIndexOptConverter
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Invalid field 'ledger_index', not string or number."}};
+                rpc::expectedFieldMessage("ledger_index", "string or number")}};
         }
         auto const sv = f.asString();
         if (sv == "validated" || sv == "closed" || sv == "current")
@@ -186,7 +183,7 @@ struct LedgerIndexOptConverter
             return std::optional<uint32_t>{out};
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
-            "Invalid field 'ledger_index', not string or number."}};
+            rpc::expectedFieldMessage("ledger_index", "string or number")}};
     }
 };
 

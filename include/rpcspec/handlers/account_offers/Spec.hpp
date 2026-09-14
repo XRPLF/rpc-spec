@@ -37,9 +37,8 @@ struct AccountMarkerStrConverter
         }
         auto const sv = f.asString();
         auto const malformed = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         auto const commaPos = sv.find(',');
         if (commaPos == std::string_view::npos)
