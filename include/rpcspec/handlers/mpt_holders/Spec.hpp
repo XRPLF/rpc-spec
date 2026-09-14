@@ -32,9 +32,8 @@ struct Uint192Converter
     parse(FA const& f) const
     {
         auto const err = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (!f.isString())
             return err();
@@ -55,9 +54,8 @@ struct AccountIdHexConverter
     parse(FA const& f) const
     {
         auto const err = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (!f.isString())
             return err();

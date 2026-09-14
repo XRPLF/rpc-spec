@@ -372,7 +372,7 @@ TEST(RpcSpecDSL_HexString, Uint256RejectsMalformedHex)
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'hash', not hex string.");
+    EXPECT_EQ(r.error().message, "Invalid field 'hash'.");
 }
 
 TEST(RpcSpecDSL_HexString, Uint256RejectsNonString)
@@ -384,7 +384,7 @@ TEST(RpcSpecDSL_HexString, Uint256RejectsNonString)
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'hash', not hex string.");
+    EXPECT_EQ(r.error().message, "Invalid field 'hash'.");
 }
 
 TEST(RpcSpecDSL_HexString, AbsentFieldSkipped)
@@ -710,7 +710,7 @@ TEST(RpcSpecDSL_AccountMarker, NoCommaFails)
     auto bad = boost::json::parse(R"JSON({ "marker": "AABB" })JSON");
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker', not hex string.");
+    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountMarker, BadHexPartFails)
@@ -719,7 +719,7 @@ TEST(RpcSpecDSL_AccountMarker, BadHexPartFails)
     auto bad = boost::json::parse(R"JSON({ "marker": "NOTVALIDHEX,0" })JSON");
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker', not hex string.");
+    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountMarker, BadHintPartFails)
@@ -729,7 +729,7 @@ TEST(RpcSpecDSL_AccountMarker, BadHintPartFails)
         R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,notanumber" })JSON");
     auto const r = kSPEC.process(bad);
     ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker', not hex string.");
+    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountType, ValidTypeStringPasses)

@@ -597,16 +597,14 @@ struct HexStringValidator
             return {};
         if (!f.isString())
         {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         }
         HexType parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str()))
         {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         }
         return {};
     }
@@ -655,7 +653,7 @@ struct LedgerIndexValidator
             return {};
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
-            "Invalid field 'ledger_index', not string or number."}};
+            rpc::expectedFieldMessage("ledger_index", "string or number")}};
     }
 };
 
@@ -1305,9 +1303,8 @@ struct AccountMarkerValidator
         auto const sv = f.asString();
         auto const commaPos = sv.find(',');
         auto const malformed = [&] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not hex string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         };
         if (commaPos == std::string_view::npos)
             return malformed();

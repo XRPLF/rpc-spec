@@ -37,9 +37,8 @@ struct MarkerConverter
             auto const sv = f.asString();
             if (!parsed.parseHex(std::string{sv}.c_str()))
             {
-                return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams,
-                    "Invalid field 'marker', not hex string."}};
+                return std::unexpected{
+                    rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage("marker")}};
             }
             return std::optional<MarkerValue>{MarkerValue{parsed}};
         }
@@ -61,16 +60,14 @@ struct LedgerEntryTypeConverter
     {
         if (!f.isString())
         {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "', not string."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage(f.key(), "string")}};
         }
         auto const entryType = ledgerEntryTypeFromStr(std::string{f.asString()});
         if (entryType == xrpl::ltANY)
         {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                "Invalid field '" + std::string{f.key()} + "'."}};
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
         }
         return entryType;
     }

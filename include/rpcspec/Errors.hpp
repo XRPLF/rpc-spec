@@ -105,6 +105,49 @@ inline constexpr CombinedError kFieldNotFoundTransaction = xrpl::RpcInvalidParam
 #endif
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief A field failed validation.
+ *
+ * Both servers report field-level validation failures as invalid params, so unlike the
+ * constants above this needs no per-server form. It exists so validators speak the same
+ * vocabulary throughout rather than reaching for the raw xrpld code.
+ */
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr CombinedError kMalformedField = xrpl::RpcInvalidParams;
+
+/**
+ * @brief The message for a field whose value is not the expected JSON type.
+ *
+ * Mirrors xrpld's expectedFieldMessage, so a type error reads the same on either server.
+ * @p type names a JSON type ("string", "boolean", "number"), not an encoding.
+ *
+ * @param field The field name
+ * @param type The JSON type that was expected
+ * @return The message
+ */
+[[nodiscard]] inline std::string
+expectedFieldMessage(std::string_view field, std::string_view type)
+{
+    return "Invalid field '" + std::string{field} + "', not " + std::string{type} + ".";
+}
+
+/**
+ * @brief The message for a field of the right JSON type whose value is not usable.
+ *
+ * Deliberately names no format. The same field can have a different accepted format on
+ * each server - a marker is a hex pair in xrpld and an index/hint pair in Clio - so any
+ * format claim in a shared message would be wrong for one of them. Mirrors xrpld's
+ * invalidFieldMessage, its most common field error by a wide margin.
+ *
+ * @param field The field name
+ * @return The message
+ */
+[[nodiscard]] inline std::string
+invalidFieldMessage(std::string_view field)
+{
+    return "Invalid field '" + std::string{field} + "'.";
+}
+
 /** @brief A status returned from any RPC handler. */
 struct Status
 {

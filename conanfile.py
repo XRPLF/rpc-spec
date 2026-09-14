@@ -66,9 +66,11 @@ class XrplRpcSpecConan(ConanFile):
 
     def layout(self):
         cmake_layout(self)
-        # In editable mode there is no packaged folder; point consumers at the
-        # headers in the working tree so `conan editable add .` just works.
+        # In editable mode there is no packaged folder; point consumers at the working
+        # tree so `conan editable add .` just works. cmake/ holds the instantiation
+        # generator, which package() would otherwise have copied to lib/cmake/rpcspec.
         self.cpp.source.includedirs = ["include"]
+        self.cpp.source.builddirs = ["cmake"]
 
     # Header-only: the binary is identical across settings, so don't rebuild
     # per compiler/arch/build_type.
@@ -93,7 +95,7 @@ class XrplRpcSpecConan(ConanFile):
             self,
             "*",
             src=os.path.join(self.source_folder, "cmake"),
-            dst=os.path.join(self.package_folder, "lib", "cmake", "rpcspec"),
+            dst=os.path.join(self.package_folder, "cmake"),
         )
         copy(
             self,
@@ -110,7 +112,10 @@ class XrplRpcSpecConan(ConanFile):
         self.cpp_info.requires = ["boost::json"]
         self.cpp_info.defines = [f"RPCSPEC_IS_{str(self.options.server).upper()}=1"]
 
-        cmake_dir = os.path.join("lib", "cmake", "rpcspec")
+        # Deliberately cmake/ rather than lib/cmake/rpcspec: the same relative path then
+        # resolves for a normal package and for `conan editable add`, where package() has
+        # not run and consumers read straight from the working tree.
+        cmake_dir = "cmake"
         self.cpp_info.builddirs = [cmake_dir]
         self.cpp_info.set_property(
             "cmake_build_modules",

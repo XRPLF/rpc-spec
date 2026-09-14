@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(xrpl-rpc-spec VERSION 0.1.0 LANGUAGES CXX)
+project(xrpl-rpc-spec VERSION 0.1.11 LANGUAGES CXX)
 
 add_library(rpcspec INTERFACE)
 add_library(rpcspec::rpcspec ALIAS rpcspec)
@@ -28,7 +28,7 @@ include(GNUInstallDirs)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(
     FILES cmake/RpcSpecInstantiations.cmake cmake/Instantiate.cpp.in
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rpcspec
+    DESTINATION cmake
 )
 install(TARGETS rpcspec EXPORT rpcspecTargets)
 install(
