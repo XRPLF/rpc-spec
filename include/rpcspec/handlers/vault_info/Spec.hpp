@@ -27,13 +27,19 @@ struct VaultIdConverter
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
-        // xrpld returns RpcInvalidParams for a malformed vault_id (VaultInfo.cpp:
-        // `injectError(RpcInvalidParams, ...)` when uNodeIndex.parseHex fails).
+        // Matches xrpld's VaultInfo.cpp parseVault(): a non-string and an unparseable
+        // hex string both yield RpcInvalidParams with expectedFieldMessage(vault_id,
+        // "hex string").
+        auto const err = [] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams,
+                rpc::expectedFieldMessage("vault_id", "hex string")}};
+        };
         if (!f.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return err();
         xrpl::uint256 out;
         if (!out.parseHex(std::string{f.asString()}.c_str()))
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return err();
         return out;
     }
 };
@@ -52,10 +58,10 @@ struct OwnerConverter
             if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
                 return *id;
         }
-        // xrpld returns RpcActMalformed for a malformed owner (VaultInfo.cpp:
-        // `injectError(RpcActMalformed, ...)` when parseBase58<AccountID> fails), which
-        // carries the standard "Account malformed." message — so no custom message here.
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
+        // Matches xrpld's VaultInfo.cpp parseVault(): RpcActMalformed carrying
+        // expectedFieldMessage(owner, "AccountID"), not the generic "Account malformed."
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcActMalformed, rpc::expectedFieldMessage("owner", "AccountID")}};
     }
 };
 
@@ -68,10 +74,15 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("vault_id", &Input::vaultID, vaultIdConv),
     field("owner", &Input::owner, ownerConv),
+    // xrpld phrases this as expectedFieldMessage(seq, "a positive 32-bit integer");
+    // withCustomError is consteval so the message is spelled out rather than built.
     field(
         "seq",
         &Input::tnxSequence,
-        withCustomError(type<uint32_t>, rpc::RippledError::RpcInvalidParams),
+        withCustomError(
+            type<uint32_t>,
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field 'seq', not a positive 32-bit integer."),
         asUint32));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

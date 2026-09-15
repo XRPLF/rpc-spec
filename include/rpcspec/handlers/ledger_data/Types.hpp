@@ -35,7 +35,10 @@ struct Input
 {
     LedgerSpecifier ledger;
     bool binary = false;
-    uint32_t limit;
+    /** @note nullopt = not supplied. The default depends on `binary` (kLimitBinary vs
+     * kLimitJson), which a per-field spec default cannot express, so the handler applies
+     * it. Mirrors xrpld's `maxLimit = rpc::tuning::pageLength(isBinary)`. */
+    std::optional<uint32_t> limit;
     std::optional<MarkerValue> marker;  // nullopt = no marker; uint256 = normal; uint32 = diff/OOO
     bool outOfOrder = false;
     xrpl::LedgerEntryType type = xrpl::LedgerEntryType::ltANY;
