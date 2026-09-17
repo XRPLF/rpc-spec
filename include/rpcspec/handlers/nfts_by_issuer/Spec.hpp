@@ -18,32 +18,6 @@
 
 namespace rpc::spec::handlers::nfts_by_issuer {
 
-struct Uint256Converter
-{
-    static constexpr std::string_view kName = "uint256";
-    using ValueType = xrpl::uint256;
-
-    template <SomeFieldView FA>
-    [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
-    {
-        auto const err = [&] {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
-        };
-        if (!f.isString())
-            return err();
-        xrpl::uint256 out;
-        if (!out.parseHex(std::string{f.asString()}.c_str()))
-            return err();
-        return out;
-    }
-};
-
-// NOLINTBEGIN(readability-identifier-naming)
-inline constexpr auto asUint256 = Uint256Converter{};
-// NOLINTEND(readability-identifier-naming)
-
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("issuer", &Input::issuer, required, accountId),

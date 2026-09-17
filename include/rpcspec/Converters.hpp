@@ -78,12 +78,16 @@ struct LedgerHashConverter
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
+        auto const notString = [&] {
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+        };
         auto const err = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
         };
         if (!f.isString())
-            return err();
+            return notString();
         xrpl::uint256 parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str()))
             return err();
@@ -106,12 +110,16 @@ struct Uint256HexConverter
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
+        auto const notString = [&] {
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+        };
         auto const err = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
         };
         if (!f.isString())
-            return err();
+            return notString();
         xrpl::uint256 parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str()))
             return err();
@@ -133,57 +141,20 @@ struct Uint192HexConverter
     [[nodiscard]] Parsed<ValueType>
     parse(FA const& f) const
     {
+        auto const notString = [&] {
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+        };
         auto const err = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
         };
         if (!f.isString())
-            return err();
+            return notString();
         xrpl::uint192 parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str()))
             return err();
         return parsed;
-    }
-};
-
-/**
- * @brief Converts a ledger_index field into an optional<uint32_t>.
- *
- * Mirrors util::getLedgerIndex semantics: the sentinels "validated"/"closed"/
- * "current" and out-of-uint32-range numbers resolve to no concrete index
- * (nullopt — the handler then falls back to the latest sequence); other
- * non-numeric strings are an error.
- */
-struct LedgerIndexOptConverter
-{
-    static constexpr std::string_view kName = "ledgerIndex";
-    using ValueType = std::optional<uint32_t>;
-
-    template <SomeFieldView FA>
-    [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
-    {
-        if (f.isUint32())
-            return std::optional<uint32_t>{f.asUint32()};
-        if (f.isInt64())  // numeric but out of uint32 range → leave unset
-            return std::optional<uint32_t>{std::nullopt};
-        if (!f.isString())
-        {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                rpc::expectedFieldMessage("ledger_index", "string or number")}};
-        }
-        auto const sv = f.asString();
-        if (sv == "validated" || sv == "closed" || sv == "current")
-            return std::optional<uint32_t>{std::nullopt};
-        uint32_t out = 0;
-        auto const* const begin = sv.data();
-        auto const* const end = sv.data() + sv.size();
-        if (auto const [p, ec] = std::from_chars(begin, end, out); ec == std::errc{} && p == end)
-            return std::optional<uint32_t>{out};
-        return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
-            rpc::expectedFieldMessage("ledger_index", "string or number")}};
     }
 };
 
@@ -319,9 +290,6 @@ inline constexpr auto asUint256 = Uint256HexConverter{};
 /** @brief Converter instance: validates a hex-encoded uint192 field and yields a strong
  * xrpl::uint192. */
 inline constexpr auto asUint192 = Uint192HexConverter{};
-/** @brief Converter instance: decodes a ledger_index field into an optional uint32 (nullopt for
- * sentinel strings). */
-inline constexpr auto ledgerIndexOpt = LedgerIndexOptConverter{};
 /** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API
  * semantics). */
 inline constexpr auto jsonBool = JsonBoolConverterT<false>{};
