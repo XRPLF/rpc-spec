@@ -13,6 +13,7 @@ add_executable(
     RpcSpec.cpp
     SpecAccountTxDelegateTests.cpp
     SpecBookOffersTests.cpp
+    SpecMPTHoldersTests.cpp
     SpecMPTokenIssuanceHistoryTests.cpp
     StatusPrinter.cpp
     SpecCoreTests.cpp
