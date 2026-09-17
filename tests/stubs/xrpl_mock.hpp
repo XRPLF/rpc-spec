@@ -240,6 +240,26 @@ public:
         return std::all_of(data_.begin(), data_.end(), [](auto b) { return b == 0; });
     }
 
+    // 40 hex characters into the 20 raw bytes; false on wrong length or non-hex input, as
+    // libxrpl's strict parseHex does.
+    [[nodiscard]] bool
+    parseHex(std::string_view sv)
+    {
+        if (sv.size() != 2 * size())
+            return false;
+        auto const bytes = mock_detail::hexToBytes(sv);
+        if (!bytes || bytes->size() != size())
+            return false;
+        std::copy(bytes->begin(), bytes->end(), data_.begin());
+        return true;
+    }
+
+    [[nodiscard]] bool
+    parseHex(char const* str)
+    {
+        return parseHex(std::string_view{str});
+    }
+
     bool
     operator==(AccountID const& other) const noexcept = default;
 };

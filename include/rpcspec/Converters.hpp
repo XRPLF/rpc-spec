@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace rpc::spec {
 
@@ -287,9 +288,35 @@ inline constexpr auto ledgerHashHex = LedgerHashConverter{};
 /** @brief Converter instance: validates a hex-encoded uint256 field and yields a strong
  * xrpl::uint256. */
 inline constexpr auto asUint256 = Uint256HexConverter{};
+/**
+ * @brief Converts an array of base58 account strings into a vector of xrpl::AccountID.
+ *
+ * Expects the elements to have been checked already - pair it with a validator such as
+ * @ref AccountIdArrayValidator on the same field.
+ */
+struct AccountIdVecConverter
+{
+    static constexpr std::string_view kName = "accountIdVec";
+    using ValueType = std::optional<std::vector<xrpl::AccountID>>;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        std::vector<xrpl::AccountID> result;
+        result.reserve(f.arraySize());
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+            result.push_back(detail::accountFromValidated(std::string{f.element(i).asString()}));
+
+        return std::optional<std::vector<xrpl::AccountID>>{std::move(result)};
+    }
+};
+
 /** @brief Converter instance: validates a hex-encoded uint192 field and yields a strong
  * xrpl::uint192. */
 inline constexpr auto asUint192 = Uint192HexConverter{};
+/** @brief Converter instance: decodes an array of base58 accounts into a vector of AccountID. */
+inline constexpr auto asAccountIdVec = AccountIdVecConverter{};
 /** @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API
  * semantics). */
 inline constexpr auto jsonBool = JsonBoolConverterT<false>{};

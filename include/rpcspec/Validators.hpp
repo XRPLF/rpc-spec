@@ -1272,6 +1272,58 @@ Between(T, T) -> Between<T>;
  * Returns `RpcInvalidParams` if the field is not an array, or if any element is not a
  * string or fails `xrpl::uint256::parseHex`.
  */
+/**
+ * @brief Validates a non-empty, bounded array of base58-encoded account IDs.
+ *
+ * Absent fields pass. A present field must be an array holding between one and @p MaxSize
+ * elements, each a base58 account string.
+ *
+ * @tparam MaxSize The largest number of elements accepted.
+ */
+template <std::size_t MaxSize>
+struct AccountIdArrayValidator
+{
+    static_assert(MaxSize > 0, "rpcspec: AccountIdArrayValidator needs a non-zero bound");
+
+    static constexpr std::string_view kName = "accountIdArray";
+
+    template <SomeFieldView FA>
+    [[nodiscard]] static MaybeError
+    verify(FA const& f)
+    {
+        if (!f.present())
+            return {};
+
+        if (!f.isArray())
+        {
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage(f.key(), "array")}};
+        }
+
+        if (f.arraySize() == 0 || f.arraySize() > MaxSize)
+        {
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField,
+                rpc::expectedFieldMessage(
+                    f.key(), std::format("an array of 1 to {} account IDs", MaxSize))}};
+        }
+
+        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        {
+            auto const elem = f.element(i);
+            if (!elem.isString() ||
+                !detail::accountFromStringStrict(std::string{elem.asString()}).has_value())
+            {
+                return std::unexpected{rpc::Status{
+                    rpc::kMalformedField,
+                    rpc::expectedFieldMessage(f.key(), "an array of account IDs")}};
+            }
+        }
+
+        return {};
+    }
+};
+
 struct Hex256ArrayValidator
 {
     static constexpr std::string_view kName = "hex256Array";

@@ -4,7 +4,6 @@
 // Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
-#include <xrpl/basics/strHex.h>
 #include <xrpl/protocol/AccountID.h>
 
 #include <rpcspec/Aliases.hpp>
@@ -12,6 +11,7 @@
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
+#include <rpcspec/Validators.hpp>
 #include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
 
@@ -55,13 +55,15 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("mpt_issuance_id", &Input::mptID, required, asUint192),
     field("marker", &Input::marker, accountIdHex),
+    field("accounts", &Input::accounts, accountIdArray<kMaxAccounts>, asAccountIdVec),
+    // No defaultTo: the handler has to tell a client-supplied limit from an absent one,
+    // because `accounts` cannot be combined with paging (see Input::accounts).
     field(
         "limit",
         &Input::limit,
         type<uint32_t>,
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        defaultTo(kLimitDefault),
         asUint32));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
