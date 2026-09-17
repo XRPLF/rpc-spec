@@ -598,13 +598,13 @@ struct HexStringValidator
         if (!f.isString())
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
         }
         HexType parsed;
         if (!parsed.parseHex(std::string{f.asString()}.c_str()))
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
         }
         return {};
     }
@@ -644,16 +644,38 @@ struct LedgerIndexValidator
             return {};
         if (f.isInt64() || f.isUint32())
             return {};
-        if (!f.isString())
-        {
+#if defined(RPCSPEC_IS_CLIO)
+        // Clio uses one token for every failure mode and rejects the `current`/`closed`
+        // shortcuts outright (see ledgerSpecifierFromIndex).
+        auto const wrongType = [] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
+        };
+        auto const unrecognised = wrongType;
+        constexpr bool kAcceptsShortcuts = false;
+#else
+        // xrpld distinguishes the two: a wrong JSON type carries no message, an unrecognised
+        // string names the field.
+        auto const wrongType = [] {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        }
+        };
+        auto const unrecognised = [] {
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
+        };
+        constexpr bool kAcceptsShortcuts = true;
+#endif
+        if (!f.isString())
+            return wrongType();
         auto const sv = f.asString();
-        if (sv == "validated" || sv == "closed" || sv == "current" || checkIsU32Numeric(sv))
+        if (sv == "validated" || checkIsU32Numeric(sv))
             return {};
-        return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
-            rpc::expectedFieldMessage("ledger_index", "string or number")}};
+        if constexpr (kAcceptsShortcuts)
+        {
+            if (sv == "closed" || sv == "current")
+                return {};
+        }
+        return unrecognised();
     }
 };
 
@@ -841,6 +863,12 @@ struct ToNumberModifier
         int64_t val = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
         if (ec != std::errc() || ptr != sv.data() + sv.size())
+        {
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        }
+        // Every consumer reads the result back through FieldView::asUint32(), which casts
+        // without checking. Reject anything that would silently become a different number.
+        if (val < 0 || val > int64_t{std::numeric_limits<uint32_t>::max()})
         {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
@@ -1304,7 +1332,7 @@ struct AccountMarkerValidator
         auto const commaPos = sv.find(',');
         auto const malformed = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedCursorMessage(f.key())}};
         };
         if (commaPos == std::string_view::npos)
             return malformed();

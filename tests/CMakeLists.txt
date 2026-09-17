@@ -18,6 +18,7 @@ add_executable(
     SpecCoreTests.cpp
     SpecDefaultTests.cpp
     SpecFieldViewTests.cpp
+    SpecJsonBoolTests.cpp
     SpecLedgerEntryTests.cpp
     SpecLedgerTests.cpp
     SpecMockBackendTests.cpp
@@ -41,7 +42,12 @@ target_include_directories(rpcspec_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_D
 # without the Conan toolchain.
 target_compile_definitions(rpcspec_tests PRIVATE RPCSPEC_IS_XRPLD=1)
 
-add_executable(rpcspec_clio_tests SpecServerConditionalTests.cpp StatusPrinter.cpp)
+add_executable(
+    rpcspec_clio_tests
+    SpecClioErrorsTests.cpp
+    SpecServerConditionalTests.cpp
+    StatusPrinter.cpp
+)
 target_link_libraries(rpcspec_clio_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)
 target_include_directories(rpcspec_clio_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs)
 target_compile_definitions(rpcspec_clio_tests PRIVATE RPCSPEC_IS_CLIO=1)

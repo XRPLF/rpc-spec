@@ -4,7 +4,6 @@
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Errors.hpp>
-#include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
@@ -236,42 +235,4 @@ TEST(LedgerSelector, SpecIsConstantEvaluable)
     static constexpr auto kSpec = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInput::ledger));
     (void)kSpec;
     SUCCEED();
-}
-
-namespace {
-struct FlagInput
-{
-    JsonBool flag{false};
-};
-
-constexpr auto kFlagSpec = spec<FlagInput>(field("flag", &FlagInput::flag, jsonBool));
-
-JsonBool
-parseFlag(char const* json)
-{
-    auto value = boost::json::parse(json);
-    auto const r = kFlagSpec.parse(value);
-    EXPECT_TRUE(r.has_value());
-    return r->flag;
-}
-}  // namespace
-
-TEST(JsonBoolConverter, NonEmptyObjectIsTrue)
-{
-    EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": {"a": 1} })JSON")));
-}
-
-TEST(JsonBoolConverter, EmptyObjectIsFalse)
-{
-    EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": {} })JSON")));
-}
-
-TEST(JsonBoolConverter, NonEmptyArrayIsTrue)
-{
-    EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": [1] })JSON")));
-}
-
-TEST(JsonBoolConverter, EmptyArrayIsFalse)
-{
-    EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": [] })JSON")));
 }

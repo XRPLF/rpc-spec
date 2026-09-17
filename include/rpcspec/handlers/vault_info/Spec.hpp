@@ -8,6 +8,7 @@
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
@@ -18,32 +19,31 @@
 
 namespace rpc::spec::handlers::vault_info {
 
-struct VaultIdConverter
-{
-    static constexpr std::string_view kName = "uint256Hex";
-    using ValueType = xrpl::uint256;
+// Clio reports every malformed vault_info field as ClioError::RpcMalformedRequest - bare for
+// vault_id and seq, and carrying "OwnerNotHexString" for owner. xrpld's parseVault() uses
+// field-specific rippled codes instead.
+#if defined(RPCSPEC_IS_CLIO)
+inline constexpr auto kVaultFieldError = rpc::kMalformedRequest;
+inline constexpr std::string_view kVaultIdMessage = {};
+inline constexpr auto kOwnerError = rpc::kMalformedRequest;
+inline constexpr std::string_view kOwnerMessage = "OwnerNotHexString";
+inline constexpr std::string_view kSeqMessage = {};
+#else
+inline constexpr auto kVaultFieldError = rpc::CombinedError{rpc::RippledError::RpcInvalidParams};
+inline constexpr std::string_view kVaultIdMessage = "Invalid field 'vault_id', not hex string.";
+inline constexpr auto kOwnerError = rpc::CombinedError{rpc::RippledError::RpcActMalformed};
+inline constexpr std::string_view kOwnerMessage = "Invalid field 'owner', not AccountID.";
+inline constexpr std::string_view kSeqMessage =
+    "Invalid field 'seq', not a positive 32-bit integer.";
+#endif
 
-    template <SomeFieldView FA>
-    [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
-    {
-        // Matches xrpld's VaultInfo.cpp parseVault(): a non-string and an unparseable
-        // hex string both yield RpcInvalidParams with expectedFieldMessage(vault_id,
-        // "hex string").
-        auto const err = [] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                rpc::expectedFieldMessage("vault_id", "hex string")}};
-        };
-        if (!f.isString())
-            return err();
-        xrpl::uint256 out;
-        if (!out.parseHex(std::string{f.asString()}.c_str()))
-            return err();
-        return out;
-    }
-};
-
+/**
+ * @brief Resolves `owner` to an AccountID, reporting the per-server error above on failure.
+ *
+ * Paired with the `accountBase58` validator on the same field, which rejects the same inputs -
+ * this converter's error path is a backstop, so it must report the identical status rather than
+ * a converter-specific one.
+ */
 struct OwnerConverter
 {
     static constexpr std::string_view kName = "account";
@@ -58,31 +58,36 @@ struct OwnerConverter
             if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
                 return *id;
         }
-        // Matches xrpld's VaultInfo.cpp parseVault(): RpcActMalformed carrying
-        // expectedFieldMessage(owner, "AccountID"), not the generic "Account malformed."
-        return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcActMalformed, rpc::expectedFieldMessage("owner", "AccountID")}};
+        if (kOwnerMessage.empty())
+            return std::unexpected{rpc::Status{kOwnerError}};
+        return std::unexpected{rpc::Status{kOwnerError, std::string{kOwnerMessage}}};
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
-inline constexpr auto vaultIdConv = VaultIdConverter{};
 inline constexpr auto ownerConv = OwnerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("vault_id", &Input::vaultID, vaultIdConv),
-    field("owner", &Input::owner, ownerConv),
-    // xrpld phrases this as expectedFieldMessage(seq, "a positive 32-bit integer");
-    // withCustomError is consteval so the message is spelled out rather than built.
+    // uint256Hex and asUint256 accept exactly the same inputs, so the converter never reports
+    // on its own; the withCustomError on the validator is what clients see.
+    field(
+        "vault_id",
+        &Input::vaultID,
+        withCustomError(uint256Hex, kVaultFieldError, kVaultIdMessage),
+        asUint256),
+    field(
+        "owner",
+        &Input::owner,
+        // accountBase58 additionally rejects the zero AccountID, which xrpld's parseVault()
+        // accepts, so it is applied on the Clio side only.
+        ifServerClio(withCustomError(accountBase58, kOwnerError, kOwnerMessage)),
+        ownerConv),
     field(
         "seq",
         &Input::tnxSequence,
-        withCustomError(
-            type<uint32_t>,
-            rpc::RippledError::RpcInvalidParams,
-            "Invalid field 'seq', not a positive 32-bit integer."),
+        withCustomError(type<uint32_t>, kVaultFieldError, kSeqMessage),
         asUint32));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */

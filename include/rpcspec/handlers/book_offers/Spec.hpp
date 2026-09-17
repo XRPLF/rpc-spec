@@ -98,9 +98,16 @@ static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> May
 
     if (!hasCurrency && !hasMptId)
     {
+#if defined(RPCSPEC_IS_CLIO)
+        // Clio requires `currency` inside the taker section, so a request naming neither
+        // fails with that Required message rather than one mentioning mpt_issuance_id.
+        return std::unexpected{
+            rpc::Status{rpc::RippledError::RpcInvalidParams, "Required field 'currency' missing"}};
+#else
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Missing field '" + std::string{f.key()} + ".currency'."}};
+#endif
     }
 
     if (hasMptId && (hasCurrency || f.child("issuer").present()))
@@ -109,12 +116,17 @@ static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> May
             rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."}};
     }
 
+#if !defined(RPCSPEC_IS_CLIO)
+    // Clio deliberately omits this check and leaves a non-string value to the section's own
+    // withCustomError(currency|uint192Hex, Rpc{Src,Dst}...Malformed); checking it here would
+    // preempt that and downgrade the code to invalidParams.
     if ((hasCurrency && !currencyFa.isString()) || (hasMptId && !mptFa.isString()))
     {
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Invalid field '" + std::string{f.key()} + ".currency', not string."}};
     }
+#endif
 
     return {};
 }};
@@ -126,31 +138,6 @@ inline constexpr auto takerConv = TakerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
-    ledgerSelector(&Input::ledger),
-    field(
-        "limit",
-        &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{kLimitMin}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
-        defaultTo(kLimitDefault),
-        asUint32),
-    field(
-        "taker",
-        &Input::taker,
-        withCustomError(account, RippledError::RpcInvalidParams, "Invalid field 'taker'."),
-        takerConv),
-    field(
-        "taker_pays",
-        &Input::takerPays,
-        required,
-        type<JsonObject>,
-        kTakerValidator,
-        section(
-            field("currency", withCustomError(currency, RippledError::RpcSrcCurMalformed)),
-            field("mpt_issuance_id", withCustomError(uint192Hex, RippledError::RpcSrcCurMalformed)),
-            field("issuer", withCustomError(issuer, RippledError::RpcSrcIsrMalformed))),
-        takerPaysConv),
     field(
         "taker_gets",
         &Input::takerGets,
@@ -163,6 +150,22 @@ inline constexpr auto kInputSpec = spec<Input>(
             field("issuer", withCustomError(issuer, RippledError::RpcDstIsrMalformed))),
         takerGetsConv),
     field(
+        "taker_pays",
+        &Input::takerPays,
+        required,
+        type<JsonObject>,
+        kTakerValidator,
+        section(
+            field("currency", withCustomError(currency, RippledError::RpcSrcCurMalformed)),
+            field("mpt_issuance_id", withCustomError(uint192Hex, RippledError::RpcSrcCurMalformed)),
+            field("issuer", withCustomError(issuer, RippledError::RpcSrcIsrMalformed))),
+        takerPaysConv),
+    field(
+        "taker",
+        &Input::taker,
+        withCustomError(account, RippledError::RpcInvalidParams, "Invalid field 'taker'."),
+        takerConv),
+    field(
         "domain",
         &Input::domain,
         withCustomError(
@@ -170,7 +173,16 @@ inline constexpr auto kInputSpec = spec<Input>(
             RippledError::RpcDomainMalformed,
             "Unable to parse domain."),
         withCustomError(uint256Hex, RippledError::RpcDomainMalformed, "Unable to parse domain."),
-        asString));
+        asString),
+    field(
+        "limit",
+        &Input::limit,
+        type<uint32_t>,
+        min(uint32_t{kLimitMin}),
+        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        defaultTo(kLimitDefault),
+        asUint32),
+    ledgerSelector(&Input::ledger));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
