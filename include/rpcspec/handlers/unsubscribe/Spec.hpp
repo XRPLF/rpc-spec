@@ -389,27 +389,6 @@ struct StreamVecConverter
     }
 };
 
-struct AccountIdVecConverter
-{
-    static constexpr std::string_view kName = "accountIdVec";
-    using ValueType = std::optional<std::vector<xrpl::AccountID>>;
-
-    template <SomeFieldView FA>
-    [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
-    {
-        // The accounts validator already confirmed each element is a valid account.
-        std::vector<xrpl::AccountID> result;
-        result.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
-        {
-            result.push_back(
-                rpc::spec::detail::accountFromValidated(std::string{f.element(i).asString()}));
-        }
-        return std::optional<std::vector<xrpl::AccountID>>{std::move(result)};
-    }
-};
-
 struct UnsubscribeBooksConverter
 {
     static constexpr std::string_view kName = "unsubscribeBooksVec";
@@ -469,18 +448,17 @@ struct UnsubscribeBooksConverter
 
 // NOLINTBEGIN(readability-identifier-naming)
 inline constexpr auto streamVecConv = StreamVecConverter{};
-inline constexpr auto accountIdVecConv = AccountIdVecConverter{};
 inline constexpr auto unsubscribeBooksConv = UnsubscribeBooksConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
     field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, streamVecConv),
-    field("accounts", &Input::accounts, kSubscribeAccountsValidator, accountIdVecConv),
+    field("accounts", &Input::accounts, kSubscribeAccountsValidator, asAccountIdVec),
     field(
         "accounts_proposed",
         &Input::accountsProposed,
         kSubscribeAccountsValidator,
-        accountIdVecConv),
+        asAccountIdVec),
     field("books", &Input::books, kBooksValidator, unsubscribeBooksConv),
     field("url") | deprecated,
     field("rt_accounts") | deprecated,

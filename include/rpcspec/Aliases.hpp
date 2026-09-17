@@ -203,6 +203,10 @@ notSupportedIf(T value)
 inline constexpr auto toLower = ToLowerModifier{};
 /** @brief Validates that a field contains a JSON array of 256-bit hex strings. */
 inline constexpr auto hex256Array = Hex256ArrayValidator{};
+
+/** @brief Validator instance: a non-empty array of at most @c MaxSize base58 account IDs. */
+template <std::size_t MaxSize>
+inline constexpr auto accountIdArray = AccountIdArrayValidator<MaxSize>{};
 /** @brief Validates that a field contains a valid XRPL account object marker. */
 inline constexpr auto accountMarker = AccountMarkerValidator{};
 /** @brief Validates that a field contains a recognised XRPL account type string. */
