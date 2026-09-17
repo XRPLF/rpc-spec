@@ -148,6 +148,83 @@ invalidFieldMessage(std::string_view field)
     return "Invalid field '" + std::string{field} + "'.";
 }
 
+/**
+ * @brief The message for a field whose value is not a string when one was required.
+ *
+ * Clio distinguishes the two failure modes of a string-encoded field; xrpld collapses both into
+ * @ref invalidFieldMessage.
+ *
+ * @param field The field name
+ * @return The message
+ * @see malformedFieldMessage For the same field's parse failure
+ */
+[[nodiscard]] inline std::string
+notStringFieldMessage(std::string_view field)
+{
+#if defined(RPCSPEC_IS_CLIO)
+    return std::string{field} + "NotString";
+#else
+    return invalidFieldMessage(field);
+#endif
+}
+
+/**
+ * @brief The message for a string field whose value could not be parsed.
+ *
+ * The parse-failure half of the pair described on @ref notStringFieldMessage.
+ *
+ * @param field The field name
+ * @return The message
+ * @see notStringFieldMessage For the same field's wrong-JSON-type failure
+ */
+[[nodiscard]] inline std::string
+malformedFieldMessage(std::string_view field)
+{
+#if defined(RPCSPEC_IS_CLIO)
+    return std::string{field} + "Malformed";
+#else
+    return invalidFieldMessage(field);
+#endif
+}
+
+/**
+ * @brief The message for a `ledger_index` that is neither a valid sequence nor a known shortcut.
+ *
+ * Clio uses one token for every failure mode of this field - wrong JSON type, out-of-range
+ * number, unrecognised string. xrpld phrases it as @ref expectedFieldMessage.
+ *
+ * @return The message
+ */
+[[nodiscard]] inline std::string
+malformedLedgerIndexMessage()
+{
+#if defined(RPCSPEC_IS_CLIO)
+    return "ledgerIndexMalformed";
+#else
+    return expectedFieldMessage("ledger_index", "string or number");
+#endif
+}
+
+/**
+ * @brief The message for an account-cursor field that could not be parsed.
+ *
+ * Clio names no field here. xrpld's marker is a different shape entirely (a hex pair rather than
+ * index/hint), so a shared message naming the format would be wrong for one of them - it falls
+ * back to @ref invalidFieldMessage there.
+ *
+ * @param field The field name, used only in the xrpld form
+ * @return The message
+ */
+[[nodiscard]] inline std::string
+malformedCursorMessage([[maybe_unused]] std::string_view field)
+{
+#if defined(RPCSPEC_IS_CLIO)
+    return "Malformed cursor.";
+#else
+    return invalidFieldMessage(field);
+#endif
+}
+
 /** @brief A status returned from any RPC handler. */
 struct Status
 {

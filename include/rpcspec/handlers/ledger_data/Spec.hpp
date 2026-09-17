@@ -38,14 +38,19 @@ struct MarkerConverter
             if (!parsed.parseHex(std::string{sv}.c_str()))
             {
                 return std::unexpected{
-                    rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage("marker")}};
+                    rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage("marker")}};
             }
             return std::optional<MarkerValue>{MarkerValue{parsed}};
         }
         if (f.isUint32())
             return std::optional<MarkerValue>{MarkerValue{f.asUint32()}};
-        // Anything else (bool, object, negative int, etc.) — mirrors old markerNotString
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams, "markerNotString"}};
+#if defined(RPCSPEC_IS_CLIO)
+        // Anything else (bool, object, negative int, ...) is a plain type failure and carries
+        // no message.
+        return std::unexpected{rpc::Status{rpc::kMalformedField}};
+#else
+        return std::unexpected{rpc::Status{rpc::kMalformedField, "markerNotString"}};
+#endif
     }
 };
 

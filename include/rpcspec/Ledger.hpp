@@ -118,8 +118,8 @@ template <SomeFieldView FA>
 ledgerSpecifierFromIndex(FA const& f)
 {
     auto const invalid = [&] {
-        return std::unexpected{rpc::Status{
-            rpc::kMalformedField, rpc::expectedFieldMessage("ledger_index", "string or number")}};
+        return std::unexpected{
+            rpc::Status{rpc::kMalformedField, rpc::malformedLedgerIndexMessage()}};
     };
 
     if (f.isUint32())
@@ -132,10 +132,14 @@ ledgerSpecifierFromIndex(FA const& f)
     auto const sv = f.asString();
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
+#if !defined(RPCSPEC_IS_CLIO)
+    // Clio serves only validated data and never holds these two, so it rejects them; requests
+    // naming them are diverted to xrpld by ForwardingProxy before ever reaching validation.
     if (sv == "current")
         return LedgerSpecifier{LedgerShortcut::Current};
     if (sv == "closed")
         return LedgerSpecifier{LedgerShortcut::Closed};
+#endif
 
     uint32_t seq = 0;
     auto const* const begin = sv.data();
@@ -151,14 +155,21 @@ ledgerSpecifierFromHash(FA const& f)
 {
     if (!f.isString())
     {
+#if defined(RPCSPEC_IS_CLIO)
+        return std::unexpected{
+            rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage("ledger_hash")}};
+#else
+        // Not notStringFieldMessage: its xrpld arm drops the ", not string" that xrpld
+        // reports for this field.
         return std::unexpected{
             rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "string")}};
+#endif
     }
     xrpl::uint256 hash;
     if (!hash.parseHex(std::string{f.asString()}.c_str()))
     {
         return std::unexpected{
-            rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage("ledger_hash")}};
+            rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage("ledger_hash")}};
     }
     return LedgerSpecifier{hash};
 }
@@ -201,26 +212,30 @@ struct LedgerSelectorField
         auto const hashFa = root.child("ledger_hash");
         auto const indexFa = root.child("ledger_index");
 
-        std::optional<LedgerSpecifier> fromIndex;
-        if (indexFa.present())
-        {
-            auto res = detail::ledgerSpecifierFromIndex(indexFa);
-            if (!res.has_value())
-                return std::unexpected{std::move(res).error()};
-            fromIndex = std::move(res).value();
-        }
-
+        // ledger_hash is checked first so that, when both are malformed, its error is the one
+        // reported - every handler declared ledger_hash ahead of ledger_index.
         if (hashFa.present())
         {
             auto res = detail::ledgerSpecifierFromHash(hashFa);
             if (!res.has_value())
                 return std::unexpected{std::move(res).error()};
+            // ledger_index is still validated even though the hash takes precedence.
+            if (indexFa.present())
+            {
+                if (auto idx = detail::ledgerSpecifierFromIndex(indexFa); !idx.has_value())
+                    return std::unexpected{std::move(idx).error()};
+            }
             out.*member = std::move(res).value();
             return {};
         }
 
-        if (fromIndex.has_value())
-            out.*member = std::move(fromIndex).value();
+        if (indexFa.present())
+        {
+            auto res = detail::ledgerSpecifierFromIndex(indexFa);
+            if (!res.has_value())
+                return std::unexpected{std::move(res).error()};
+            out.*member = std::move(res).value();
+        }
 
         return {};
     }
@@ -249,6 +264,8 @@ struct LedgerSelectorField
  *
  * Reusable across handlers: a spec needing ledger selection writes
  * `ledgerSelector(&Input::ledger)` instead of declaring the two fields by hand.
+ *
+ * @param member The LedgerSpecifier member to bind
  */
 template <typename InputT, typename Member>
 [[nodiscard]] consteval auto

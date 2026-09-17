@@ -23,28 +23,6 @@
 
 namespace rpc::spec::handlers::nft_history {
 
-struct Uint256Converter
-{
-    static constexpr std::string_view kName = "uint256";
-    using ValueType = xrpl::uint256;
-
-    template <SomeFieldView FA>
-    [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
-    {
-        auto const err = [&] {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
-        };
-        if (!f.isString())
-            return err();
-        xrpl::uint256 out;
-        if (!out.parseHex(std::string{f.asString()}.c_str()))
-            return err();
-        return out;
-    }
-};
-
 struct Int32BoundConverter
 {
     static constexpr std::string_view kName = "int32";
@@ -75,7 +53,6 @@ struct MarkerConverter
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
-inline constexpr auto asUint256 = Uint256Converter{};
 inline constexpr auto int32Bound = Int32BoundConverter{};
 inline constexpr auto markerConv = MarkerConverter{};
 // NOLINTEND(readability-identifier-naming)
@@ -100,14 +77,12 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
             field("ledger", required, type<uint32_t>),
             field("seq", required, type<uint32_t>))),
         markerConv),
-    // binary/forward exist on Input for both versions; V1 coerces leniently, V2 retightens below.
-    field("binary", &Input::binary, jsonBool),
-    field("forward", &Input::forward, jsonBool));
-
-inline constexpr auto kInputSpecV2 = extend(
-    kInputSpecV1,
+    // Unlike account_tx, this command applies the strict bool check on both API versions.
     field("binary", &Input::binary, jsonBoolStrict),
     field("forward", &Input::forward, jsonBoolStrict));
+
+// The spec is version-invariant; V2 exists only so versioned<> has both slots.
+inline constexpr auto kInputSpecV2 = kInputSpecV1;
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
