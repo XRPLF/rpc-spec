@@ -616,6 +616,7 @@ enum LedgerEntryType : int {
     ltMPTOKEN,
     ltPERMISSIONED_DOMAIN,
     ltDELEGATE,
+    ltSPONSORSHIP,
 };
 
 }  // namespace xrpl

@@ -332,6 +332,50 @@ TEST(LedgerEntrySpec, RippleStateWithOnlyOneAccountReturnsError)
     EXPECT_FALSE(r.has_value());
 }
 
+TEST(LedgerEntrySpec, SponsorshipHexArm)
+{
+    auto const r = parse(
+        R"JSON({"sponsorship": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->sponsorship.has_value());
+    ASSERT_TRUE(std::holds_alternative<xrpl::uint256>(*r->sponsorship));
+
+    xrpl::uint256 expected;
+    ASSERT_TRUE(expected.parseHex(kHEX64));
+    EXPECT_EQ(std::get<xrpl::uint256>(*r->sponsorship), expected);
+}
+
+TEST(LedgerEntrySpec, SponsorshipObjectArm)
+{
+    auto const r = parse(
+        R"JSON({"sponsorship": {"sponsor": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsee": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"}})JSON");
+    ASSERT_TRUE(r.has_value());
+    ASSERT_TRUE(r->sponsorship.has_value());
+    ASSERT_TRUE(std::holds_alternative<SponsorshipEntry>(*r->sponsorship));
+
+    auto const& entry = std::get<SponsorshipEntry>(*r->sponsorship);
+    auto const sponsor = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const sponsee = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    ASSERT_TRUE(sponsor.has_value());
+    ASSERT_TRUE(sponsee.has_value());
+    EXPECT_EQ(entry.sponsor, *sponsor);
+    EXPECT_EQ(entry.sponsee, *sponsee);
+}
+
+TEST(LedgerEntrySpec, SponsorshipMissingSponseeReturnsError)
+{
+    auto const r =
+        parse(R"JSON({"sponsorship": {"sponsor": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"}})JSON");
+    EXPECT_FALSE(r.has_value());
+}
+
+TEST(LedgerEntrySpec, SponsorshipMalformedSponsorReturnsError)
+{
+    auto const r = parse(
+        R"JSON({"sponsorship": {"sponsor": "not-an-account", "sponsee": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"}})JSON");
+    EXPECT_FALSE(r.has_value());
+}
+
 TEST(LedgerEntryDump, AllFieldsVisible)
 {
     std::ostringstream oss;
@@ -360,6 +404,7 @@ TEST(LedgerEntryDump, AllFieldsVisible)
              "oracle",
              "credential",
              "delegate",
+             "sponsorship",
              "bridge",
              "bridge_account",
              "xchain_owned_claim_id",

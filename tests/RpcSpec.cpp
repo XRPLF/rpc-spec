@@ -37,6 +37,19 @@ TEST(RpcSpec, LedgerTypesTable)
     EXPECT_EQ(it->type, xrpl::ltACCOUNT_ROOT);
 }
 
+TEST(RpcSpec, SponsorshipIsARegisteredDeletionBlocker)
+{
+    constexpr auto& table = rpc::spec::kLedgerTypesTable;
+
+    auto const it =
+        std::ranges::find_if(table, [](auto const& e) { return e.rpcName == "sponsorship"; });
+    ASSERT_NE(it, table.end());
+    EXPECT_EQ(it->type, xrpl::ltSPONSORSHIP);
+    // ltSPONSORSHIP is not in AccountDelete's nonObligationDeleter allowlist, so an
+    // owned Sponsorship blocks account deletion.
+    EXPECT_EQ(it->category, rpc::spec::LedgerCategory::DeletionBlocker);
+}
+
 TEST(RpcSpec, DeletionBlockersPresent)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;

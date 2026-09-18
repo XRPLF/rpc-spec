@@ -88,6 +88,13 @@ struct DelegateEntry
     xrpl::AccountID authorize;
 };
 
+/** @brief `sponsorship` object locator: the sponsoring account + the sponsored account. */
+struct SponsorshipEntry
+{
+    xrpl::AccountID sponsor;
+    xrpl::AccountID sponsee;
+};
+
 /** @brief `mptoken` object locator: holder account + MPT issuance id. */
 struct MptokenEntry
 {
@@ -210,6 +217,7 @@ struct Input
     std::optional<std::variant<xrpl::uint256, OracleEntry>> oracle;
     std::optional<std::variant<xrpl::uint256, CredentialEntry>> credential;
     std::optional<std::variant<xrpl::uint256, DelegateEntry>> delegate;
+    std::optional<std::variant<xrpl::uint256, SponsorshipEntry>> sponsorship;
 
     std::optional<RippleStateEntry> rippleStateAccount;
     std::optional<BridgeSpec> bridge;
