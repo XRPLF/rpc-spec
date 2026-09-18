@@ -4,6 +4,7 @@
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/LedgerFormats.h>
 
+#include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
@@ -29,6 +30,9 @@ struct Input
                    re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */
     std::optional<xrpl::LedgerEntryType> type;
     bool deletionBlockersOnly = false;
+    std::optional<JsonBool>
+        sponsored; /**< Tri-state: unset means no sponsorship filter; set restricts results to
+                      objects that are (true) or are not (false) sponsored. */
 };
 
 }  // namespace rpc::spec::handlers::account_objects

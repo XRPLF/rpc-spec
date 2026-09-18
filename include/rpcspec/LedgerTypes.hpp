@@ -33,7 +33,7 @@ struct LedgerTypeEntry
  * @brief Every known ledger object type, with its RPC name and category.
  */
 // clang-format off
-constexpr std::array<LedgerTypeEntry, 30> kLedgerTypesTable{{
+constexpr std::array<LedgerTypeEntry, 31> kLedgerTypesTable{{
     {.name = "AccountRoot",                     .rpcName = "account",                              .type = xrpl::ltACCOUNT_ROOT,                          .category = LedgerCategory::AccountOwned},
     {.name = "Amendments",                      .rpcName = "amendments",                           .type = xrpl::ltAMENDMENTS,                            .category = LedgerCategory::Chain},
     {.name = "Check",                           .rpcName = "check",                                .type = xrpl::ltCHECK,                                 .category = LedgerCategory::DeletionBlocker},
@@ -65,6 +65,7 @@ constexpr std::array<LedgerTypeEntry, 30> kLedgerTypesTable{{
     {.name = "MPToken",                         .rpcName = "mptoken",                              .type = xrpl::ltMPTOKEN,                               .category = LedgerCategory::DeletionBlocker},
     {.name = "PermissionedDomain",              .rpcName = "permissioned_domain",                  .type = xrpl::ltPERMISSIONED_DOMAIN,                   .category = LedgerCategory::DeletionBlocker},
     {.name = "Delegate",                        .rpcName = "delegate",                             .type = xrpl::ltDELEGATE,                              .category = LedgerCategory::AccountOwned},
+    {.name = "Sponsorship",                     .rpcName = "sponsorship",                          .type = xrpl::ltSPONSORSHIP,                           .category = LedgerCategory::DeletionBlocker},
 }};
 // clang-format on
 

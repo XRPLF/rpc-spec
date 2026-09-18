@@ -271,6 +271,26 @@ struct DelegateConverter
     }
 };
 
+struct SponsorshipConverter
+{
+    static constexpr std::string_view kName = "sponsorship";
+    using ValueType = std::variant<xrpl::uint256, SponsorshipEntry>;
+
+    template <SomeFieldView FA>
+    [[nodiscard]] Parsed<ValueType>
+    parse(FA const& f) const
+    {
+        if (f.isString())
+            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        SponsorshipEntry entry;
+        entry.sponsor =
+            rpc::spec::detail::accountFromValidated(std::string{f.child("sponsor").asString()});
+        entry.sponsee =
+            rpc::spec::detail::accountFromValidated(std::string{f.child("sponsee").asString()});
+        return ValueType{entry};
+    }
+};
+
 struct MptokenConverter
 {
     static constexpr std::string_view kName = "mptoken";
@@ -468,6 +488,7 @@ inline constexpr auto vaultConv = VaultConverter{};
 inline constexpr auto loanBrokerConv = LoanBrokerConverter{};
 inline constexpr auto loanConv = LoanConverter{};
 inline constexpr auto delegateConv = DelegateConverter{};
+inline constexpr auto sponsorshipConv = SponsorshipConverter{};
 inline constexpr auto mptokenConv = MptokenConverter{};
 inline constexpr auto ammConv = AmmConverter{};
 inline constexpr auto oracleConv = OracleConverter{};
@@ -731,6 +752,21 @@ inline constexpr auto kInputSpec = spec<Input>(
                 withCustomError(required, rpc::kMalformedRequest),
                 withCustomError(accountBase58, rpc::kMalformedAddress)))),
         delegateConv),
+    field(
+        "sponsorship",
+        &Input::sponsorship,
+        withCustomError(type<std::string, JsonObject>, rpc::kMalformedRequest),
+        ifType<std::string>(kMalformedRequestHexStringValidator),
+        ifType<JsonObject>(section(
+            field(
+                "sponsor",
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)),
+            field(
+                "sponsee",
+                withCustomError(required, rpc::kMalformedRequest),
+                withCustomError(accountBase58, rpc::kMalformedAddress)))),
+        sponsorshipConv),
     field("amendments", &Input::amendments, kMalformedRequestHexStringValidator, asUint256),
     field("fee", &Input::fee, kMalformedRequestHexStringValidator, asUint256),
     field("hashes", &Input::hashes, kMalformedRequestHexStringValidator, asUint256),

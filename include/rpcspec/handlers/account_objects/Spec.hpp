@@ -74,7 +74,8 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         asUint32),
     field("type", &Input::type, accountOwnedTypeConv),
     field("marker", &Input::marker, accountMarker, markerStringConv),
-    field("deletion_blockers_only", &Input::deletionBlockersOnly, jsonBoolStrict));
+    field("deletion_blockers_only", &Input::deletionBlockersOnly, jsonBoolStrict),
+    field("sponsored", &Input::sponsored, jsonBoolStrict));
 
 /** @brief Version-selecting spec (resolved from Input via specFor). */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1);
