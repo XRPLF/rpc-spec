@@ -20,9 +20,11 @@
 
 using namespace rpc::spec;
 
+namespace {
+
 TEST(RpcSpecDSL, ValidRequestPasses)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ledger_index", type<std::string>),
         field("limit", type<int64_t>, min(int64_t{1})),
@@ -34,19 +36,19 @@ TEST(RpcSpecDSL, ValidRequestPasses)
         "limit":        20
     })JSON");
 
-    EXPECT_TRUE(kSPEC.process(request).has_value());
+    EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
 TEST(RpcSpecDSL, MissingRequiredFieldFails)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("limit", type<int64_t>),
     };
 
     auto request = boost::json::parse(R"JSON({ "limit": 10 })JSON");
 
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
@@ -54,7 +56,7 @@ TEST(RpcSpecDSL, MissingRequiredFieldFails)
 
 TEST(RpcSpecDSL, WrongTypeFails)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("limit", type<int64_t>),
     };
@@ -64,7 +66,7 @@ TEST(RpcSpecDSL, WrongTypeFails)
         "limit":   "not-a-number"
     })JSON");
 
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_TRUE(result.error().message.empty());
@@ -72,30 +74,30 @@ TEST(RpcSpecDSL, WrongTypeFails)
 
 TEST(RpcSpecDSL, WrongBoolTypeFails)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("signer_lists", type<bool>),
     };
 
     auto bad = boost::json::parse(R"JSON({ "signer_lists": "yes" })JSON");
-    EXPECT_FALSE(kSPEC.process(bad).has_value());
+    EXPECT_FALSE(kSpec.process(bad).has_value());
 
     auto valid = boost::json::parse(R"JSON({ "signer_lists": true })JSON");
-    EXPECT_TRUE(kSPEC.process(valid).has_value());
+    EXPECT_TRUE(kSpec.process(valid).has_value());
 }
 
 TEST(RpcSpecDSL, MinRejectsValueBelowBound)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, min(int64_t{1})),
     };
 
     auto request = boost::json::parse(R"JSON({ "limit": 0 })JSON");
-    EXPECT_FALSE(kSPEC.process(request).has_value());
+    EXPECT_FALSE(kSpec.process(request).has_value());
 }
 
 TEST(RpcSpecDSL, DeprecatedFieldProducesWarning)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ident", account, deprecated),
     };
@@ -105,9 +107,9 @@ TEST(RpcSpecDSL, DeprecatedFieldProducesWarning)
         "ident":   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"
     })JSON");
 
-    EXPECT_TRUE(kSPEC.process(request).has_value());
+    EXPECT_TRUE(kSpec.process(request).has_value());
 
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     ASSERT_EQ(warnings.size(), 1u);
     EXPECT_EQ(warnings[0].field, "ident");
     EXPECT_EQ(warnings[0].code, rpc::WarningCode::WarnRpcDeprecated);
@@ -115,14 +117,14 @@ TEST(RpcSpecDSL, DeprecatedFieldProducesWarning)
 
 TEST(RpcSpecDSL, NoWarningWhenDeprecatedFieldAbsent)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ident", account, deprecated),
     };
 
     auto request =
         boost::json::parse(R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" })JSON");
-    EXPECT_TRUE(kSPEC.check(request).empty());
+    EXPECT_TRUE(kSpec.check(request).empty());
 }
 
 TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
@@ -133,7 +135,7 @@ TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
     };
     static constexpr auto kSpecV2 = kSpecV1 + field("signer_lists", type<bool>);
 
-    auto const spec = [](uint32_t version) -> RpcSpecConstRef {
+    auto const spec = [](uint32_t version) -> RpcSpecView {
         return version == 1 ? RpcSpecView{kSpecV1} : RpcSpecView{kSpecV2};
     };
 
@@ -275,7 +277,7 @@ TEST(RpcSpecDSL_Override, OverrideAppliesToCheckOnlyItems)
 
 TEST(RpcSpecDSL, WarningsCollectedAcrossAllFields)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ident", deprecated),
         field("ledger", deprecated),
@@ -287,7 +289,7 @@ TEST(RpcSpecDSL, WarningsCollectedAcrossAllFields)
         "ledger":  "validated"
     })JSON");
 
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     ASSERT_EQ(warnings.size(), 2u);
     EXPECT_EQ(warnings[0].field, "ident");
     EXPECT_EQ(warnings[0].code, rpc::WarningCode::WarnRpcDeprecated);
@@ -297,7 +299,7 @@ TEST(RpcSpecDSL, WarningsCollectedAcrossAllFields)
 
 TEST(RpcSpecDSL, FullRequestPipeline)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ledger_index", type<std::string>),
         field("limit", type<int64_t>, min(int64_t{1}), clamp(int64_t{10}, int64_t{400})),
@@ -311,63 +313,63 @@ TEST(RpcSpecDSL, FullRequestPipeline)
         "ident":        "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"
     })JSON");
 
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     ASSERT_EQ(warnings.size(), 1u);
     EXPECT_EQ(warnings[0].field, "ident");
     EXPECT_EQ(warnings[0].code, rpc::WarningCode::WarnRpcDeprecated);
 
-    ASSERT_TRUE(kSPEC.process(request).has_value());
+    ASSERT_TRUE(kSpec.process(request).has_value());
     EXPECT_EQ(request.as_object().at("limit").as_int64(), 10);
 }
 
 TEST(RpcSpecDSL, PipeStyleFieldDefinition)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account") | required | account,
         field("limit") | type<int64_t> | min(int64_t{1}) | clamp(int64_t{10}, int64_t{400}),
     };
 
     auto valid = boost::json::parse(
         R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": 50 })JSON");
-    EXPECT_TRUE(kSPEC.process(valid).has_value());
+    EXPECT_TRUE(kSpec.process(valid).has_value());
 
     auto missingAccount = boost::json::parse(R"JSON({ "limit": 50 })JSON");
-    EXPECT_FALSE(kSPEC.process(missingAccount).has_value());
+    EXPECT_FALSE(kSpec.process(missingAccount).has_value());
 }
 
 TEST(RpcSpecDSL, CheckDoesNotInvokeModifiers)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, clamp(int64_t{10}, int64_t{400})),
     };
 
     auto request = boost::json::parse(R"JSON({ "limit": 2 })JSON");
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     EXPECT_TRUE(warnings.empty());
     EXPECT_EQ(request.as_object().at("limit").as_int64(), 2);
 }
 
 TEST(RpcSpecDSL, NonObjectRootTreatsAllFieldsAsAbsent)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>),
     };
 
     auto arr = boost::json::parse(R"JSON([1, 2, 3])JSON");
-    EXPECT_TRUE(kSPEC.process(arr).has_value());
+    EXPECT_TRUE(kSpec.process(arr).has_value());
 
     auto scalar = boost::json::parse(R"JSON(42)JSON");
-    EXPECT_TRUE(kSPEC.process(scalar).has_value());
+    EXPECT_TRUE(kSpec.process(scalar).has_value());
 }
 
 TEST(RpcSpecDSL, NonObjectRootWithRequiredFieldFails)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required),
     };
 
     auto arr = boost::json::parse(R"JSON([])JSON");
-    auto const result = kSPEC.process(arr);
+    auto const result = kSpec.process(arr);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
@@ -375,47 +377,47 @@ TEST(RpcSpecDSL, NonObjectRootWithRequiredFieldFails)
 
 TEST(RpcSpecDSL, EmptySpecAcceptsEverything)
 {
-    static constexpr auto kSPEC = RpcSpec{};
+    static constexpr auto kSpec = RpcSpec{};
 
     auto request = boost::json::parse(R"JSON({ "anything": 42 })JSON");
-    EXPECT_TRUE(kSPEC.process(request).has_value());
-    EXPECT_TRUE(kSPEC.check(request).empty());
+    EXPECT_TRUE(kSpec.process(request).has_value());
+    EXPECT_TRUE(kSpec.check(request).empty());
 }
 
 TEST(RpcSpecDSL, FieldWithNoItemsIsNoOp)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("anything") | required,
     };
 
     auto request = boost::json::parse(R"JSON({ "anything": 42 })JSON");
-    EXPECT_TRUE(kSPEC.process(request).has_value());
+    EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
 TEST(RpcSpecDSL_Ordering, StopsAtFirstFieldFailure)
 {
     // Both fields would fail if reached; only the first error must surface.
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required),
         field("limit", required),
     };
 
     auto request = boost::json::parse(R"JSON({})JSON");
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
 TEST(RpcSpecDSL_Ordering, LaterFieldFailureReportedWhenEarlierPasses)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required),
         field("limit", required),
     };
 
     auto request =
         boost::json::parse(R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" })JSON");
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().message, "Required field 'limit' missing");
 }
@@ -424,12 +426,12 @@ TEST(RpcSpecDSL_Ordering, StopsAtFirstItemFailureWithinAField)
 {
     // Both Type<int64> and Min would fail (the value is the wrong type and below the bound),
     // but Type runs first and short-circuits — Min's error message must never surface.
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, min(int64_t{100})),
     };
 
     auto request = boost::json::parse(R"JSON({ "limit": "not-a-number" })JSON");
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_TRUE(result.error().message.empty());
@@ -438,24 +440,24 @@ TEST(RpcSpecDSL_Ordering, StopsAtFirstItemFailureWithinAField)
 TEST(RpcSpecDSL_Ordering, LaterItemRunsWhenEarlierPasses)
 {
     // Type<int64> passes (value is int), then Min sees the value and fails.
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, min(int64_t{100})),
     };
 
     auto request = boost::json::parse(R"JSON({ "limit": 5 })JSON");
-    auto const result = kSPEC.process(request);
+    auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL, SpecIsConstantEvaluable)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("a", required),
         field("b", type<int64_t>, min(int64_t{1})),
         field("c", deprecated),
     };
-    static constexpr auto kFieldCount = std::tuple_size_v<decltype(kSPEC.fields)>;
+    static constexpr auto kFieldCount = std::tuple_size_v<decltype(kSpec.fields)>;
     static_assert(kFieldCount == 3);
     EXPECT_EQ(kFieldCount, 3u);
 }
@@ -512,7 +514,7 @@ static_assert(rpc::spec::SomeRequirement<rpc::spec::LedgerEntryTypeValidator>);
 
 TEST(RpcSpecDSL_WarningsToJson, SingleDeprecatedFieldProducesGroupedWarning)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ident", account, deprecated),
     };
@@ -522,7 +524,7 @@ TEST(RpcSpecDSL_WarningsToJson, SingleDeprecatedFieldProducesGroupedWarning)
         "ident":   "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn"
     })JSON");
 
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     auto const arr = rpc::spec::toJsonArray(warnings);
 
     ASSERT_EQ(arr.size(), 1u);
@@ -537,7 +539,7 @@ TEST(RpcSpecDSL_WarningsToJson, SingleDeprecatedFieldProducesGroupedWarning)
 
 TEST(RpcSpecDSL_WarningsToJson, MultipleDeprecatedFieldsGroupIntoOneEntry)
 {
-    static constexpr auto kSPEC = RpcSpec{
+    static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
         field("ident", deprecated),
         field("ledger", deprecated),
@@ -549,7 +551,7 @@ TEST(RpcSpecDSL_WarningsToJson, MultipleDeprecatedFieldsGroupIntoOneEntry)
         "ledger":  "validated"
     })JSON");
 
-    auto const warnings = kSPEC.check(request);
+    auto const warnings = kSpec.check(request);
     ASSERT_EQ(warnings.size(), 2u);
 
     auto const arr = rpc::spec::toJsonArray(warnings);
@@ -569,3 +571,5 @@ TEST(RpcSpecDSL_WarningsToJson, EmptyWarningsProducesEmptyArray)
     auto const arr = rpc::spec::toJsonArray(empty);
     EXPECT_TRUE(arr.empty());
 }
+
+}  // namespace

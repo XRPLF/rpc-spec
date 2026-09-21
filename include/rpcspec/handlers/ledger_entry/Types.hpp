@@ -23,8 +23,10 @@ namespace rpc::spec::handlers::ledger_entry {
 // direct key, the struct arm is the unpacked object. The strong sub-field types
 // mirror what the ledger_entry validator (Spec.hpp) guarantees.
 
-/** @brief `directory` object locator: an owner dir, or an explicit dir root, with an optional
- * sub-index. */
+/**
+ * @brief `directory` object locator: an owner dir, or an explicit dir root, with an optional
+ * sub-index.
+ */
 struct DirectoryEntry
 {
     std::optional<xrpl::AccountID> owner;
@@ -32,109 +34,149 @@ struct DirectoryEntry
     std::optional<uint32_t> subIndex;
 };
 
-/** @brief `offer` object locator: owner account + sequence. */
+/**
+ * @brief `offer` object locator: owner account + sequence.
+ */
 struct OfferEntry
 {
     xrpl::AccountID account;
     uint32_t seq = 0;
 };
 
-/** @brief `escrow` object locator: owner account + sequence. */
+/**
+ * @brief `escrow` object locator: owner account + sequence.
+ */
 struct EscrowEntry
 {
     xrpl::AccountID owner;
     uint32_t seq = 0;
 };
 
-/** @brief `ticket` object locator: owner account + ticket sequence. */
+/**
+ * @brief `ticket` object locator: owner account + ticket sequence.
+ */
 struct TicketEntry
 {
     xrpl::AccountID account;
     uint32_t ticketSeq = 0;
 };
 
-/** @brief `permissioned_domain` object locator: owner account + sequence. */
+/**
+ * @brief `permissioned_domain` object locator: owner account + sequence.
+ */
 struct PermissionedDomainEntry
 {
     xrpl::AccountID account;
     uint32_t seq = 0;
 };
 
-/** @brief `vault` object locator: owner account + sequence. */
+/**
+ * @brief `vault` object locator: owner account + sequence.
+ */
 struct VaultEntry
 {
     xrpl::AccountID owner;
     uint32_t seq = 0;
 };
 
-/** @brief `loan_broker` object locator: owner account + sequence. */
+/**
+ * @brief `loan_broker` object locator: owner account + sequence.
+ */
 struct LoanBrokerEntry
 {
     xrpl::AccountID owner;
     uint32_t seq = 0;
 };
 
-/** @brief `loan` object locator: owning loan-broker key + loan sequence. */
+/**
+ * @brief `loan` object locator: owning loan-broker key + loan sequence.
+ */
 struct LoanEntry
 {
     xrpl::uint256 loanBrokerId;
     uint32_t loanSeq = 0;
 };
 
-/** @brief `delegate` object locator: account + the authorized delegate. */
+/**
+ * @brief `delegate` object locator: account + the authorized delegate.
+ */
 struct DelegateEntry
 {
     xrpl::AccountID account;
     xrpl::AccountID authorize;
 };
 
-/** @brief `sponsorship` object locator: the sponsoring account + the sponsored account. */
+/**
+ * @brief `sponsorship` object locator: the sponsoring account + the sponsored account.
+ */
 struct SponsorshipEntry
 {
     xrpl::AccountID sponsor;
     xrpl::AccountID sponsee;
 };
 
-/** @brief `mptoken` object locator: holder account + MPT issuance id. */
+/**
+ * @brief `mptoken` object locator: holder account + MPT issuance id.
+ */
 struct MptokenEntry
 {
     xrpl::AccountID account;
     xrpl::uint192 mptIssuanceId;
 };
 
-/** @brief `amm` object locator: the two assets defining the AMM. */
+/**
+ * @brief `amm` object locator: the two assets defining the AMM.
+ */
 struct AmmEntry
 {
     xrpl::Issue asset;
     xrpl::Issue asset2;
 };
 
-/** @brief `oracle` object locator: owner account + oracle document id. */
+/**
+ * @brief `oracle` object locator: owner account + oracle document id.
+ */
 struct OracleEntry
 {
     xrpl::AccountID account;
     uint32_t oracleDocumentId = 0;
 };
 
-/** @brief `credential` object locator: subject, issuer, and credential type. */
+/**
+ * @brief `credential` object locator: subject, issuer, and credential type.
+ */
 struct CredentialEntry
 {
     xrpl::AccountID subject;
     xrpl::AccountID issuer;
-    std::string credentialType; /**< Variable-length hex blob (credential type); no fixed-width
-                                   strong type fits, so kept as a hex string. */
+
+    /**
+     * @brief Variable-length hex blob (credential type).
+     *
+     * No fixed-width strong type fits, so kept as a hex string.
+     */
+    std::string credentialType;
 };
 
-/** @brief One entry of `deposit_preauth.authorized_credentials`. */
+/**
+ * @brief One entry of `deposit_preauth.authorized_credentials`.
+ */
 struct AuthorizeCredentialEntry
 {
     xrpl::AccountID issuer;
-    std::string credentialType; /**< Variable-length hex blob (credential type); no fixed-width
-                                   strong type fits, so kept as a hex string. */
+
+    /**
+     * @brief Variable-length hex blob (credential type).
+     *
+     * No fixed-width strong type fits, so kept as a hex string.
+     */
+    std::string credentialType;
 };
 
-/** @brief `deposit_preauth` object locator: owner plus EITHER an authorized account OR a credential
- * set. */
+/**
+ * @brief `deposit_preauth` object locator: owner plus EITHER an authorized account OR a credential
+ * set.
+ */
 struct DepositPreauthEntry
 {
     xrpl::AccountID owner;
@@ -142,8 +184,10 @@ struct DepositPreauthEntry
     std::optional<std::vector<AuthorizeCredentialEntry>> authorizedCredentials;
 };
 
-/** @brief `ripple_state` object locator: the two trust-line accounts + currency. Object-only (no
- * hex form). */
+/**
+ * @brief `ripple_state` object locator: the two trust-line accounts + currency. Object-only (no
+ * hex form).
+ */
 struct RippleStateEntry
 {
     std::array<xrpl::AccountID, 2> accounts;

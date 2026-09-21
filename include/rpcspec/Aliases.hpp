@@ -15,11 +15,19 @@
 namespace rpc::spec {
 
 // NOLINTBEGIN(readability-identifier-naming)
-/** @brief Marks a field as required; fails validation if the field is absent. */
+/**
+ * @brief Marks a field as required; fails validation if the field is absent.
+ */
 inline constexpr auto required = Required{};
-/** @brief Marks a field as deprecated; emits a deprecation warning when the field is present. */
+
+/**
+ * @brief Marks a field as deprecated; emits a deprecation warning when the field is present.
+ */
 inline constexpr auto deprecated = Deprecated{};
-/** @brief Validates that a field contains a valid XRPL account address. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL account address.
+ */
 inline constexpr auto account = AccountFormat{};
 
 /**
@@ -60,13 +68,13 @@ clamp(T lo, T hi)
     return Clamp{lo, hi};
 }
 
-// NOLINTNEXTLINE(readability-identifier-naming)
 /**
  * @brief Clamps a numeric field value and stores the result as type @p Target.
  *
  * @tparam Target The numeric type to which the clamped value is converted.
  */
 template <typename Target>
+// NOLINTNEXTLINE(readability-identifier-naming)
 inline constexpr auto clampAs = ClampAs<Target>{};
 
 /**
@@ -159,30 +167,65 @@ ifServerXrpld(Vs... vs)
 }
 
 // NOLINTBEGIN(readability-identifier-naming)
-/** @brief Validates that a field contains a valid ledger index (integer or
- * "current"/"closed"/"validated"). */
+/**
+ * @brief Validates that a field contains a valid ledger index (integer or
+ * "current"/"closed"/"validated").
+ */
 inline constexpr auto ledgerIndex = LedgerIndexValidator{};
-/** @brief Validates that a field contains a base58-encoded XRPL account address. */
+
+/**
+ * @brief Validates that a field contains a base58-encoded XRPL account address.
+ */
 inline constexpr auto accountBase58 = AccountBase58Validator{};
-/** @brief Validates that a field contains a valid XRPL currency code. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL currency code.
+ */
 inline constexpr auto currency = CurrencyValidator{};
-/** @brief Validates that a field contains a valid XRPL issuer account address. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL issuer account address.
+ */
 inline constexpr auto issuer = IssuerValidator{};
-/** @brief Validates that a field contains a valid XRPL currency+issuer pair. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL currency+issuer pair.
+ */
 inline constexpr auto currencyIssue = CurrencyIssueValidator{};
-/** @brief Validates that a field contains a valid XRPL credential type string. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL credential type string.
+ */
 inline constexpr auto credentialType = CredentialTypeValidator{};
-/** @brief Validates that a field contains a valid XRPL authorize-credential object. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL authorize-credential object.
+ */
 inline constexpr auto authorizeCredential = AuthorizeCredentialValidator{};
-/** @brief Modifier that converts a string field value to a number in place. */
+
+/**
+ * @brief Modifier that converts a string field value to a number in place.
+ */
 inline constexpr auto toNumber = ToNumberModifier{};
-/** @brief Validates that a field contains a 256-bit value encoded as a 64-character hex string. */
+
+/**
+ * @brief Validates that a field contains a 256-bit value encoded as a 64-character hex string.
+ */
 inline constexpr auto uint256Hex = Uint256HexStringValidator{};
-/** @brief Validates that a field contains a 192-bit value encoded as a 48-character hex string. */
+
+/**
+ * @brief Validates that a field contains a 192-bit value encoded as a 48-character hex string.
+ */
 inline constexpr auto uint192Hex = Uint192HexStringValidator{};
-/** @brief Validates that a field contains a 160-bit value encoded as a 40-character hex string. */
+
+/**
+ * @brief Validates that a field contains a 160-bit value encoded as a 40-character hex string.
+ */
 inline constexpr auto uint160Hex = Uint160HexStringValidator{};
-/** @brief Marks a field as not supported; always returns an error when the field is present. */
+
+/**
+ * @brief Marks a field as not supported; always returns an error when the field is present.
+ */
 inline constexpr auto notSupported = NotSupported{};
 
 /**
@@ -199,31 +242,46 @@ notSupportedIf(T value)
     return NotSupportedIfEqual{value};
 }
 
-/** @brief Modifier that converts a string field value to lowercase in place. */
+/**
+ * @brief Modifier that converts a string field value to lowercase in place.
+ */
 inline constexpr auto toLower = ToLowerModifier{};
-/** @brief Validates that a field contains a JSON array of 256-bit hex strings. */
+
+/**
+ * @brief Validates that a field contains a JSON array of 256-bit hex strings.
+ */
 inline constexpr auto hex256Array = Hex256ArrayValidator{};
 
-/** @brief Validator instance: a non-empty array of at most @c MaxSize base58 account IDs. */
+/**
+ * @brief Validator instance: a non-empty array of at most @c MaxSize base58 account IDs.
+ */
 template <std::size_t MaxSize>
 inline constexpr auto accountIdArray = AccountIdArrayValidator<MaxSize>{};
-/** @brief Validates that a field contains a valid XRPL account object marker. */
+
+/**
+ * @brief Validates that a field contains a valid XRPL account object marker.
+ */
 inline constexpr auto accountMarker = AccountMarkerValidator{};
-/** @brief Validates that a field contains a recognised XRPL account type string. */
+
+/**
+ * @brief Validates that a field contains a recognised XRPL account type string.
+ */
 inline constexpr auto accountType = AccountTypeValidator{};
-/** @brief Validates that a field contains a recognised XRPL ledger entry type string. */
+
+/**
+ * @brief Validates that a field contains a recognised XRPL ledger entry type string.
+ */
 inline constexpr auto ledgerType = LedgerEntryTypeValidator{};
 // NOLINTEND(readability-identifier-naming)
 
 /**
  * @brief Validates that a field's value is one of a fixed set of string literals.
  *
- * @tparam T       The expected C++ type of the field (default: `std::string`).
  * @tparam Strings Deduced string-literal types.
  * @param  vals    The allowed string values.
  * @return         A `OneOfValidator` configured with @p vals.
  */
-template <typename T = std::string, typename... Strings>
+template <typename... Strings>
 consteval auto
 oneOf(Strings... vals)
 {

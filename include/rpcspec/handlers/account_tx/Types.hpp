@@ -17,7 +17,9 @@ inline constexpr auto kLimitMin = 1;
 inline constexpr auto kLimitMax = 1000;
 inline constexpr auto kLimitDefault = 200;
 
-/** @brief Pagination marker for the 'account_tx' command. */
+/**
+ * @brief Pagination marker for the 'account_tx' command.
+ */
 struct Marker
 {
     uint32_t ledger;
@@ -32,12 +34,23 @@ struct Marker
  */
 struct DelegateFilter
 {
-    /** @brief The side of a delegated transaction the queried account is on. */
+    /**
+     * @brief The side of a delegated transaction the queried account is on.
+     */
     enum class Role : std::uint8_t {
-        Actor,     /**< The *active* sender, acting on behalf of another party.
-                    * e.g. Account A in "A sends payment to B on behalf of C." */
-        Authorizer /**< The *passive* party whose funds are moved.
-                    * e.g. Account C in "A sends payment to B on behalf of C." */
+        /**
+         * @brief The *active* sender, acting on behalf of another party.
+         *
+         * e.g. Account A in "A sends payment to B on behalf of C."
+         */
+        Actor,
+
+        /**
+         * @brief The *passive* party whose funds are moved.
+         *
+         * e.g. Account C in "A sends payment to B on behalf of C."
+         */
+        Authorizer
     };
 
     Role delegateType;
@@ -64,11 +77,14 @@ struct Input
     JsonBool forward{false};
     std::optional<uint32_t> limit;
     std::optional<Marker> marker;
-    std::optional<std::string>
-        transactionTypeInLowercase; /**< Validated tx-type name, kept as a normalized string rather
-                                       than a strong enum: the valid set is version-dependent
-                                       (derived at runtime from libxrpl TxFormats), so a repo-local
-                                       enum would duplicate xrpl::TxType and risk drift. */
+
+    /**
+     * @brief Validated tx-type name, kept as a normalized string rather than a strong enum.
+     *
+     * The valid set is version-dependent (derived at runtime from libxrpl TxFormats), so a
+     * repo-local enum would duplicate xrpl::TxType and risk drift.
+     */
+    std::optional<std::string> transactionTypeInLowercase;
     std::optional<xrpl::uint192> mptIssuanceId;
     std::optional<DelegateFilter> delegateFilter;
 };

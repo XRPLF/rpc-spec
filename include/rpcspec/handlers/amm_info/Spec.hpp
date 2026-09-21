@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'amm_info' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
@@ -21,7 +19,7 @@
 namespace rpc::spec::handlers::amm_info {
 
 // field is already confirmed to be a string (inside ifType<std::string>)
-inline constexpr auto kSTRING_ISSUE_VALIDATOR = CustomValidator{[](auto const& f) -> MaybeError {
+inline constexpr auto kStringIssueValidator = CustomValidator{[](auto const& f) -> MaybeError {
     try
     {
         xrpl::issueFromJson(std::string{f.asString()});
@@ -87,23 +85,27 @@ inline constexpr auto kInputSpec = spec<Input>(
         "asset",
         &Input::issue1,
         withCustomError(type<std::string, JsonObject>, rpc::RippledError::RpcIssueMalformed),
-        ifType<std::string>(kSTRING_ISSUE_VALIDATOR),
+        ifType<std::string>(kStringIssueValidator),
         ifType<JsonObject>(withCustomError(currencyIssue, rpc::RippledError::RpcIssueMalformed)),
         issueConv),
     field(
         "asset2",
         &Input::issue2,
         withCustomError(type<std::string, JsonObject>, rpc::RippledError::RpcIssueMalformed),
-        ifType<std::string>(kSTRING_ISSUE_VALIDATOR),
+        ifType<std::string>(kStringIssueValidator),
         ifType<JsonObject>(withCustomError(currencyIssue, rpc::RippledError::RpcIssueMalformed)),
         issueConv),
     field("amm_account", &Input::ammAccount, accountIdActMalformed),
     field("account", &Input::accountID, accountIdActMalformed));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

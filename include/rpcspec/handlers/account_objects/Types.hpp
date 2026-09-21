@@ -25,14 +25,23 @@ struct Input
     LedgerSpecifier ledger;
     xrpl::AccountID account;
     uint32_t limit;
-    std::optional<std::string>
-        marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);
-                   re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */
+
+    /**
+     * @brief Opaque pagination cursor; may encode an account plus a hint, not a single id.
+     *
+     * Re-parsed by traverseOwnedNodes downstream, so kept as a validated string.
+     */
+    std::optional<std::string> marker;
     std::optional<xrpl::LedgerEntryType> type;
     bool deletionBlockersOnly = false;
-    std::optional<JsonBool>
-        sponsored; /**< Tri-state: unset means no sponsorship filter; set restricts results to
-                      objects that are (true) or are not (false) sponsored. */
+
+    /**
+     * @brief Tri-state sponsorship filter.
+     *
+     * Unset means no sponsorship filter; set restricts results to objects that are (true)
+     * or are not (false) sponsored.
+     */
+    std::optional<JsonBool> sponsored;
 };
 
 }  // namespace rpc::spec::handlers::account_objects

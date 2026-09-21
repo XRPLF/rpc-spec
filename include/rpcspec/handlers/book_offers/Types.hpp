@@ -32,7 +32,7 @@ struct Input
     xrpl::Asset takerPays = xrpl::xrpIssue();
     xrpl::Asset takerGets = xrpl::xrpIssue();
     std::optional<std::string>
-        domain; /**< Permissioned-domain id, passed through as a validated hex string. */
+        domain;  ///< Permissioned-domain id, passed through as a validated hex string.
 };
 
 }  // namespace rpc::spec::handlers::book_offers

@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'account_offers' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 
@@ -77,10 +75,14 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
 
 inline constexpr auto kInputSpecV2 = kInputSpecV1;
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

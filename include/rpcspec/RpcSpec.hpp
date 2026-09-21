@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace rpc::spec {
@@ -55,64 +56,84 @@ buildOverridePlan(std::array<std::string_view, N> const& keys)
     return plan;
 }
 
-template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
-[[nodiscard]] MaybeError
-process(FieldsTuple const& fields, Root& root, std::index_sequence<Is...>)
+/**
+ * @brief Visit each field that survives last-wins key deduplication, in declaration order.
+ *
+ * Every spec walk — process / check / dump, for both `RpcSpec` and `TypedSpec` — needs the same
+ * three steps: collect the keys, build the override plan, then invoke the *effective* field for
+ * each surviving key exactly once. Only the per-field action differs, so that is the one thing
+ * passed in.
+ *
+ * @p visit is called as `visit(fields, std::integral_constant<std::size_t, I>{})` for the
+ * effective index I of each surviving key. Passing the index as a type keeps the `std::get<I>`
+ * inside @p visit a compile-time lookup while the selection stays a runtime table jump — the
+ * same shape the hand-written copies had. A @p visit returning `bool` may stop the walk by
+ * returning `false`; one returning `void` always runs to completion.
+ *
+ * @tparam FieldsTuple The spec's field tuple type.
+ * @tparam Visit       The per-field action.
+ * @param fields       The spec's fields.
+ * @param visit        Invoked once per surviving key with the effective field index.
+ */
+template <typename FieldsTuple, typename Visit, std::size_t... Is>
+constexpr void
+forEachEffectiveField(FieldsTuple const& fields, Visit visit, std::index_sequence<Is...>)
 {
-    if constexpr (sizeof...(Is) == 0)
-    {
-        return {};
-    }
-    else
-    {
-        constexpr auto kN = sizeof...(Is);
-        std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-        auto const plan = buildOverridePlan(keys);
-
-        using DispatchFn = MaybeError (*)(FieldsTuple const&, Root&);
-        static constexpr std::array<DispatchFn, kN> kDISPATCH{
-            +[](FieldsTuple const& t, Root& r) -> MaybeError {
-                return std::get<Is>(t).process(r);
-            }...};
-
-        MaybeError result{};
-        for (std::size_t i = 0; i < kN; ++i)
-        {
-            if (!plan.shouldRun[i])
-                continue;
-            result = kDISPATCH[plan.effectiveIdx[i]](fields, root);
-            if (!result.has_value())
-                return result;
-        }
-        return result;
-    }
-}
-
-template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
-[[nodiscard]] Warnings
-check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...>)
-{
-    Warnings out;
     if constexpr (sizeof...(Is) > 0)
     {
         constexpr auto kN = sizeof...(Is);
         std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
         auto const plan = buildOverridePlan(keys);
 
-        using DispatchFn = Warnings (*)(FieldsTuple const&, Root const&);
-        static constexpr std::array<DispatchFn, kN> kDISPATCH{
-            +[](FieldsTuple const& t, Root const& r) -> Warnings {
-                return std::get<Is>(t).check(r);
-            }...};
+        using Thunk = bool (*)(FieldsTuple const&, Visit&);
+        static constexpr std::array<Thunk, kN> kDispatch{+[](FieldsTuple const& t, Visit& v) {
+            constexpr auto kIdx = std::integral_constant<std::size_t, Is>{};
+            if constexpr (std::is_void_v<decltype(v(t, kIdx))>)
+            {
+                v(t, kIdx);
+                return true;
+            }
+            else
+            {
+                return v(t, kIdx);
+            }
+        }...};
 
         for (std::size_t i = 0; i < kN; ++i)
         {
-            if (!plan.shouldRun[i])
-                continue;
-            auto w = kDISPATCH[plan.effectiveIdx[i]](fields, root);
-            out.insert(out.end(), w.begin(), w.end());
+            if (plan.shouldRun[i] && !kDispatch[plan.effectiveIdx[i]](fields, visit))
+                return;
         }
     }
+}
+
+template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
+[[nodiscard]] MaybeError
+process(FieldsTuple const& fields, Root& root, std::index_sequence<Is...> seq)
+{
+    MaybeError result{};
+    forEachEffectiveField(
+        fields,
+        [&](FieldsTuple const& t, auto idx) {
+            result = std::get<idx()>(t).process(root);
+            return result.has_value();
+        },
+        seq);
+    return result;
+}
+
+template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
+[[nodiscard]] Warnings
+check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...> seq)
+{
+    Warnings out;
+    forEachEffectiveField(
+        fields,
+        [&](FieldsTuple const& t, auto idx) {
+            auto w = std::get<idx()>(t).check(root);
+            out.insert(out.end(), w.begin(), w.end());
+        },
+        seq);
     return out;
 }
 

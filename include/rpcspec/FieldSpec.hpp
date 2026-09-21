@@ -62,6 +62,48 @@ callIfChecker(Item const& item, FA const& fa, Warnings& out)
 }
 
 /**
+ * @brief Run every requirement/modifier in @p items against @p fa, stopping at the first error.
+ *
+ * The one place the "processors in declaration order, short-circuit on failure" rule is spelled
+ * out; `FieldSpec`, `BoundField`, `Section` and `IfType` all defer to it so they cannot drift
+ * apart on ordering or short-circuiting.
+ *
+ * @tparam Items The item tuple's element types.
+ * @tparam FA    A mutable field-accessor / field-view type.
+ * @param items  The items to run.
+ * @param fa     Mutable view of the field being processed.
+ * @return The first error produced, or empty if every item succeeded.
+ */
+template <typename... Items, typename FA>
+[[nodiscard]] MaybeError
+runProcessors(std::tuple<Items...> const& items, FA& fa)
+{
+    MaybeError result{};
+    std::apply(
+        [&](auto const&... item) {
+            (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
+        },
+        items);
+    return result;
+}
+
+/**
+ * @brief Append the warnings of every check item in @p items to @p out.
+ *
+ * @tparam Items The item tuple's element types.
+ * @tparam FA    A const field-accessor / field-view type.
+ * @param items  The items to run.
+ * @param fa     Const view of the field being checked.
+ * @param out    Warnings collection; each firing check appends one entry.
+ */
+template <typename... Items, typename FA>
+void
+runChecks(std::tuple<Items...> const& items, FA const& fa, Warnings& out)
+{
+    std::apply([&](auto const&... item) { (callIfChecker(item, fa, out), ...); }, items);
+}
+
+/**
  * @brief A single named field in an @ref RpcSpec, paired with its validation items.
  *
  * Holds a JSON key and an ordered tuple of requirements, modifiers, and checks.
@@ -114,13 +156,7 @@ struct FieldSpec
     process(Root& root) const
     {
         auto fa = root.child(key);
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... item) {
-                (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
-            },
-            items);
-        return result;
+        return runProcessors(items, fa);
     }
 
     /**
@@ -134,9 +170,9 @@ struct FieldSpec
     [[nodiscard]] Warnings
     check(Root const& root) const
     {
-        auto fa = root.child(key);
+        auto const fa = root.child(key);
         Warnings out;
-        std::apply([&](auto const&... item) { (callIfChecker(item, fa, out), ...); }, items);
+        runChecks(items, fa, out);
         return out;
     }
 
@@ -154,13 +190,7 @@ struct FieldSpec
     processNested(FA& parentFa) const
     {
         auto childFa = parentFa.child(key);
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... item) {
-                (void)((result = callIfProcessor(item, childFa), result.has_value()) && ...);
-            },
-            items);
-        return result;
+        return runProcessors(items, childFa);
     }
 
     /**
@@ -178,7 +208,7 @@ struct FieldSpec
     {
         auto const childFa = parentFa.child(key);
         Warnings out;
-        std::apply([&](auto const&... item) { (callIfChecker(item, childFa, out), ...); }, items);
+        runChecks(items, childFa, out);
         return out;
     }
 };

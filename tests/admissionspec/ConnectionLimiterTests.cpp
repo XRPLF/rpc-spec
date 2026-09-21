@@ -1,5 +1,6 @@
 #include <admissionspec/AdmissionSpec.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/PassthroughVisitor.hpp>
 #include <admissionspec/ProtobufVisitor.hpp>
 #include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
@@ -10,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -469,14 +471,12 @@ TEST(ConnectionLimiterTests, RateLimit)
     }
 
     {
-        // Try a "DoS attack"
         auto buffer = std::array<uint8_t, 1025>{};  // This costs 10 tokens
         for (auto i = 0uz; i < 6; ++i)
         {
             auto decision = limiter.admitPre<FooMessage>(0uz, buffer, start);
             if (i < 5)
             {
-                // These should be admitted
                 EXPECT_TRUE(decision.admitted());
             }
             else
@@ -488,7 +488,6 @@ TEST(ConnectionLimiterTests, RateLimit)
 
         auto const refilled = start + std::chrono::seconds{6};
         auto decision = limiter.admitPre<FooMessage>(0uz, buffer, refilled);
-        // Should succeed after being rate limited and the bucket refilling
         EXPECT_TRUE(decision.admitted());
     }
 }
@@ -646,4 +645,28 @@ TEST(ProtobufVisitor, PackedFixed)
         EXPECT_TRUE(d.dropped());
         EXPECT_EQ(seen, 2);  // 1 (admit), 2 (drop) — the third element (-1) is never decoded
     }
+}
+
+// The degenerate visitor: no decoding at all, the payload arrives as one opaque scalar event.
+TEST(PassthroughVisitor, EmitsWholePayloadAsOneScalar)
+{
+    using admission::spec::visitPassthrough;
+
+    auto const payload = std::array<uint8_t, 3>{0xDE, 0xAD, 0xBE};
+    auto seen = 0;
+    auto record = [&](VisitEvent const& e) {
+        ++seen;
+        EXPECT_EQ(e.kind, EventKind::Scalar);
+        EXPECT_TRUE(e.name.empty());
+        EXPECT_EQ(e.fieldNumber, std::numeric_limits<uint64_t>::max());
+        auto const* v = e.as<std::span<uint8_t const>>();
+        EXPECT_NE(v, nullptr);
+        EXPECT_EQ(v->size(), payload.size());
+        return AdmissionDecision::drop("nope");
+    };
+
+    auto const d = visitPassthrough(std::span<uint8_t const>{payload}, record);
+    EXPECT_EQ(seen, 1);
+    EXPECT_FALSE(d.admitted());
+    EXPECT_EQ(d.reason, "nope");
 }

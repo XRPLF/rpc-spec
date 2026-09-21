@@ -41,11 +41,19 @@ struct VersionedSpec
 
     using ParseFn = std::expected<InputT, rpc::Status> (*)(void const*, boost::json::value&);
 
-    /** @brief A type-erased view per version (for check/dump). */
+    /**
+     * @brief A type-erased view per version (for check/dump).
+     */
     std::array<RpcSpecView, N> views;
-    /** @brief The parse thunk per version (RpcSpecView carries no parse). */
+
+    /**
+     * @brief The parse thunk per version (RpcSpecView carries no parse).
+     */
     std::array<ParseFn, N> parseFns;
-    /** @brief The underlying spec object per version, passed back to @c parseFns. */
+
+    /**
+     * @brief The underlying spec object per version, passed back to @c parseFns.
+     */
     std::array<void const*, N> selves;
 
     /**

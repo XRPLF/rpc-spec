@@ -19,7 +19,9 @@ concept SomeCheck = requires(F f, VisitEvent const& e, Resolved const& cfg) {
     { f(e, cfg) } -> std::same_as<AdmissionDecision>;
 };
 
-/**  Sentinel for an unattached hook slot. */
+/**
+ * Sentinel for an unattached hook slot.
+ */
 struct NoHook
 {
 };
@@ -159,7 +161,7 @@ public:
     [[nodiscard]] AdmissionDecision
     preAdmit(std::span<uint8_t const> payload, Resolved const& cfg) const
     {
-        double cost =
+        double const cost =
             costFor(cfg.template get<"size_ramp">(), static_cast<uint64_t>(payload.size()));
 
         if (payload.size() > cfg.template get<"max_payload_bytes">())

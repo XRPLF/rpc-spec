@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the `account_tx` delegate filter, mirroring Clio's
  *  CustomValidators::delegateValidator wire contract.
  */
@@ -17,14 +18,14 @@ using handlers::account_tx::DelegateFilter;
 
 namespace {
 
-constexpr char const* kACCOUNT = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kCOUNTERPARTY = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr char const* kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr char const* kCounterparty = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 
 auto
 parseAccountTx(std::string const& delegateJson)
 {
     auto const json =
-        std::string{R"JSON({"account": ")JSON"} + kACCOUNT + R"JSON(")JSON" + delegateJson + "}";
+        std::string{R"JSON({"account": ")JSON"} + kAccount + R"JSON(")JSON" + delegateJson + "}";
     auto value = boost::json::parse(json);
     return handlers::account_tx::kInputSpecV1.parse(value);
 }
@@ -52,12 +53,12 @@ TEST(AccountTxDelegateSpec, AuthorizerWithCounterPartyParses)
     auto const r = parseAccountTx(
         std::string{
             R"JSON(, "delegate": {"delegate_filter": "authorizer", "counter_party": ")JSON"} +
-        kCOUNTERPARTY + R"JSON("})JSON");
+        kCounterparty + R"JSON("})JSON");
     ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
     ASSERT_TRUE(r->delegateFilter.has_value());
     EXPECT_EQ(r->delegateFilter->delegateType, DelegateFilter::Role::Authorizer);
     ASSERT_TRUE(r->delegateFilter->counterParty.has_value());
-    EXPECT_EQ(*r->delegateFilter->counterParty, kCOUNTERPARTY);
+    EXPECT_EQ(*r->delegateFilter->counterParty, kCounterparty);
 }
 
 TEST(AccountTxDelegateSpec, NotAnObjectFails)

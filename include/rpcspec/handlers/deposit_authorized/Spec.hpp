@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'deposit_authorized' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 
@@ -13,6 +11,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/VersionedSpec.hpp>
+#include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
 #include <cstddef>
@@ -33,16 +32,14 @@ struct CredentialsArrayConverter
     {
         if (!f.present())
             return std::nullopt;
-        // hex256Array already validated each element is a well-formed uint256 hex
-        // string, so parseHex here cannot fail.
+        // hex256Array already validated each element is a well-formed uint256 hex string, so
+        // this cannot fail — uint256FromValidated states that precondition rather than
+        // discarding parseHex's [[nodiscard]] result, matching every other handler here.
+        auto const size = f.arraySize();
         std::vector<xrpl::uint256> out;
-        out.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
-        {
-            xrpl::uint256 hash;
-            hash.parseHex(std::string{f.element(i).asString()}.c_str());
-            out.push_back(hash);
-        }
+        out.reserve(size);
+        for (std::size_t i = 0; i < size; ++i)
+            out.push_back(detail::uint256FromValidated(std::string{f.element(i).asString()}));
         return out;
     }
 };
@@ -55,10 +52,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("destination_account", &Input::destinationAccount, required, accountId),
     field("credentials", &Input::credentials, hex256Array, credentialsArrayConv));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

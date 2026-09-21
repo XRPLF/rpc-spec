@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the `account_objects` typed spec.
  *  Compiled under RPCSPEC_IS_XRPLD.
  */
@@ -18,7 +19,7 @@ using namespace rpc::spec::handlers::account_objects;
 
 namespace {
 
-constexpr char const* kACCT1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parse(std::string const& json)

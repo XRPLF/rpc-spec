@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'tx' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -54,10 +52,14 @@ inline constexpr auto kInputSpecV2 =
 inline constexpr auto& kSpecV1 = kInputSpecV1;
 inline constexpr auto& kSpecV2 = kInputSpecV2;
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

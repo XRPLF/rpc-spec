@@ -18,7 +18,7 @@ struct Input
 {
     std::optional<xrpl::uint256> transaction;
     std::optional<std::string>
-        ctid; /**< Opaque CTID hex token (not a 256-bit hash); decoded downstream. */
+        ctid;  ///< Opaque CTID hex token (not a 256-bit hash); decoded downstream.
     JsonBool binary{false};
     std::optional<uint32_t> minLedger;
     std::optional<uint32_t> maxLedger;

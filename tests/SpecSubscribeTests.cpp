@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the `subscribe` and `unsubscribe` typed specs.
  *  Compiled under RPCSPEC_IS_XRPLD (the default for rpcspec_tests).
  */
@@ -21,8 +22,8 @@ using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kACCT1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kACCT2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr char const* kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 
 auto
 parseSub(std::string const& json)
@@ -50,11 +51,11 @@ TEST(SubscribeSpec, AccountsTwoElements)
     ASSERT_TRUE(r->accounts.has_value());
     EXPECT_EQ(r->accounts->size(), 2u);
 
-    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
     EXPECT_EQ((*r->accounts)[0], *expected0);
 
-    auto const expected1 = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    auto const expected1 = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expected1.has_value());
     EXPECT_EQ((*r->accounts)[1], *expected1);
 }
@@ -69,7 +70,7 @@ TEST(SubscribeSpec, AccountsProposedTwoElements)
     ASSERT_TRUE(r->accountsProposed.has_value());
     EXPECT_EQ(r->accountsProposed->size(), 2u);
 
-    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
     EXPECT_EQ((*r->accountsProposed)[0], *expected0);
 }
@@ -163,7 +164,7 @@ TEST(UnsubscribeSpec, AccountsTwoElements)
     ASSERT_TRUE(r->accounts.has_value());
     EXPECT_EQ(r->accounts->size(), 2u);
 
-    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
     EXPECT_EQ((*r->accounts)[0], *expected0);
 }

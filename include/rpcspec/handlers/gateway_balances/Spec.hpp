@@ -1,8 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'gateway_balances' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
-//
 // Two versioned specs are exposed:
 //   kInputSpecV1 — uses RpcInvalidHotwallet for type mismatches on 'hotwallet'
 //   kInputSpecV2 — uses RpcInvalidParams for type mismatches on 'hotwallet'
@@ -29,7 +26,7 @@
 
 namespace rpc::spec::handlers::gateway_balances {
 
-static constexpr auto kHOT_WALLET_V1 = CustomValidator{[](auto const& f) -> MaybeError {
+inline constexpr auto kHotWalletV1 = CustomValidator{[](auto const& f) -> MaybeError {
     if (!f.isString() && !f.isArray())
     {
         return std::unexpected{rpc::Status{
@@ -67,7 +64,7 @@ static constexpr auto kHOT_WALLET_V1 = CustomValidator{[](auto const& f) -> Mayb
     return {};
 }};
 
-static constexpr auto kHOT_WALLET_V2 = CustomValidator{[](auto const& f) -> MaybeError {
+inline constexpr auto kHotWalletV2 = CustomValidator{[](auto const& f) -> MaybeError {
     if (!f.isString() && !f.isArray())
     {
         return std::unexpected{rpc::Status{
@@ -149,15 +146,19 @@ inline constexpr auto hotWalletConv = HotWalletConverter{};
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
-    field("hotwallet", &Input::hotWallets, kHOT_WALLET_V1, hotWalletConv));
+    field("hotwallet", &Input::hotWallets, kHotWalletV1, hotWalletConv));
 
 inline constexpr auto kInputSpecV2 =
-    extend(kInputSpecV1, field("hotwallet", &Input::hotWallets, kHOT_WALLET_V2, hotWalletConv));
+    extend(kInputSpecV1, field("hotwallet", &Input::hotWallets, kHotWalletV2, hotWalletConv));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

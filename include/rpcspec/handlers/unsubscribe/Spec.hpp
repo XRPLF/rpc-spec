@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'unsubscribe' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
@@ -33,7 +31,7 @@ namespace rpc::spec::handlers::unsubscribe {
 //   - empty array → RpcActMalformed + key + " malformed."
 //   - element not string → RpcInvalidParams + key + "'sItemNotString"
 //   - element invalid account → RpcActMalformed + key + "'sItemMalformed"
-static constexpr auto kSubscribeAccountsValidator =
+inline constexpr auto kSubscribeAccountsValidator =
     CustomValidator{[](auto const& f) -> MaybeError {
         if (!f.isArray())
         {
@@ -62,7 +60,6 @@ static constexpr auto kSubscribeAccountsValidator =
         return {};
     }};
 
-// Validates the streams field: must be an array of known stream name strings.
 // The accepted set is server-conditional (the spec is shared):
 //   - both servers serve the six common streams below;
 //   - xrpld additionally accepts `server`/`peer_status`/`consensus` (the admin
@@ -159,12 +156,11 @@ struct StreamsValidator
 };
 
 // NOLINTNEXTLINE(readability-identifier-naming)
-inline constexpr auto kSUBSCRIBE_STREAM_VALIDATOR = StreamsValidator{};
+inline constexpr auto kSubscribeStreamValidator = StreamsValidator{};
 
-// Validates the books field: must be an array of valid book objects.
-// Errors mirror the old kBOOKS_VALIDATOR lambda exactly (including all parseBook errors).
+// Errors mirror the old kBooksValidator lambda exactly (including all parseBook errors).
 // Note: Unsubscribe does NOT check snapshot (no snapshot field in unsubscribe).
-static constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> MaybeError {
+inline constexpr auto kBooksValidator = CustomValidator{[](auto const& f) -> MaybeError {
     if (!f.isArray())
     {
         return std::unexpected{
@@ -439,7 +435,7 @@ struct UnsubscribeBooksConverter
             ob.book = xrpl::Book{
                 xrpl::Issue{payCurrency, payIssuer}, xrpl::Issue{getCurrency, getIssuer}, domainID};
 
-            result.push_back(ob);
+            result.push_back(ob);  // OrderBook is trivially copyable here
         }
 
         return std::optional<std::vector<OrderBook>>{std::move(result)};
@@ -452,7 +448,7 @@ inline constexpr auto unsubscribeBooksConv = UnsubscribeBooksConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 inline constexpr auto kInputSpec = spec<Input>(
-    field("streams", &Input::streams, kSUBSCRIBE_STREAM_VALIDATOR, streamVecConv),
+    field("streams", &Input::streams, kSubscribeStreamValidator, streamVecConv),
     field("accounts", &Input::accounts, kSubscribeAccountsValidator, asAccountIdVec),
     field(
         "accounts_proposed",
@@ -464,10 +460,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("rt_accounts") | deprecated,
     field("rt_transactions") | deprecated);
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

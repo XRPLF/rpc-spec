@@ -49,7 +49,9 @@ enum class WireType {
     I32 = 5,     ///< int32_t, uint32_t, float
 };
 
-/** Read a base-128 varint from @p bytes at @p pos, advancing it. Returns false if truncated. */
+/**
+ * Read a base-128 varint from @p bytes at @p pos, advancing it. Returns false if truncated.
+ */
 [[nodiscard]] inline bool
 readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
 {
@@ -218,12 +220,12 @@ visitPackedFixed(std::span<uint8_t const> body, uint64_t field, Check& check)
     using Trait = detail::PackedTrait<T>;
     using ReadType = typename Trait::ReadType;
     using WriteType = typename Trait::WriteType;
-    static constexpr auto Size = sizeof(ReadType);
+    static constexpr auto kSize = sizeof(ReadType);
 
-    for (auto pos = size_t{}; pos + Size <= body.size(); pos += Size)
+    for (auto pos = size_t{}; pos + kSize <= body.size(); pos += kSize)
     {
         auto v = ReadType{};
-        std::memcpy(&v, &body[pos], Size);
+        std::memcpy(&v, &body[pos], kSize);
         // Reinterpret with the element's signedness (WriteType), then widen to the variant's
         // int64_t leaf so the check reads it the same way as any other scalar.
         if (auto const d = check(

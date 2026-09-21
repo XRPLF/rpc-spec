@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'book_offers' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Asset.h>
@@ -49,10 +47,12 @@ struct TakerAssetConverter
         {
             // XRP must not be paired with an issuer.
             if (hasIssuer)
+            {
                 return std::unexpected{rpc::Status{
                     IsrErr,
                     "Unneeded field '" + std::string{f.key()} +
                         ".issuer' for XRP currency specification."}};
+            }
             return xrpl::xrpIssue();
         }
         if (!hasIssuer)
@@ -87,7 +87,7 @@ struct TakerConverter
     }
 };
 
-static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> MaybeError {
+inline constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> MaybeError {
     if (!f.isObject())
         return {};
 
@@ -184,10 +184,14 @@ inline constexpr auto kInputSpec = spec<Input>(
         asUint32),
     ledgerSelector(&Input::ledger));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

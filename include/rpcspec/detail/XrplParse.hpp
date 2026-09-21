@@ -27,7 +27,7 @@ template <class T>
 [[nodiscard]] std::optional<T>
 parseBase58Wrapper(std::string const& str)
 {
-    if (!std::all_of(str.begin(), str.end(), [](unsigned char c) { return std::isalnum(c); }))
+    if (!std::ranges::all_of(str, [](unsigned char chr) { return std::isalnum(chr) != 0; }))
         return std::nullopt;
     return xrpl::parseBase58<T>(str);
 }
@@ -36,7 +36,7 @@ template <class T>
 [[nodiscard]] std::optional<T>
 parseBase58Wrapper(xrpl::TokenType type, std::string const& str)
 {
-    if (!std::all_of(str.begin(), str.end(), [](unsigned char c) { return std::isalnum(c); }))
+    if (!std::ranges::all_of(str, [](unsigned char chr) { return std::isalnum(chr) != 0; }))
         return std::nullopt;
     return xrpl::parseBase58<T>(type, str);
 }
@@ -65,7 +65,9 @@ accountFromStringStrict(std::string const& account)
 // clang-tidy can see the access is guarded. Use these in converters that run
 // after a validator has guaranteed the input shape.
 
-/** @brief Decode a validated account string into an xrpl::AccountID. */
+/**
+ * @brief Decode a validated account string into an xrpl::AccountID.
+ */
 [[nodiscard]] inline xrpl::AccountID
 accountFromValidated(std::string const& account)
 {
@@ -75,7 +77,9 @@ accountFromValidated(std::string const& account)
     return *id;
 }
 
-/** @brief Decode a validated hex string into an xrpl::uint256. */
+/**
+ * @brief Decode a validated hex string into an xrpl::uint256.
+ */
 [[nodiscard]] inline xrpl::uint256
 uint256FromValidated(std::string const& hex)
 {
@@ -85,7 +89,9 @@ uint256FromValidated(std::string const& hex)
     return out;
 }
 
-/** @brief Decode a validated hex string into an xrpl::uint192. */
+/**
+ * @brief Decode a validated hex string into an xrpl::uint192.
+ */
 [[nodiscard]] inline xrpl::uint192
 uint192FromValidated(std::string const& hex)
 {
@@ -95,7 +101,9 @@ uint192FromValidated(std::string const& hex)
     return out;
 }
 
-/** @brief Decode a validated currency-code string into an xrpl::Currency. */
+/**
+ * @brief Decode a validated currency-code string into an xrpl::Currency.
+ */
 [[nodiscard]] inline xrpl::Currency
 currencyFromValidated(std::string const& code)
 {
@@ -105,7 +113,9 @@ currencyFromValidated(std::string const& code)
     return out;
 }
 
-/** @brief Decode a validated issuer string into an xrpl::AccountID. */
+/**
+ * @brief Decode a validated issuer string into an xrpl::AccountID.
+ */
 [[nodiscard]] inline xrpl::AccountID
 issuerFromValidated(std::string const& issuer)
 {

@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the `book_offers` typed spec, focused on the taker asset rules
  *  (MPTokensV2): a taker object names its asset with either `currency` (optionally plus
  *  `issuer`) or `mpt_issuance_id`, never both.
@@ -13,13 +14,15 @@
 #include <rpcspec/handlers/book_offers/Spec.hpp>
 #include <rpcspec/handlers/book_offers/Types.hpp>
 
+#include <xrpl_mock.hpp>
+
 #include <string>
 
 using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kMPT_ID = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr char const* kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
 
 auto
 parseBookOffers(std::string const& json)
@@ -46,9 +49,9 @@ TEST(BookOffersSpec, MptIssuanceIdParsesAsMptIssue)
     auto const r = parseBookOffers(
         std::string{R"JSON({
         "taker_gets": {"mpt_issuance_id": ")JSON"} +
-        kMPT_ID + R"JSON("},
+        kMptId + R"JSON("},
         "taker_pays": {"mpt_issuance_id": ")JSON" +
-        kMPT_ID + R"JSON("}
+        kMptId + R"JSON("}
     })JSON");
     ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
 
@@ -56,7 +59,7 @@ TEST(BookOffersSpec, MptIssuanceIdParsesAsMptIssue)
     ASSERT_TRUE(r->takerPays.holds<xrpl::MPTIssue>());
 
     xrpl::MPTID expected{};
-    ASSERT_TRUE(expected.parseHex(kMPT_ID));
+    ASSERT_TRUE(expected.parseHex(kMptId));
     EXPECT_EQ(r->takerGets.get<xrpl::MPTIssue>().getMptID(), expected);
     EXPECT_EQ(r->takerPays.get<xrpl::MPTIssue>().getMptID(), expected);
 }
@@ -66,7 +69,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithCurrencyFails)
     auto const r = parseBookOffers(
         std::string{R"JSON({
         "taker_gets": {"currency": "USD", "mpt_issuance_id": ")JSON"} +
-        kMPT_ID + R"JSON("},
+        kMptId + R"JSON("},
         "taker_pays": {"currency": "XRP"}
     })JSON");
     ASSERT_FALSE(r.has_value());
@@ -80,7 +83,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithIssuerFails)
         std::string{R"JSON({
         "taker_gets": {"currency": "XRP"},
         "taker_pays": {"mpt_issuance_id": ")JSON"} +
-        kMPT_ID + R"JSON(", "issuer": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B"}
+        kMptId + R"JSON(", "issuer": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B"}
     })JSON");
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);

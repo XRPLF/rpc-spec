@@ -47,13 +47,7 @@ struct IfType
         if (!fa.present() || !fa.template is<T>())
             return {};
 
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... item) {
-                (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
-            },
-            subItems);
-        return result;
+        return runProcessors(subItems, fa);
     }
 };
 

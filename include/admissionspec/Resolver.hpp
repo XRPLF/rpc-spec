@@ -11,8 +11,10 @@ namespace admission::spec {
 
 namespace detail {
 
-/** @brief Resolve one scalar tunable: use the config override if the key is present, else the
- * default. */
+/**
+ * @brief Resolve one scalar tunable: use the config override if the key is present, else the
+ * default.
+ */
 template <typename Config, FixedString Name, typename T>
 [[nodiscard]] T
 resolveOne(Config const& config, Tunable<Name, T> const& t)
@@ -24,7 +26,8 @@ resolveOne(Config const& config, Tunable<Name, T> const& t)
     return t.defaultValue;
 }
 
-/** @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
+/**
+ * @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
  * the default.
  */
 template <typename Config, FixedString Name, size_t N>

@@ -1,16 +1,14 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the lenient `jsonBool` converter and the JsonBool type.
  *  Compiled under RPCSPEC_IS_XRPLD.
  */
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
-#include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Typed.hpp>
-
-#include <xrpl_mock.hpp>
 
 using namespace rpc::spec;
 

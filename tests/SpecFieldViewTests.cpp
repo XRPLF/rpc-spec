@@ -5,6 +5,8 @@
 
 using namespace rpc::spec;
 
+namespace {
+
 // FieldView / ObjectView navigation — child() and element() on the boost::json backend.
 
 TEST(RpcSpecDSL_FieldView, ChildReturnsAbsentFaWhenParentAbsent)
@@ -106,3 +108,5 @@ TEST(RpcSpecDSL_FieldView, ObjectSizeReportsMemberCount)
     EXPECT_EQ(root.child("arr").objectSize(), 0);
     EXPECT_EQ(root.child("missing").objectSize(), 0);
 }
+
+}  // namespace

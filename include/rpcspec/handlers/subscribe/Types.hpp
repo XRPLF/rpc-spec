@@ -32,8 +32,13 @@ enum class StreamType {
 struct OrderBook
 {
     xrpl::Book book;
-    std::optional<std::string> taker; /**< Optional account used only as an order-book filter; kept
-                                         as a passthrough string. */
+
+    /**
+     * @brief Optional account used only as an order-book filter.
+     *
+     * Kept as a passthrough string.
+     */
+    std::optional<std::string> taker;
     bool snapshot = false;
     bool both = false;
 };

@@ -23,9 +23,13 @@ struct Input
     LedgerSpecifier ledger;
     xrpl::AccountID account;
     uint32_t limit;
-    std::optional<std::string>
-        marker; /**< Opaque pagination cursor (may encode an account + hint, not a single id);
-                   re-parsed by traverseOwnedNodes downstream, so kept as a validated string. */
+
+    /**
+     * @brief Opaque pagination cursor; may encode an account plus a hint, not a single id.
+     *
+     * Re-parsed by traverseOwnedNodes downstream, so kept as a validated string.
+     */
+    std::optional<std::string> marker;
 };
 
 }  // namespace rpc::spec::handlers::account_mptoken_issuances

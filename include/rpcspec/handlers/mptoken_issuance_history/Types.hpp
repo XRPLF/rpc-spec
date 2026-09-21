@@ -17,7 +17,9 @@ inline constexpr auto kLimitMin = 1;
 inline constexpr auto kLimitMax = 100;
 inline constexpr auto kLimitDefault = 50;
 
-/** @brief Pagination marker for the 'mptoken_issuance_history' command. */
+/**
+ * @brief Pagination marker for the 'mptoken_issuance_history' command.
+ */
 struct Marker
 {
     uint32_t ledger;
@@ -41,10 +43,13 @@ struct Input
     JsonBool forward{false};
     std::optional<uint32_t> limit;
     std::optional<Marker> marker;
-    std::optional<std::string>
-        transactionTypeInLowercase; /**< Validated tx-type name, kept as a normalized string for
-                                       the same reason as account_tx: the valid set is derived at
-                                       runtime from libxrpl TxFormats. */
+
+    /**
+     * @brief Validated tx-type name, kept as a normalized string.
+     *
+     * Same reason as account_tx: the valid set is derived at runtime from libxrpl TxFormats.
+     */
+    std::optional<std::string> transactionTypeInLowercase;
 };
 
 }  // namespace rpc::spec::handlers::mptoken_issuance_history

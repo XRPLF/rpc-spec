@@ -45,7 +45,9 @@ struct AdmissionDecision
         return action == AdmissionAction::Drop;
     }
 
-    /** @brief Construct an "admit" decision with the given token cost. */
+    /**
+     * @brief Construct an "admit" decision with the given token cost.
+     */
     [[nodiscard]] static constexpr AdmissionDecision
     admit(double cost = 0.0) noexcept
     {
@@ -215,7 +217,9 @@ ramp(SizeTier const (&tiers)[N])
     return SizeCostRamp<N>{arr};
 }
 
-/** @brief Token cost for a payload of @p bytes against a (resolved) list of tiers. */
+/**
+ * @brief Token cost for a payload of @p bytes against a (resolved) list of tiers.
+ */
 [[nodiscard]] constexpr double
 costFor(std::span<SizeTier const> tiers, uint64_t bytes) noexcept
 {
@@ -285,7 +289,9 @@ struct ResolvedTypeOf<SizeCostRamp<N>>
 template <typename T>
 using ResolvedTypeOfT = typename ResolvedTypeOf<T>::type;
 
-/** @brief Convert a tunable default value to its resolved runtime representation. */
+/**
+ * @brief Convert a tunable default value to its resolved runtime representation.
+ */
 template <typename T>
 [[nodiscard]] constexpr T
 toResolved(T const& value)
@@ -332,17 +338,21 @@ public:
     {
     }
 
-    /** @brief Resolved value of the tunable named @p Name. */
+    /**
+     * @brief Resolved value of the tunable named @p Name.
+     */
     template <FixedString Name>
     [[nodiscard]] constexpr auto const&
     get() const noexcept
     {
-        constexpr size_t kIDX = detail::tunableIndex<Name, Tunables...>();
-        static_assert(kIDX < sizeof...(Tunables), "ResolvedTunables::get: unknown tunable name");
-        return std::get<kIDX>(values_);
+        constexpr size_t kIdx = detail::tunableIndex<Name, Tunables...>();
+        static_assert(kIdx < sizeof...(Tunables), "ResolvedTunables::get: unknown tunable name");
+        return std::get<kIdx>(values_);
     }
 
-    /** @brief Whether a tunable named @p Name was declared. */
+    /**
+     * @brief Whether a tunable named @p Name was declared.
+     */
     template <FixedString Name>
     [[nodiscard]] static constexpr bool
     has() noexcept
@@ -354,7 +364,9 @@ private:
     std::tuple<ResolvedTypeOfT<typename Tunables::ValueType>...> values_;
 };
 
-/** @brief Maps a `std::tuple<Tunable...>` to the corresponding @ref ResolvedTunables type. */
+/**
+ * @brief Maps a `std::tuple<Tunable...>` to the corresponding @ref ResolvedTunables type.
+ */
 template <typename TunablesTuple>
 struct ResolvedTunablesOf;
 
@@ -367,7 +379,9 @@ struct ResolvedTunablesOf<std::tuple<Tunables...>>
 template <typename TunablesTuple>
 using ResolvedTunablesOfT = typename ResolvedTunablesOf<TunablesTuple>::type;
 
-/** @brief Build a @ref ResolvedTunables from a tunable tuple using each tunable's default value. */
+/**
+ * @brief Build a @ref ResolvedTunables from a tunable tuple using each tunable's default value.
+ */
 template <typename... Tunables>
 [[nodiscard]] inline ResolvedTunables<Tunables...>
 resolveTunableDefaults(std::tuple<Tunables...> const& tunables)

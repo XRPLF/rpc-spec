@@ -1,5 +1,9 @@
-// Core spec DSL — compiles under both Clio (xrpl:: namespace) and xrpld (xrpl::).
-// Validators.hpp is Clio-specific (JSON param validation) and not included here.
+/**
+ * @file
+ *  GTest coverage for the backend-independent core types: Status, typeNameOf<T>, and the
+ *  ledger-type registry. Deliberately touches none of the validator/spec machinery, so it
+ *  compiles identically under either server backend.
+ */
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/LedgerTypes.hpp>
@@ -14,7 +18,6 @@
 
 namespace {
 
-// Compile-time checks that core DSL types are usable.
 static_assert(rpc::spec::typeNameOf<int64_t>() == "int64");
 static_assert(rpc::spec::typeNameOf<bool>() == "bool");
 static_assert(rpc::spec::typeNameOf<std::string>() == "string");

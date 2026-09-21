@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'mptoken_issuance_history' RPC command.
-//
 // Clio-only method: returns past transactions associated with an MPTokenIssuance,
 // optionally filtered by an affected account and/or transaction type.
 
@@ -37,7 +35,9 @@ inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> Ma
     return {};
 }};
 
-/** @brief Maps the -1 sentinel onto "unset", matching account_tx. */
+/**
+ * @brief Maps the -1 sentinel onto "unset", matching account_tx.
+ */
 struct Int32BoundConverter
 {
     static constexpr std::string_view kName = "int32";
@@ -97,10 +97,14 @@ inline constexpr auto kInputSpec = spec<Input>(
             field("seq", required, type<uint32_t>))),
         markerConv));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

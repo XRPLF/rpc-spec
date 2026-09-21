@@ -16,7 +16,7 @@ using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kHASH64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
+constexpr char const* kHash64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
 
 struct LedgerOnlyInput
 {
@@ -155,7 +155,7 @@ TEST(LedgerSelector, ValidHashYieldsHash)
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789" })JSON");
     ASSERT_TRUE(led.isHash());
     xrpl::uint256 expected;
-    ASSERT_TRUE(expected.parseHex(kHASH64));
+    ASSERT_TRUE(expected.parseHex(kHash64));
     EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 
@@ -183,7 +183,7 @@ TEST(LedgerSelector, BothHashAndIndexPrefersHash)
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": 5 })JSON");
     ASSERT_TRUE(led.isHash());
     xrpl::uint256 expected;
-    ASSERT_TRUE(expected.parseHex(kHASH64));
+    ASSERT_TRUE(expected.parseHex(kHash64));
     EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 

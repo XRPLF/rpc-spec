@@ -43,22 +43,6 @@
 
 namespace rpc::spec {
 
-namespace detail {
-
-template <typename T>
-struct IsOptional : std::false_type
-{
-};
-template <typename T>
-struct IsOptional<std::optional<T>> : std::true_type
-{
-};
-
-}  // namespace detail
-
-template <typename T>
-inline constexpr bool kIsOptional = detail::IsOptional<std::remove_cvref_t<T>>::value;
-
 /**
  * @brief A converter validates a field and produces its strong-typed value.
  *
@@ -100,8 +84,6 @@ struct BoundField
     {
     }
 
-    // Guard 1: the converter's output must be assignable to the bound member.
-    // A spec/Input type mismatch is therefore a compile error, not a runtime bug.
     static_assert(
         std::is_assignable_v<Member&, typename Conv::ValueType>,
         "rpcspec: converter output type is not assignable to the bound Input member");
@@ -124,15 +106,7 @@ struct BoundField
     {
         auto fa = root.child(key);  // mutable view so modifiers can write in place
 
-        // Requirements + modifiers in declaration order (e.g. `required`, `clamp`,
-        // `toLower`): validate and mutate the field, stopping at the first error.
-        MaybeError pre{};
-        std::apply(
-            [&](auto const&... it) {
-                (void)((pre = callIfProcessor(it, fa), pre.has_value()) && ...);
-            },
-            items);
-        if (!pre.has_value())
+        if (auto const pre = runProcessors(items, fa); !pre.has_value())
             return pre;
 
         // Absent → apply a spec-declared default if one is attached (defaultTo), else
@@ -143,7 +117,6 @@ struct BoundField
             return {};
         }
 
-        // Validate and transform the (possibly modified) value into the strong type.
         auto res = conv.parse(fa);
         if (!res.has_value())
             return std::unexpected{std::move(res).error()};
@@ -164,7 +137,7 @@ struct BoundField
     {
         auto const fa = root.child(key);
         Warnings out;
-        std::apply([&](auto const&... it) { (callIfChecker(it, fa, out), ...); }, items);
+        runChecks(items, fa, out);
         return out;
     }
 
@@ -397,7 +370,7 @@ struct TypedSpec
 {
     std::tuple<Fields...> fields;
 
-    // Guard 2: every member of the Input aggregate must be bound by exactly one
+    // Every member of the Input aggregate must be bound by exactly one
     // (distinct) field. Forgetting to bind a member would silently leave it
     // default-constructed; binding the same number of distinct members as the
     // aggregate has is therefore enforced at compile time via boost::pfr (no
@@ -495,82 +468,43 @@ struct TypedSpec
 private:
     template <SomeObjectView Root, std::size_t... Is>
     [[nodiscard]] std::expected<InputT, rpc::Status>
-    parseImpl(Root& root, std::index_sequence<Is...>) const
+    parseImpl(Root& root, std::index_sequence<Is...> seq) const
     {
         InputT out{};
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = MaybeError (*)(std::tuple<Fields...> const&, Root&, InputT&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](std::tuple<Fields...> const& t, Root& r, InputT& o) -> MaybeError {
-                    return parseOne(std::get<Is>(t), r, o);
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (!plan.shouldRun[i])
-                    continue;
-                if (auto res = kDispatch[plan.effectiveIdx[i]](fields, root, out); !res.has_value())
-                    return std::unexpected{std::move(res).error()};
-            }
-        }
+        MaybeError result{};
+        impl::forEachEffectiveField(
+            fields,
+            [&](auto const& fs, auto idx) {
+                result = parseOne(std::get<idx()>(fs), root, out);
+                return result.has_value();
+            },
+            seq);
+        if (!result.has_value())
+            return std::unexpected{std::move(result).error()};
         return out;
     }
 
     template <SomeObjectView Root, std::size_t... Is>
     [[nodiscard]] Warnings
-    checkImpl(Root const& root, std::index_sequence<Is...>) const
+    checkImpl(Root const& root, std::index_sequence<Is...> seq) const
     {
         Warnings out;
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = Warnings (*)(std::tuple<Fields...> const&, Root const&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](std::tuple<Fields...> const& t, Root const& r) -> Warnings {
-                    return std::get<Is>(t).check(r);
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (!plan.shouldRun[i])
-                    continue;
-                auto w = kDispatch[plan.effectiveIdx[i]](fields, root);
+        impl::forEachEffectiveField(
+            fields,
+            [&](auto const& fs, auto idx) {
+                auto w = std::get<idx()>(fs).check(root);
                 out.insert(out.end(), w.begin(), w.end());
-            }
-        }
+            },
+            seq);
         return out;
     }
 
     template <std::size_t... Is>
     void
-    dumpImpl(SpecDumpWriter& w, std::index_sequence<Is...>) const
+    dumpImpl(SpecDumpWriter& w, std::index_sequence<Is...> seq) const
     {
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = void (*)(SpecDumpWriter&, std::tuple<Fields...> const&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](SpecDumpWriter& wr, std::tuple<Fields...> const& t) {
-                    dumpOne(wr, std::get<Is>(t));
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (plan.shouldRun[i])
-                    kDispatch[plan.effectiveIdx[i]](w, fields);
-            }
-        }
+        impl::forEachEffectiveField(
+            fields, [&](auto const& fs, auto idx) { dumpOne(w, std::get<idx()>(fs)); }, seq);
     }
 
     template <typename F>

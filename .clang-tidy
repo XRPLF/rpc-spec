@@ -178,5 +178,5 @@ CheckOptions:
   readability-identifier-naming.PublicMemberCase: camelBack
   readability-identifier-naming.PublicMemberSuffix: ""
 
-HeaderFilterRegex: '^.*/rpcspec/.*\.(h|hpp|ipp)$'
+HeaderFilterRegex: '^.*/(rpcspec|admissionspec)/.*\.(h|hpp|ipp)$'
 WarningsAsErrors: "*"

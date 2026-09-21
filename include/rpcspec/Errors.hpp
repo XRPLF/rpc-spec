@@ -50,7 +50,9 @@ enum class ClioError {
 #error "rpcspec: define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_XRPLD=1 (the server backend macro)"
 #endif
 
-/** @brief Clio uses compatible Rippled error codes for most RPC errors. */
+/**
+ * @brief Clio uses compatible Rippled error codes for most RPC errors.
+ */
 using RippledError = xrpl::ErrorCodeI;
 
 #if defined(RPCSPEC_IS_CLIO)
@@ -72,35 +74,75 @@ using CombinedError = std::variant<RippledError>;
 // TODO: these are possibly worth unifying at some point instead of trying to keep separated and
 // mimic what original Clio/xrpld was doing. NOLINTBEGIN(readability-identifier-naming)
 #if defined(RPCSPEC_IS_CLIO)
-/** @brief Malformed request (Clio: 5001 / xrpld: invalid params). */
+/**
+ * @brief Malformed request (Clio: 5001 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedRequest = ClioError::RpcMalformedRequest;
-/** @brief Malformed address (Clio: 5003 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed address (Clio: 5003 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedAddress = ClioError::RpcMalformedAddress;
-/** @brief Malformed owner account (Clio: 5002 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed owner account (Clio: 5002 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedOwner = ClioError::RpcMalformedOwner;
-/** @brief Malformed currency (Clio: 5000 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed currency (Clio: 5000 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedCurrency = ClioError::RpcMalformedCurrency;
-/** @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedOracleDocumentId = ClioError::RpcMalformedOracleDocumentId;
-/** @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedAuthorizedCredentials =
     ClioError::RpcMalformedAuthorizedCredentials;
-/** @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params). */
+
+/**
+ * @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kFieldNotFoundTransaction = ClioError::RpcFieldNotFoundTransaction;
 #else
-/** @brief Malformed request (Clio: 5001 / xrpld: invalid params). */
+/**
+ * @brief Malformed request (Clio: 5001 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedRequest = xrpl::RpcInvalidParams;
-/** @brief Malformed address (Clio: 5003 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed address (Clio: 5003 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedAddress = xrpl::RpcInvalidParams;
-/** @brief Malformed owner account (Clio: 5002 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed owner account (Clio: 5002 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedOwner = xrpl::RpcInvalidParams;
-/** @brief Malformed currency (Clio: 5000 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed currency (Clio: 5000 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedCurrency = xrpl::RpcInvalidParams;
-/** @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed oracle document id (Clio: 5007 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedOracleDocumentId = xrpl::RpcInvalidParams;
-/** @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params). */
+
+/**
+ * @brief Malformed authorized_credentials array (Clio: 5008 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kMalformedAuthorizedCredentials = xrpl::RpcInvalidParams;
-/** @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params). */
+
+/**
+ * @brief Required transaction field missing (Clio: 5006 / xrpld: invalid params).
+ */
 inline constexpr CombinedError kFieldNotFoundTransaction = xrpl::RpcInvalidParams;
 #endif
 // NOLINTEND(readability-identifier-naming)
@@ -225,7 +267,9 @@ malformedCursorMessage([[maybe_unused]] std::string_view field)
 #endif
 }
 
-/** @brief A status returned from any RPC handler. */
+/**
+ * @brief A status returned from any RPC handler.
+ */
 struct Status
 {
     CombinedError code = xrpl::RpcSuccess;
@@ -345,7 +389,9 @@ struct Status
     operator<<(std::ostream& stream, Status const& status);
 };
 
-/** @brief Warning codes that can be returned by clio. */
+/**
+ * @brief Warning codes that can be returned by clio.
+ */
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum WarningCode {
     WarnUnknown = -1,
@@ -355,7 +401,9 @@ enum WarningCode {
     WarnRpcDeprecated = 2004
 };
 
-/** @brief Holds information about a clio warning. */
+/**
+ * @brief Holds information about a clio warning.
+ */
 struct WarningInfo
 {
     constexpr WarningInfo() = default;
@@ -383,7 +431,7 @@ struct WarningInfo
 [[nodiscard]] inline WarningInfo const&
 getWarningInfo(WarningCode code)
 {
-    static constexpr WarningInfo kINFOS[]{
+    static constexpr WarningInfo kInfos[]{
         {WarningCode::WarnUnknown, "Unknown warning"},
         {WarningCode::WarnRpcClio,
          "This is a clio server. clio only serves validated data. If you want to talk to xrpld, "
@@ -395,7 +443,7 @@ getWarningInfo(WarningCode code)
          "https://xrpl.org/docs/references/http-websocket-apis/ and update your request."}};
 
     auto matchByCode = [code](auto const& info) { return info.code == code; };
-    if (auto it = std::ranges::find_if(kINFOS, matchByCode); it != std::end(kINFOS))
+    if (auto it = std::ranges::find_if(kInfos, matchByCode); it != std::end(kInfos))
         return *it;
 
     throw std::out_of_range("Invalid WarningCode");

@@ -18,7 +18,9 @@ inline constexpr uint32_t kLimitMin = 1;
 inline constexpr uint32_t kLimitMax = 100;
 inline constexpr uint32_t kLimitDefault = 50;
 
-/** @brief Largest number of accounts the `accounts` filter accepts. */
+/**
+ * @brief Largest number of accounts the `accounts` filter accepts.
+ */
 inline constexpr std::size_t kMaxAccounts = 100;
 
 /**
@@ -29,6 +31,7 @@ struct Input
     LedgerSpecifier ledger;
     xrpl::uint192 mptID;
     std::optional<xrpl::AccountID> marker;
+
     /**
      * @brief The client-supplied page size, unset when the request omits it.
      *

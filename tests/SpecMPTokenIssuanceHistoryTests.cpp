@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the Clio-only `mptoken_issuance_history` typed spec.
  */
 
@@ -9,14 +10,16 @@
 #include <rpcspec/handlers/mptoken_issuance_history/Spec.hpp>
 #include <rpcspec/handlers/mptoken_issuance_history/Types.hpp>
 
+#include <xrpl_mock.hpp>
+
 #include <string>
 
 using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kMPT_ID = "000004C463C52827307480341125DA0577DEFC38405DBADD";
-constexpr char const* kACCOUNT = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr char const* kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr char const* kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parseHistory(std::string const& json)
@@ -28,7 +31,7 @@ parseHistory(std::string const& json)
 std::string
 withMptId(std::string const& extra = "")
 {
-    return std::string{R"JSON({"mpt_issuance_id": ")JSON"} + kMPT_ID + R"JSON(")JSON" + extra + "}";
+    return std::string{R"JSON({"mpt_issuance_id": ")JSON"} + kMptId + R"JSON(")JSON" + extra + "}";
 }
 
 }  // namespace
@@ -39,7 +42,7 @@ TEST(MPTokenIssuanceHistorySpec, MinimalRequestParses)
     ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
 
     xrpl::uint192 expected{};
-    ASSERT_TRUE(expected.parseHex(kMPT_ID));
+    ASSERT_TRUE(expected.parseHex(kMptId));
     EXPECT_EQ(r->mptIssuanceId, expected);
     EXPECT_FALSE(r->account.has_value());
     EXPECT_FALSE(r->limit.has_value());
@@ -63,7 +66,7 @@ TEST(MPTokenIssuanceHistorySpec, MalformedMptIssuanceIdFails)
 TEST(MPTokenIssuanceHistorySpec, AccountParses)
 {
     auto const r =
-        parseHistory(withMptId(std::string{R"JSON(, "account": ")JSON"} + kACCOUNT + "\""));
+        parseHistory(withMptId(std::string{R"JSON(, "account": ")JSON"} + kAccount + "\""));
     ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
     EXPECT_TRUE(r->account.has_value());
 }

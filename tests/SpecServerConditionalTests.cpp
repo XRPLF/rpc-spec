@@ -23,6 +23,7 @@
 
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <variant>
 
 using namespace rpc::spec;
@@ -36,7 +37,7 @@ namespace {
 // `clio_only` rejects a true value only in Clio builds; `xrpld_only` rejects a
 // true value only in xrpld builds. Under RPCSPEC_IS_CLIO the first fires and
 // the second is inert.
-constexpr auto kSPEC = RpcSpec{
+constexpr auto kSpec = RpcSpec{
     field("clio_only", ifServerClio(notSupportedIf(true))),
     field("xrpld_only", ifServerXrpld(notSupportedIf(true))),
 };
@@ -45,7 +46,7 @@ constexpr auto kSPEC = RpcSpec{
 TEST(ServerConditionalClio, IfServerClioValidatorIsApplied)
 {
     auto bad = boost::json::parse(R"JSON({ "clio_only": true })JSON");
-    auto const r = kSPEC.process(bad);
+    auto const r = kSpec.process(bad);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
 }
@@ -53,13 +54,13 @@ TEST(ServerConditionalClio, IfServerClioValidatorIsApplied)
 TEST(ServerConditionalClio, IfServerClioValidatorAllowsNonTriggeringValue)
 {
     auto ok = boost::json::parse(R"JSON({ "clio_only": false })JSON");
-    EXPECT_TRUE(kSPEC.process(ok).has_value());
+    EXPECT_TRUE(kSpec.process(ok).has_value());
 }
 
 TEST(ServerConditionalClio, IfServerXrpldValidatorIsInertInClioBuild)
 {
     auto value = boost::json::parse(R"JSON({ "xrpld_only": true })JSON");
-    EXPECT_TRUE(kSPEC.process(value).has_value());
+    EXPECT_TRUE(kSpec.process(value).has_value());
 }
 
 TEST(SubscribeSpecClio, ServerStreamRejectedWithNotSupported)

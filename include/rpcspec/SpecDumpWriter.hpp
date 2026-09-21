@@ -32,14 +32,18 @@ public:
     {
     }
 
-    /** @brief Increase the current indentation level by one step. */
+    /**
+     * @brief Increase the current indentation level by one step.
+     */
     void
     push() noexcept
     {
         ++indent_;
     }
 
-    /** @brief Decrease the current indentation level by one step. */
+    /**
+     * @brief Decrease the current indentation level by one step.
+     */
     void
     pop() noexcept
     {

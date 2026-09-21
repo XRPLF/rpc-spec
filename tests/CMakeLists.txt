@@ -10,14 +10,11 @@ add_executable(
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
-    RpcSpec.cpp
     SpecAccountObjectsTests.cpp
     SpecAccountTxDelegateTests.cpp
     SpecBookOffersTests.cpp
-    SpecMPTHoldersTests.cpp
-    SpecMPTokenIssuanceHistoryTests.cpp
-    StatusPrinter.cpp
     SpecCoreTests.cpp
+    SpecCoreTypesTests.cpp
     SpecDefaultTests.cpp
     SpecFieldViewTests.cpp
     SpecJsonBoolTests.cpp
@@ -25,8 +22,11 @@ add_executable(
     SpecLedgerTests.cpp
     SpecMockBackendTests.cpp
     SpecModifierTests.cpp
+    SpecMPTHoldersTests.cpp
+    SpecMPTokenIssuanceHistoryTests.cpp
     SpecSubscribeTests.cpp
     SpecValidatorTests.cpp
+    StatusPrinter.cpp
 )
 
 target_link_libraries(

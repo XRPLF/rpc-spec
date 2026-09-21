@@ -34,7 +34,9 @@ namespace rpc::spec {
 template <typename InputT>
 struct HandlerFor
 {
-    /** @brief The request Input type, inherited by the handler. */
+    /**
+     * @brief The request Input type, inherited by the handler.
+     */
     using Input = InputT;
 
     /**

@@ -157,7 +157,4 @@ public:
     }
 };
 
-/** @brief Backward-compatible alias for `RpcSpecView`. */
-using RpcSpecConstRef = RpcSpecView;
-
 }  // namespace rpc::spec

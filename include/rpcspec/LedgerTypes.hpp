@@ -33,7 +33,7 @@ struct LedgerTypeEntry
  * @brief Every known ledger object type, with its RPC name and category.
  */
 // clang-format off
-constexpr std::array<LedgerTypeEntry, 31> kLedgerTypesTable{{
+inline constexpr auto kLedgerTypesTable = std::to_array<LedgerTypeEntry>({
     {.name = "AccountRoot",                     .rpcName = "account",                              .type = xrpl::ltACCOUNT_ROOT,                          .category = LedgerCategory::AccountOwned},
     {.name = "Amendments",                      .rpcName = "amendments",                           .type = xrpl::ltAMENDMENTS,                            .category = LedgerCategory::Chain},
     {.name = "Check",                           .rpcName = "check",                                .type = xrpl::ltCHECK,                                 .category = LedgerCategory::DeletionBlocker},
@@ -66,7 +66,7 @@ constexpr std::array<LedgerTypeEntry, 31> kLedgerTypesTable{{
     {.name = "PermissionedDomain",              .rpcName = "permissioned_domain",                  .type = xrpl::ltPERMISSIONED_DOMAIN,                   .category = LedgerCategory::DeletionBlocker},
     {.name = "Delegate",                        .rpcName = "delegate",                             .type = xrpl::ltDELEGATE,                              .category = LedgerCategory::AccountOwned},
     {.name = "Sponsorship",                     .rpcName = "sponsorship",                          .type = xrpl::ltSPONSORSHIP,                           .category = LedgerCategory::DeletionBlocker},
-}};
+});
 // clang-format on
 
 /**
@@ -87,7 +87,6 @@ struct LedgerTypeInfo
 [[nodiscard]] inline std::optional<LedgerTypeInfo>
 ledgerTypeInfoFromStr(std::string const& entryName)
 {
-    // Exact rpc-name match (e.g. "account", "nft_offer").
     static auto const kRpcMap = [] {
         std::unordered_map<std::string, LedgerTypeInfo> byRpcName;
         for (auto const& entry : kLedgerTypesTable)

@@ -61,6 +61,33 @@ public:
     {
     }
 
+    /**
+     * @brief An absent view for @p k, derived from a mutable parent.
+     *
+     * A bare `nullptr` is ambiguous between the two constructors, so absent views need a cast
+     * to pick one. These two factories carry that cast once instead of at every return site.
+     *
+     * @param k The key the absent view reports.
+     * @return An absent view whose (unreachable) write path matches a mutable parent.
+     */
+    [[nodiscard]] static BoostJsonFieldView
+    absentMutable(std::string_view k) noexcept
+    {
+        return {static_cast<boost::json::value*>(nullptr), k};
+    }
+
+    /**
+     * @brief An absent read-only view for @p k.
+     *
+     * @param k The key the absent view reports.
+     * @return An absent, read-only view.
+     */
+    [[nodiscard]] static BoostJsonFieldView
+    absentConst(std::string_view k) noexcept
+    {
+        return {static_cast<boost::json::value const*>(nullptr), k};
+    }
+
     [[nodiscard]] std::string_view
     key() const noexcept
     {
@@ -194,15 +221,15 @@ public:
             auto& obj = writeValue_->as_object();
             auto it = obj.find(childKey);
             if (it == obj.end())
-                return {static_cast<boost::json::value*>(nullptr), childKey};
+                return absentMutable(childKey);
             return {&it->value(), childKey};
         }
         if (readValue_ == nullptr || !readValue_->is_object())
-            return {static_cast<boost::json::value const*>(nullptr), childKey};
+            return absentConst(childKey);
         auto const& obj = readValue_->as_object();
         auto it = obj.find(childKey);
         if (it == obj.end())
-            return {static_cast<boost::json::value const*>(nullptr), childKey};
+            return absentConst(childKey);
         return {&it->value(), childKey};
     }
 
@@ -222,14 +249,14 @@ public:
         {
             auto& arr = writeValue_->as_array();
             if (idx >= arr.size())
-                return {static_cast<boost::json::value*>(nullptr), key_};
+                return absentMutable(key_);
             return {&arr[idx], key_};
         }
         if (readValue_ == nullptr || !readValue_->is_array())
-            return {static_cast<boost::json::value const*>(nullptr), key_};
+            return absentConst(key_);
         auto const& arr = readValue_->as_array();
         if (idx >= arr.size())
-            return {static_cast<boost::json::value const*>(nullptr), key_};
+            return absentConst(key_);
         return {&arr[idx], key_};
     }
 
@@ -281,36 +308,46 @@ public:
         }
     }
 
-    /** @brief Overwrite the field value with a signed 64-bit integer. @param v The new value. */
+    /**
+     * @brief Overwrite the field value with a signed 64-bit integer. @param v The new value.
+     */
     void
     set(int64_t v)
     {
         *writeValue_ = v;
     }
 
-    /** @brief Overwrite the field value with an unsigned 32-bit integer (stored as uint64 in
-     * boost::json). @param v The new value. */
+    /**
+     * @brief Overwrite the field value with an unsigned 32-bit integer (stored as uint64 in
+     * boost::json). @param v The new value.
+     */
     void
     set(uint32_t v)
     {
         *writeValue_ = static_cast<uint64_t>(v);  // boost::json stores unsigned as uint64
     }
 
-    /** @brief Overwrite the field value with a string. @param v The new value. */
+    /**
+     * @brief Overwrite the field value with a string. @param v The new value.
+     */
     void
     set(std::string_view v)
     {
         *writeValue_ = boost::json::string{v};
     }
 
-    /** @brief Overwrite the field value with a boolean. @param v The new value. */
+    /**
+     * @brief Overwrite the field value with a boolean. @param v The new value.
+     */
     void
     set(bool v)
     {
         *writeValue_ = v;
     }
 
-    /** @brief Overwrite the field value with a double. @param v The new value. */
+    /**
+     * @brief Overwrite the field value with a double. @param v The new value.
+     */
     void
     set(double v)
     {
@@ -380,7 +417,7 @@ public:
             if (auto it = obj.find(key); it != obj.end())
                 return BoostJsonFieldView{&it->value(), key};
         }
-        return BoostJsonFieldView{static_cast<boost::json::value*>(nullptr), key};
+        return BoostJsonFieldView::absentMutable(key);
     }
 
     /**
@@ -400,7 +437,7 @@ public:
             if (auto it = obj.find(key); it != obj.end())
                 return BoostJsonFieldView{&it->value(), key};
         }
-        return BoostJsonFieldView{static_cast<boost::json::value const*>(nullptr), key};
+        return BoostJsonFieldView::absentConst(key);
     }
 };
 

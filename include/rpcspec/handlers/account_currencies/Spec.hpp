@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'account_currencies' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -19,10 +17,14 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("account_index", deprecated),
     field("strict", deprecated));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

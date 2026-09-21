@@ -22,14 +22,15 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
-#include <string>
 #include <string_view>
 
 using namespace rpc::spec;
 
 namespace {
 
-/** @brief Runs @p json through @p spec and returns the resulting Status. */
+/**
+ * @brief Runs @p json through @p spec and returns the resulting Status.
+ */
 template <typename Spec>
 rpc::Status
 statusOf(Spec const& spec, std::string_view json)
@@ -55,26 +56,26 @@ TEST(ClioErrors, HexFieldMessagesAreBuiltFromTheKey)
 
 TEST(ClioErrors, Uint256ValidatorReportsNotStringThenMalformed)
 {
-    static constexpr auto kSPEC = RpcSpec{field("nft_id", uint256Hex)};
+    static constexpr auto kSpec = RpcSpec{field("nft_id", uint256Hex)};
 
-    auto const notString = statusOf(kSPEC, R"JSON({"nft_id": 1})JSON");
+    auto const notString = statusOf(kSpec, R"JSON({"nft_id": 1})JSON");
     EXPECT_EQ(notString, rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(notString.message, "nft_idNotString");
 
-    auto const malformed = statusOf(kSPEC, R"JSON({"nft_id": "xxx"})JSON");
+    auto const malformed = statusOf(kSpec, R"JSON({"nft_id": "xxx"})JSON");
     EXPECT_EQ(malformed, rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(malformed.message, "nft_idMalformed");
 }
 
 TEST(ClioErrors, Uint192ValidatorReportsNotStringThenMalformed)
 {
-    static constexpr auto kSPEC = RpcSpec{field("mpt_issuance_id", uint192Hex)};
+    static constexpr auto kSpec = RpcSpec{field("mpt_issuance_id", uint192Hex)};
 
     EXPECT_EQ(
-        statusOf(kSPEC, R"JSON({"mpt_issuance_id": true})JSON").message,
+        statusOf(kSpec, R"JSON({"mpt_issuance_id": true})JSON").message,
         "mpt_issuance_idNotString");
     EXPECT_EQ(
-        statusOf(kSPEC, R"JSON({"mpt_issuance_id": "nothex"})JSON").message,
+        statusOf(kSpec, R"JSON({"mpt_issuance_id": "nothex"})JSON").message,
         "mpt_issuance_idMalformed");
 }
 
@@ -89,20 +90,20 @@ struct LedgerOnlyInput
     LedgerSpecifier ledger;
 };
 
-constexpr auto kLEDGER_SPEC = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInput::ledger));
+constexpr auto kLedgerSpec = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInput::ledger));
 
 }  // namespace
 
 TEST(ClioErrors, LedgerHashReportsNotStringThenMalformed)
 {
     auto notString = boost::json::parse(R"JSON({"ledger_hash": 1})JSON");
-    auto const r1 = kLEDGER_SPEC.parse(notString);
+    auto const r1 = kLedgerSpec.parse(notString);
     ASSERT_FALSE(r1.has_value());
     EXPECT_EQ(r1.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(r1.error().message, "ledger_hashNotString");
 
     auto malformed = boost::json::parse(R"JSON({"ledger_hash": "xxx"})JSON");
-    auto const r2 = kLEDGER_SPEC.parse(malformed);
+    auto const r2 = kLedgerSpec.parse(malformed);
     ASSERT_FALSE(r2.has_value());
     EXPECT_EQ(r2.error().message, "ledger_hashMalformed");
 }
@@ -115,7 +116,7 @@ TEST(ClioErrors, LedgerIndexUsesOneTokenForEveryFailure)
           R"JSON({"ledger_index": -1})JSON"})
     {
         auto req = boost::json::parse(json);
-        auto const r = kLEDGER_SPEC.parse(req);
+        auto const r = kLedgerSpec.parse(req);
         ASSERT_FALSE(r.has_value()) << json;
         EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams) << json;
         EXPECT_EQ(r.error().message, "ledgerIndexMalformed") << json;
@@ -130,7 +131,7 @@ TEST(ClioErrors, LedgerIndexAcceptsValidatedAndSequences)
           R"JSON({"ledger_index": "42"})JSON"})
     {
         auto req = boost::json::parse(json);
-        EXPECT_TRUE(kLEDGER_SPEC.parse(req).has_value()) << json;
+        EXPECT_TRUE(kLedgerSpec.parse(req).has_value()) << json;
     }
 }
 
@@ -143,7 +144,7 @@ TEST(ClioErrors, LedgerIndexRejectsCurrentAndClosed)
          {R"JSON({"ledger_index": "current"})JSON", R"JSON({"ledger_index": "closed"})JSON"})
     {
         auto req = boost::json::parse(json);
-        auto const r = kLEDGER_SPEC.parse(req);
+        auto const r = kLedgerSpec.parse(req);
         ASSERT_FALSE(r.has_value()) << json;
         EXPECT_EQ(r.error().message, "ledgerIndexMalformed") << json;
     }
@@ -151,13 +152,13 @@ TEST(ClioErrors, LedgerIndexRejectsCurrentAndClosed)
 
 TEST(ClioErrors, LedgerIndexValidatorMatchesTheSelector)
 {
-    static constexpr auto kSPEC = RpcSpec{field("ledger_index", ledgerIndex)};
+    static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
 
-    EXPECT_EQ(statusOf(kSPEC, R"JSON({"ledger_index": true})JSON").message, "ledgerIndexMalformed");
+    EXPECT_EQ(statusOf(kSpec, R"JSON({"ledger_index": true})JSON").message, "ledgerIndexMalformed");
     EXPECT_EQ(
-        statusOf(kSPEC, R"JSON({"ledger_index": "current"})JSON").message, "ledgerIndexMalformed");
+        statusOf(kSpec, R"JSON({"ledger_index": "current"})JSON").message, "ledgerIndexMalformed");
     EXPECT_EQ(
-        statusOf(kSPEC, R"JSON({"ledger_index": "closed"})JSON").message, "ledgerIndexMalformed");
+        statusOf(kSpec, R"JSON({"ledger_index": "closed"})JSON").message, "ledgerIndexMalformed");
 }
 
 // ---------------------------------------------------------------------------
@@ -166,11 +167,11 @@ TEST(ClioErrors, LedgerIndexValidatorMatchesTheSelector)
 
 TEST(ClioErrors, AccountMarkerReportsNotStringThenMalformedCursor)
 {
-    static constexpr auto kSPEC = RpcSpec{field("marker", accountMarker)};
+    static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
 
-    EXPECT_EQ(statusOf(kSPEC, R"JSON({"marker": 1})JSON").message, "markerNotString");
-    EXPECT_EQ(statusOf(kSPEC, R"JSON({"marker": "nocomma"})JSON").message, "Malformed cursor.");
-    EXPECT_EQ(statusOf(kSPEC, R"JSON({"marker": "xxx,1"})JSON").message, "Malformed cursor.");
+    EXPECT_EQ(statusOf(kSpec, R"JSON({"marker": 1})JSON").message, "markerNotString");
+    EXPECT_EQ(statusOf(kSpec, R"JSON({"marker": "nocomma"})JSON").message, "Malformed cursor.");
+    EXPECT_EQ(statusOf(kSpec, R"JSON({"marker": "xxx,1"})JSON").message, "Malformed cursor.");
     EXPECT_EQ(rpc::malformedCursorMessage("marker"), "Malformed cursor.");
 }
 
@@ -179,7 +180,7 @@ TEST(ClioErrors, LedgerHashTakesPrecedenceOverLedgerIndexOnError)
     // Every handler declared ledger_hash ahead of ledger_index, so with both malformed the
     // hash error is the one reported.
     auto req = boost::json::parse(R"JSON({"ledger_hash": "xx", "ledger_index": "yy"})JSON");
-    auto const r = kLEDGER_SPEC.parse(req);
+    auto const r = kLedgerSpec.parse(req);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error().message, "ledger_hashMalformed");
 }
@@ -189,18 +190,18 @@ TEST(ClioErrors, LedgerIndexStillValidatedWhenHashIsValid)
     auto req = boost::json::parse(
         R"JSON({"ledger_hash": "4BC50C9B0D8515D3EAAE1E74B29A95804346C491EE1A95BF25E4AAB854A6A652",
                 "ledger_index": "yy"})JSON");
-    auto const r = kLEDGER_SPEC.parse(req);
+    auto const r = kLedgerSpec.parse(req);
     ASSERT_FALSE(r.has_value());
     EXPECT_EQ(r.error().message, "ledgerIndexMalformed");
 }
 
 TEST(ClioErrors, ToNumberRejectsValuesThatWouldTruncateToUint32)
 {
-    static constexpr auto kSPEC = RpcSpec{field("oracle_document_id", toNumber)};
+    static constexpr auto kSpec = RpcSpec{field("oracle_document_id", toNumber)};
 
     // Accepted and readable as a uint32.
     auto ok = boost::json::parse(R"JSON({"oracle_document_id": "4294967295"})JSON");
-    EXPECT_TRUE(kSPEC.process(ok).has_value());
+    EXPECT_TRUE(kSpec.process(ok).has_value());
 
     // One past uint32: must be rejected rather than silently wrapped.
     for (auto const* json :
@@ -209,6 +210,6 @@ TEST(ClioErrors, ToNumberRejectsValuesThatWouldTruncateToUint32)
           R"JSON({"oracle_document_id": "-1"})JSON"})
     {
         auto req = boost::json::parse(json);
-        EXPECT_FALSE(kSPEC.process(req).has_value()) << json;
+        EXPECT_FALSE(kSpec.process(req).has_value()) << json;
     }
 }

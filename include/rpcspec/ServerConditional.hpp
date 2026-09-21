@@ -10,10 +10,9 @@
 // ifServerXrpld(v...) — applies validators only in xrpld builds
 //
 // Each wrapper satisfies the union of the inner validators' concepts:
-//   SomeRequirement<IfServerClioValidator<Vs...>>  iff (SomeRequirement<Vs> ||
-//   ...) SomeCheck<IfServerClioValidator<Vs...>>        iff (SomeCheck<Vs> ||
-//   ...) SomeModifier<IfServerClioValidator<Vs...>>     iff (SomeModifier<Vs>
-//   || ...)
+//   SomeRequirement<IfServerClioValidator<Vs...>> iff (SomeRequirement<Vs> || ...)
+//   SomeCheck<IfServerClioValidator<Vs...>>       iff (SomeCheck<Vs> || ...)
+//   SomeModifier<IfServerClioValidator<Vs...>>    iff (SomeModifier<Vs> || ...)
 //
 // Multiple validators may be passed; they are applied in order:
 //   field("full", ifServerClio(notSupportedIf(true), deprecated))
@@ -32,252 +31,159 @@
 
 #include <optional>
 #include <tuple>
+#include <type_traits>
 
 namespace rpc::spec {
 
+// The server macros are lifted to constexpr booleans once, here, so the rest of the DSL can
+// branch with `if constexpr` instead of scattering #ifdefs through template bodies.
+
 /**
- * @brief Applies a set of validators only when compiled for the Clio server.
- *
- * In xrpld builds every member function is a no-op that returns success, so
- * the inner validators are entirely elided. The struct satisfies whichever of
- * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
- * one of the inner validators @p Vs.
- *
- * Use the `ifServerClio()` factory alias rather than constructing this directly.
- *
- * @tparam Vs Processor types whose constraints are applied in Clio builds.
+ * @brief True in a Clio build. The checks above guarantee exactly one of the two is true.
  */
-template <typename... Vs>
-struct IfServerClioValidator
+inline constexpr bool kIsClioBuild =
+#if defined(RPCSPEC_IS_CLIO)
+    true;
+#else
+    false;
+#endif
+
+/**
+ * @brief True in an xrpld build.
+ */
+inline constexpr bool kIsXrpldBuild = !kIsClioBuild;
+
+/**
+ * @brief Applies a set of validators only when @p Active — i.e. only in the matching build.
+ *
+ * When @p Active is false every member function is a no-op returning success, so the inner
+ * validators are entirely elided. The struct satisfies whichever of `SomeRequirement`,
+ * `SomeCheck`, and `SomeModifier` are satisfied by at least one of the inner validators @p Vs,
+ * regardless of @p Active — the wrapper must present the same interface in both builds so a
+ * spec literal compiles identically for either server.
+ *
+ * Use the `ifServerClio()` / `ifServerXrpld()` factories rather than constructing this directly.
+ *
+ * @tparam Active Whether the inner validators run in this build.
+ * @tparam Vs     Processor types to apply when @p Active.
+ */
+template <bool Active, typename... Vs>
+struct ServerConditionalValidator
 {
     std::tuple<Vs...> inners;
 
     /**
      * @brief Constructs the validator with the given set of inner processors.
      *
-     * @param vs Inner processors to run in Clio builds.
+     * @param vs Inner processors to run when @p Active.
      */
-    consteval explicit IfServerClioValidator(Vs... vs) : inners(vs...)
+    consteval explicit ServerConditionalValidator(Vs... vs) : inners(vs...)
     {
     }
 
     /**
-     * @brief Runs the inner requirements in Clio builds; always succeeds in xrpld builds.
+     * @brief Runs the inner requirements in the matching build; always succeeds otherwise.
      *
      * @param f  Field view for the field under validation.
-     * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (Clio only).
+     * @return   Empty on success; a `rpc::Status` error if any inner requirement fails.
      */
     template <SomeFieldView FA>
     [[nodiscard]] MaybeError
     verify([[maybe_unused]] FA const& f) const
         requires(SomeRequirement<Vs> || ...)
     {
-#if RPCSPEC_IS_CLIO
         MaybeError result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryVerify = [&](auto const& v) -> bool {
-                    if constexpr (SomeRequirement<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        result = v.verify(f);
-                        return result.has_value();
-                    }
-                    return true;
-                };
-                (tryVerify(vs) && ...);
-            },
-            inners);
+        if constexpr (Active)
+        {
+            std::apply(
+                [&](auto const&... vs) {
+                    auto tryVerify = [&](auto const& v) -> bool {
+                        if constexpr (SomeRequirement<std::remove_cvref_t<decltype(v)>>)
+                        {
+                            result = v.verify(f);
+                            return result.has_value();
+                        }
+                        return true;
+                    };
+                    (tryVerify(vs) && ...);
+                },
+                inners);
+        }
         return result;
-#else
-        return {};
-#endif
     }
 
     /**
-     * @brief Runs the inner checkers in Clio builds; always returns no warning in xrpld builds.
+     * @brief Runs the inner checkers in the matching build; always returns no warning otherwise.
      *
      * @param f  Field view for the field under checking.
-     * @return   The first warning produced by an inner checker, or `std::nullopt` (Clio only).
+     * @return   The first warning produced by an inner checker, or `std::nullopt`.
      */
     template <SomeFieldView FA>
     [[nodiscard]] std::optional<Warning>
     check([[maybe_unused]] FA const& f) const
         requires(SomeCheck<Vs> || ...)
     {
-#if RPCSPEC_IS_CLIO
         std::optional<Warning> result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryCheck = [&](auto const& v) {
-                    if constexpr (SomeCheck<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        if (!result)
-                            result = v.check(f);
-                    }
-                };
-                (tryCheck(vs), ...);
-            },
-            inners);
+        if constexpr (Active)
+        {
+            std::apply(
+                [&](auto const&... vs) {
+                    auto tryCheck = [&](auto const& v) {
+                        if constexpr (SomeCheck<std::remove_cvref_t<decltype(v)>>)
+                        {
+                            if (!result)
+                                result = v.check(f);
+                        }
+                    };
+                    (tryCheck(vs), ...);
+                },
+                inners);
+        }
         return result;
-#else
-        return std::nullopt;
-#endif
     }
 
     /**
-     * @brief Runs the inner modifiers in Clio builds; always succeeds in xrpld builds.
+     * @brief Runs the inner modifiers in the matching build; always succeeds otherwise.
      *
      * @param f  Mutable field view for the field under modification.
-     * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (Clio only).
+     * @return   Empty on success; a `rpc::Status` error if any inner modifier fails.
      */
     template <SomeFieldView FA>
     [[nodiscard]] MaybeError
     modify([[maybe_unused]] FA& f) const
         requires(SomeModifier<Vs> || ...)
     {
-#if RPCSPEC_IS_CLIO
         MaybeError result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryModify = [&](auto const& v) -> bool {
-                    if constexpr (SomeModifier<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        result = v.modify(f);
-                        return result.has_value();
-                    }
-                    return true;
-                };
-                (tryModify(vs) && ...);
-            },
-            inners);
+        if constexpr (Active)
+        {
+            std::apply(
+                [&](auto const&... vs) {
+                    auto tryModify = [&](auto const& v) -> bool {
+                        if constexpr (SomeModifier<std::remove_cvref_t<decltype(v)>>)
+                        {
+                            result = v.modify(f);
+                            return result.has_value();
+                        }
+                        return true;
+                    };
+                    (tryModify(vs) && ...);
+                },
+                inners);
+        }
         return result;
-#else
-        return {};
-#endif
     }
 };
+
+/**
+ * @brief Applies a set of validators only when compiled for the Clio server.
+ */
+template <typename... Vs>
+using IfServerClioValidator = ServerConditionalValidator<kIsClioBuild, Vs...>;
 
 /**
  * @brief Applies a set of validators only when compiled for the xrpld server.
- *
- * In Clio builds every member function is a no-op that returns success, so
- * the inner validators are entirely elided. The struct satisfies whichever of
- * `SomeRequirement`, `SomeCheck`, and `SomeModifier` are satisfied by at least
- * one of the inner validators @p Vs.
- *
- * Use the `ifServerXrpld()` factory alias rather than constructing this directly.
- *
- * @tparam Vs Processor types whose constraints are applied in xrpld builds.
  */
 template <typename... Vs>
-struct IfServerXrpldValidator
-{
-    std::tuple<Vs...> inners;
-
-    /**
-     * @brief Constructs the validator with the given set of inner processors.
-     *
-     * @param vs Inner processors to run in xrpld builds.
-     */
-    consteval explicit IfServerXrpldValidator(Vs... vs) : inners(vs...)
-    {
-    }
-
-    /**
-     * @brief Runs the inner requirements in xrpld builds; always succeeds in Clio builds.
-     *
-     * @param f  Field view for the field under validation.
-     * @return   Empty on success; a `rpc::Status` error if any inner requirement fails (xrpld
-     * only).
-     */
-    template <SomeFieldView FA>
-    [[nodiscard]] MaybeError
-    verify([[maybe_unused]] FA const& f) const
-        requires(SomeRequirement<Vs> || ...)
-    {
-#if RPCSPEC_IS_XRPLD
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryVerify = [&](auto const& v) -> bool {
-                    if constexpr (SomeRequirement<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        result = v.verify(f);
-                        return result.has_value();
-                    }
-                    return true;
-                };
-                (tryVerify(vs) && ...);
-            },
-            inners);
-        return result;
-#else
-        return {};
-#endif
-    }
-
-    /**
-     * @brief Runs the inner checkers in xrpld builds; always returns no warning in Clio builds.
-     *
-     * @param f  Field view for the field under checking.
-     * @return   The first warning produced by an inner checker, or `std::nullopt` (xrpld only).
-     */
-    template <SomeFieldView FA>
-    [[nodiscard]] std::optional<Warning>
-    check([[maybe_unused]] FA const& f) const
-        requires(SomeCheck<Vs> || ...)
-    {
-#if RPCSPEC_IS_XRPLD
-        std::optional<Warning> result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryCheck = [&](auto const& v) {
-                    if constexpr (SomeCheck<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        if (!result)
-                            result = v.check(f);
-                    }
-                };
-                (tryCheck(vs), ...);
-            },
-            inners);
-        return result;
-#else
-        return std::nullopt;
-#endif
-    }
-
-    /**
-     * @brief Runs the inner modifiers in xrpld builds; always succeeds in Clio builds.
-     *
-     * @param f  Mutable field view for the field under modification.
-     * @return   Empty on success; a `rpc::Status` error if any inner modifier fails (xrpld only).
-     */
-    template <SomeFieldView FA>
-    [[nodiscard]] MaybeError
-    modify([[maybe_unused]] FA& f) const
-        requires(SomeModifier<Vs> || ...)
-    {
-#if RPCSPEC_IS_XRPLD
-        MaybeError result{};
-        std::apply(
-            [&](auto const&... vs) {
-                auto tryModify = [&](auto const& v) -> bool {
-                    if constexpr (SomeModifier<std::remove_cvref_t<decltype(v)>>)
-                    {
-                        result = v.modify(f);
-                        return result.has_value();
-                    }
-                    return true;
-                };
-                (tryModify(vs) && ...);
-            },
-            inners);
-        return result;
-#else
-        return {};
-#endif
-    }
-};
+using IfServerXrpldValidator = ServerConditionalValidator<kIsXrpldBuild, Vs...>;
 
 }  // namespace rpc::spec

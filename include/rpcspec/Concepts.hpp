@@ -91,24 +91,26 @@ struct FieldViewArchetype
     isArray() const noexcept;
     [[nodiscard]] std::size_t
     arraySize() const noexcept;
-
     [[nodiscard]] std::size_t
     objectSize() const noexcept;
     template <typename T>
     [[nodiscard]] bool
     is() const noexcept;
-    [[nodiscard]] FieldViewArchetype child(std::string_view) const noexcept;
+
     [[nodiscard]] FieldViewArchetype
-    element(std::size_t) const noexcept;
+    child(std::string_view key) const noexcept;
+    [[nodiscard]] FieldViewArchetype
+    element(std::size_t idx) const noexcept;
     void
-    set(int64_t);
+    set(int64_t v);
     void
-    set(uint32_t);
-    void set(std::string_view);
+    set(uint32_t v);
     void
-    set(bool);
+    set(std::string_view v);
     void
-    set(double);
+    set(bool v);
+    void
+    set(double v);
 };
 
 }  // namespace detail
@@ -141,17 +143,15 @@ struct ObjectViewArchetype
     isObject() const noexcept;
     [[nodiscard]] bool
     isArray() const noexcept;
-    [[nodiscard]] FieldViewArchetype child(std::string_view) noexcept;
-    [[nodiscard]] FieldViewArchetype child(std::string_view) const noexcept;
+    [[nodiscard]] FieldViewArchetype
+    child(std::string_view key) noexcept;
+    [[nodiscard]] FieldViewArchetype
+    child(std::string_view key) const noexcept;
 };
 
 }  // namespace detail
 
 static_assert(SomeObjectView<detail::ObjectViewArchetype>);
-
-// Validator concepts use detail::FieldViewArchetype as the witness type so they
-// are decoupled from any concrete backend. Validators written as templates over
-// SomeFieldView satisfy these concepts automatically.
 
 /**
  * @brief A type that can validate a field without modifying it.

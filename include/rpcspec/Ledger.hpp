@@ -11,6 +11,7 @@
 
 #include <charconv>
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -35,13 +36,8 @@ enum class LedgerShortcut { Validated, Current, Closed };
  * Resolved at compile time from the server macro: xrpld defaults to the
  * current ledger, Clio to the latest validated one.
  */
-#if defined(RPCSPEC_IS_CLIO)
-inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Validated;
-#elif defined(RPCSPEC_IS_XRPLD)
-inline constexpr LedgerShortcut kDefaultLedgerShortcut = LedgerShortcut::Current;
-#else
-#error "rpcspec: define RPCSPEC_IS_CLIO=1 or RPCSPEC_IS_XRPLD=1 (the server backend macro)"
-#endif
+inline constexpr LedgerShortcut kDefaultLedgerShortcut =
+    kIsClioBuild ? LedgerShortcut::Validated : LedgerShortcut::Current;
 
 /**
  * @brief The ledger a request selects, as a single strong value.
@@ -63,28 +59,36 @@ struct LedgerSpecifier
 {
     std::variant<std::monostate, LedgerShortcut, xrpl::uint256, uint32_t> value;
 
-    /** @brief True when the request named no ledger (neither hash nor index). */
+    /**
+     * @brief True when the request named no ledger (neither hash nor index).
+     */
     [[nodiscard]] bool
     isUnspecified() const noexcept
     {
         return std::holds_alternative<std::monostate>(value);
     }
 
-    /** @brief True when the value is a shortcut (validated / current / closed). */
+    /**
+     * @brief True when the value is a shortcut (validated / current / closed).
+     */
     [[nodiscard]] bool
     isShortcut() const noexcept
     {
         return std::holds_alternative<LedgerShortcut>(value);
     }
 
-    /** @brief True when the value is a concrete ledger hash. */
+    /**
+     * @brief True when the value is a concrete ledger hash.
+     */
     [[nodiscard]] bool
     isHash() const noexcept
     {
         return std::holds_alternative<xrpl::uint256>(value);
     }
 
-    /** @brief True when the value is a concrete ledger sequence. */
+    /**
+     * @brief True when the value is a concrete ledger sequence.
+     */
     [[nodiscard]] bool
     isSequence() const noexcept
     {
@@ -132,14 +136,16 @@ ledgerSpecifierFromIndex(FA const& f)
     auto const sv = f.asString();
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
-#if !defined(RPCSPEC_IS_CLIO)
-    // Clio serves only validated data and never holds these two, so it rejects them; requests
-    // naming them are diverted to xrpld by ForwardingProxy before ever reaching validation.
-    if (sv == "current")
-        return LedgerSpecifier{LedgerShortcut::Current};
-    if (sv == "closed")
-        return LedgerSpecifier{LedgerShortcut::Closed};
-#endif
+    if constexpr (kIsXrpldBuild)
+    {
+        // Clio serves only validated data and never holds these two, so it rejects them;
+        // requests naming them are diverted to xrpld by ForwardingProxy before ever
+        // reaching validation.
+        if (sv == "current")
+            return LedgerSpecifier{LedgerShortcut::Current};
+        if (sv == "closed")
+            return LedgerSpecifier{LedgerShortcut::Closed};
+    }
 
     uint32_t seq = 0;
     auto const* const begin = sv.data();
@@ -155,15 +161,18 @@ ledgerSpecifierFromHash(FA const& f)
 {
     if (!f.isString())
     {
-#if defined(RPCSPEC_IS_CLIO)
-        return std::unexpected{
-            rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage("ledger_hash")}};
-#else
-        // Not notStringFieldMessage: its xrpld arm drops the ", not string" that xrpld
-        // reports for this field.
-        return std::unexpected{
-            rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "string")}};
-#endif
+        if constexpr (kIsClioBuild)
+        {
+            return std::unexpected{
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage("ledger_hash")}};
+        }
+        else
+        {
+            // Not notStringFieldMessage: its xrpld arm drops the ", not string" that xrpld
+            // reports for this field.
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "string")}};
+        }
     }
     xrpl::uint256 hash;
     if (!hash.parseHex(std::string{f.asString()}.c_str()))

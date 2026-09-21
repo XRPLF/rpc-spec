@@ -66,7 +66,7 @@ hexToBytes(std::string_view sv)
 }
 
 // Ripple base58 alphabet (note: excludes 0 O I l).
-inline constexpr std::string_view kBASE58_ALPHABET =
+inline constexpr std::string_view kBase58Alphabet =
     "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz";
 
 // Big-endian byte decode of a Ripple-base58 string. Returns nullopt on any
@@ -79,7 +79,7 @@ decodeBase58(std::string_view s)
     std::vector<unsigned char> bytes;  // little-endian during accumulation
     for (char const ch : s)
     {
-        auto const pos = kBASE58_ALPHABET.find(ch);
+        auto const pos = kBase58Alphabet.find(ch);
         if (pos == std::string_view::npos)
             return std::nullopt;
         int carry = static_cast<int>(pos);
@@ -98,7 +98,7 @@ decodeBase58(std::string_view s)
     // Each leading alphabet[0] char ('r') maps to a leading zero byte.
     for (char const ch : s)
     {
-        if (ch != kBASE58_ALPHABET[0])
+        if (ch != kBase58Alphabet[0])
             break;
         bytes.push_back(0);
     }
@@ -301,6 +301,14 @@ struct Issue
 {
     Currency currency;
     AccountID account;
+
+    // Constructors mirror libxrpl's Issue: declaring them keeps this type a non-aggregate,
+    // exactly like the real one, so spec code that brace-initialises it stays portable.
+    Issue() = default;
+    Issue(Currency const& c, AccountID const& a) : currency(c), account(a)
+    {
+    }
+
     bool
     operator==(Issue const&) const noexcept = default;
 };
@@ -390,6 +398,14 @@ struct Book
     Issue in;
     Issue out;
     std::optional<uint256> domain;  // libxrpl's Book carries an optional permissioned-domain id
+
+    // As with Issue: libxrpl's Book declares these, so the mock does too.
+    Book() = default;
+    Book(Issue const& in, Issue const& out, std::optional<uint256> const& domain)
+        : in(in), out(out), domain(domain)
+    {
+    }
+
     bool
     operator==(Book const&) const noexcept = default;
 };
@@ -563,8 +579,8 @@ public:
     [[nodiscard]] static TxFormats const&
     getInstance()
     {
-        static TxFormats const kINSTANCE{};
-        return kINSTANCE;
+        static TxFormats const kInstance{};
+        return kInstance;
     }
 
     [[nodiscard]] auto

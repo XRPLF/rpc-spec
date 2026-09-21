@@ -1,4 +1,5 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the `ledger_entry` typed spec.
  *  Compiled under RPCSPEC_IS_XRPLD.
  */
@@ -6,6 +7,7 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
@@ -23,10 +25,10 @@ using namespace rpc::spec::handlers::ledger_entry;
 
 namespace {
 
-constexpr char const* kACCT1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kACCT2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
-constexpr char const* kHEX64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
-constexpr char const* kHEX48 = "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01";
+constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr char const* kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr char const* kHex64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
+constexpr char const* kHex48 = "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01";
 
 auto
 parse(std::string const& json)
@@ -45,7 +47,7 @@ TEST(LedgerEntrySpec, CheckHexLocator)
     ASSERT_TRUE(r->check.has_value());
 
     xrpl::uint256 expected;
-    ASSERT_TRUE(expected.parseHex(kHEX64));
+    ASSERT_TRUE(expected.parseHex(kHex64));
     EXPECT_EQ(*r->check, expected);
 }
 
@@ -55,7 +57,7 @@ TEST(LedgerEntrySpec, AccountRootLocator)
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->accountRoot.has_value());
 
-    auto const expected = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expected = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected.has_value());
     EXPECT_EQ(*r->accountRoot, *expected);
 }
@@ -68,7 +70,7 @@ TEST(LedgerEntrySpec, MptIssuanceHexLocator)
     ASSERT_TRUE(r->mptIssuance.has_value());
 
     xrpl::uint192 expected;
-    ASSERT_TRUE(expected.parseHex(kHEX48));
+    ASSERT_TRUE(expected.parseHex(kHex48));
     EXPECT_EQ(*r->mptIssuance, expected);
 }
 
@@ -81,7 +83,7 @@ TEST(LedgerEntrySpec, OfferHexArm)
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*r->offer));
 
     xrpl::uint256 expected;
-    ASSERT_TRUE(expected.parseHex(kHEX64));
+    ASSERT_TRUE(expected.parseHex(kHex64));
     EXPECT_EQ(std::get<xrpl::uint256>(*r->offer), expected);
 }
 
@@ -94,7 +96,7 @@ TEST(LedgerEntrySpec, OfferObjectArm)
     ASSERT_TRUE(std::holds_alternative<OfferEntry>(*r->offer));
 
     auto const& entry = std::get<OfferEntry>(*r->offer);
-    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedAcct.has_value());
     EXPECT_EQ(entry.account, *expectedAcct);
     EXPECT_EQ(entry.seq, 5u);
@@ -110,7 +112,7 @@ TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
 
     auto const& entry = std::get<DirectoryEntry>(*r->directory);
     ASSERT_TRUE(entry.owner.has_value());
-    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedAcct.has_value());
     EXPECT_EQ(*entry.owner, *expectedAcct);
     ASSERT_TRUE(entry.subIndex.has_value());
@@ -142,11 +144,11 @@ TEST(LedgerEntrySpec, RippleStateObjectLocator)
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->rippleStateAccount.has_value());
 
-    auto const expectedAcct1 = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expectedAcct1 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedAcct1.has_value());
     EXPECT_EQ(r->rippleStateAccount->accounts[0], *expectedAcct1);
 
-    auto const expectedAcct2 = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    auto const expectedAcct2 = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expectedAcct2.has_value());
     EXPECT_EQ(r->rippleStateAccount->accounts[1], *expectedAcct2);
 }
@@ -165,7 +167,7 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
 
     auto const& entry = std::get<DepositPreauthEntry>(*r->depositPreauth);
     ASSERT_TRUE(entry.authorized.has_value());
-    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    auto const expectedAcct = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expectedAcct.has_value());
     EXPECT_EQ(*entry.authorized, *expectedAcct);
     EXPECT_FALSE(entry.authorizedCredentials.has_value());
@@ -191,7 +193,7 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
     ASSERT_EQ(entry.authorizedCredentials->size(), 1u);
 
     auto const& cred = (*entry.authorizedCredentials)[0];
-    auto const expectedIssuer = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    auto const expectedIssuer = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expectedIssuer.has_value());
     EXPECT_EQ(cred.issuer, *expectedIssuer);
     EXPECT_EQ(cred.credentialType, "ABCD");
@@ -264,7 +266,7 @@ TEST(LedgerEntrySpec, BridgeObjectLocator)
     ASSERT_TRUE(r.has_value());
     ASSERT_TRUE(r->bridge.has_value());
 
-    auto const expectedDoor = rpc::spec::detail::accountFromStringStrict(kACCT1);
+    auto const expectedDoor = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedDoor.has_value());
     EXPECT_EQ(r->bridge->lockingChainDoor, *expectedDoor);
 }
@@ -341,7 +343,7 @@ TEST(LedgerEntrySpec, SponsorshipHexArm)
     ASSERT_TRUE(std::holds_alternative<xrpl::uint256>(*r->sponsorship));
 
     xrpl::uint256 expected;
-    ASSERT_TRUE(expected.parseHex(kHEX64));
+    ASSERT_TRUE(expected.parseHex(kHex64));
     EXPECT_EQ(std::get<xrpl::uint256>(*r->sponsorship), expected);
 }
 
@@ -354,8 +356,8 @@ TEST(LedgerEntrySpec, SponsorshipObjectArm)
     ASSERT_TRUE(std::holds_alternative<SponsorshipEntry>(*r->sponsorship));
 
     auto const& entry = std::get<SponsorshipEntry>(*r->sponsorship);
-    auto const sponsor = rpc::spec::detail::accountFromStringStrict(kACCT1);
-    auto const sponsee = rpc::spec::detail::accountFromStringStrict(kACCT2);
+    auto const sponsor = rpc::spec::detail::accountFromStringStrict(kAcct1);
+    auto const sponsee = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(sponsor.has_value());
     ASSERT_TRUE(sponsee.has_value());
     EXPECT_EQ(entry.sponsor, *sponsor);
