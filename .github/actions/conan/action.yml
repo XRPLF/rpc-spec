@@ -1,0 +1,30 @@
+name: Run Conan
+description: Run conan to install the test dependencies (gtest and Boost::json)
+
+inputs:
+  build_type:
+    description: Build type for the dependencies. Could be 'Release', 'Debug'
+    required: true
+    default: "Release"
+  force_conan_source_build:
+    description: Whether conan should build all dependencies from source
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Run conan
+      shell: bash
+      env:
+        BUILD_TYPE: "${{ inputs.build_type }}"
+        CONAN_BUILD_OPTION: "${{ inputs.force_conan_source_build == 'true' && '*' || 'missing' }}"
+      run: |
+        # `cmake_layout` puts the generators under build/<build_type>/generators, which is
+        # what the conan-<build_type> CMake presets below point at, so no -of is passed here.
+        conan \
+            install . \
+            -b "${CONAN_BUILD_OPTION}" \
+            -o '&:tests=True' \
+            -s "build_type=${BUILD_TYPE}" \
+            --profile:all ci
