@@ -24,9 +24,9 @@ JsonBool
 parseFlag(char const* json)
 {
     auto value = boost::json::parse(json);
-    auto const r = kFlagSpec.parse(value);
-    EXPECT_TRUE(r.has_value());
-    return r->flag;
+    auto const result = kFlagSpec.parse(value);
+    EXPECT_TRUE(result.has_value());
+    return result->flag;
 }
 }  // namespace
 

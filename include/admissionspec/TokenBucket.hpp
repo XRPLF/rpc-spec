@@ -29,7 +29,14 @@ namespace admission::spec {
 class TokenBucket
 {
 public:
+    /**
+     * @brief The clock the bucket measures refill against.
+     */
     using Clock = std::chrono::steady_clock;
+
+    /**
+     * @brief A point on @ref Clock.
+     */
     using TimePoint = Clock::time_point;
 
     /**

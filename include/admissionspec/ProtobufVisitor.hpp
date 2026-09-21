@@ -14,31 +14,71 @@ namespace detail {
 template <typename T>
 struct PackedTrait;
 
+/**
+ * @brief Element traits for a packed protobuf field: how to read it and how to interpret it.
+ */
 template <>
 struct PackedTrait<uint32_t>
 {
+    /**
+     * @brief The integer type the element is read as.
+     */
     using ReadType = uint32_t;
+
+    /**
+     * @brief The integer type the element's value is interpreted as.
+     */
     using WriteType = int32_t;
 };
 
+/**
+ * @brief Element traits for a packed protobuf field: how to read it and how to interpret it.
+ */
 template <>
 struct PackedTrait<int32_t>
 {
+    /**
+     * @brief The integer type the element is read as.
+     */
     using ReadType = uint32_t;
+
+    /**
+     * @brief The integer type the element's value is interpreted as.
+     */
     using WriteType = int32_t;
 };
 
+/**
+ * @brief Element traits for a packed protobuf field: how to read it and how to interpret it.
+ */
 template <>
 struct PackedTrait<uint64_t>
 {
+    /**
+     * @brief The integer type the element is read as.
+     */
     using ReadType = uint64_t;
+
+    /**
+     * @brief The integer type the element's value is interpreted as.
+     */
     using WriteType = int64_t;
 };
 
+/**
+ * @brief Element traits for a packed protobuf field: how to read it and how to interpret it.
+ */
 template <>
 struct PackedTrait<int64_t>
 {
+    /**
+     * @brief The integer type the element is read as.
+     */
     using ReadType = uint64_t;
+
+    /**
+     * @brief The integer type the element's value is interpreted as.
+     */
     using WriteType = int64_t;
 };
 
@@ -59,9 +99,9 @@ readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
     auto shift = uint64_t{};
     while (pos < bytes.size())
     {
-        auto const b = bytes[pos++];
-        result |= static_cast<uint64_t>(b & 0x7F) << shift;
-        if ((b & 0x80) == 0)
+        auto const byte = bytes[pos++];
+        result |= static_cast<uint64_t>(byte & 0x7F) << shift;
+        if ((byte & 0x80) == 0)
         {
             out = result;
             return true;
@@ -79,8 +119,8 @@ readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
  * Scalars (varint / 32- / 64-bit) are reported with their value. A length-delimited field is
  * ambiguous on the wire — string, packed list, or sub-message — so the visitor does not guess: it
  * reports the field's @c value as a span over exactly that field's bytes. The spec author, who has
- * the schema, decides what to do with it: read it as a scalar, or re-enter over the span with @ref
- * visitProtobuf (sub-message), @ref visitPackedVarint, or @ref visitPackedFixed (packed list).
+ * the schema, decides what to do with it: read it as a scalar, or re-enter over the span with
+ * `visitProtobuf` (sub-message), `visitPackedVarint`, or `visitPackedFixed` (packed list).
  * Stops and returns on the first drop.
  */
 template <typename Check>
@@ -91,15 +131,16 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
     while (pos < bytes.size())
     {
         auto tag = uint64_t{};
-        if (!detail::readVarint(bytes, pos, tag))
+        if (not detail::readVarint(bytes, pos, tag))
         {
             return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
         }
         auto const field = static_cast<uint64_t>(tag >> 3);
         auto const wireType = static_cast<uint64_t>(tag & 0x07);
 
-        auto scalar = [&](int64_t v) {
-            return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = v});
+        auto scalar = [&](int64_t scalarValue) {
+            return check(
+                VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = scalarValue});
         };
 
         auto handleInt = [&](auto size) {
@@ -107,45 +148,45 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
             {
                 return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
             }
-            auto v = uint64_t{};
-            std::memcpy(&v, &bytes[pos], size);
+            auto value = uint64_t{};
+            std::memcpy(&value, &bytes[pos], size);
             pos += size;
-            return scalar(static_cast<int64_t>(v));
+            return scalar(static_cast<int64_t>(value));
         };
 
         switch (static_cast<detail::WireType>(wireType))
         {
             using enum detail::WireType;
             case Varint: {
-                auto v = uint64_t{};
-                if (!detail::readVarint(bytes, pos, v))
+                auto value = uint64_t{};
+                if (not detail::readVarint(bytes, pos, value))
                 {
                     return AdmissionDecision::drop(
                         "Invalid protobuf payload", costForInvalidPayload);
                 }
-                if (auto const d = scalar(static_cast<int64_t>(v)); d.dropped())
+                if (auto const decision = scalar(static_cast<int64_t>(value)); decision.dropped())
                 {
-                    return d;
+                    return decision;
                 }
             }
             break;
             case I64: {
-                if (auto const d = handleInt(8); d.dropped())
+                if (auto const decision = handleInt(8); decision.dropped())
                 {
-                    return d;
+                    return decision;
                 }
             }
             break;
             case I32: {
-                if (auto const d = handleInt(4); d.dropped())
+                if (auto const decision = handleInt(4); decision.dropped())
                 {
-                    return d;
+                    return decision;
                 }
             }
             break;
             case Len: {
                 auto len = uint64_t{};
-                if (!detail::readVarint(bytes, pos, len) || pos + len > bytes.size())
+                if (not detail::readVarint(bytes, pos, len) or pos + len > bytes.size())
                 {
                     return AdmissionDecision::drop(
                         "Invalid protobuf payload", costForInvalidPayload);
@@ -156,11 +197,11 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
                 // Report the raw span. Its meaning (string / packed list / sub-message) is schema,
                 // so the author decides: read it as a scalar, or re-enter with visitProtobuf /
                 // visitPackedVarint / visitPackedFixed over these bytes.
-                if (auto const d = check(
+                if (auto const decision = check(
                         VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = body});
-                    d.dropped())
+                    decision.dropped())
                 {
-                    return d;
+                    return decision;
                 }
             }
             break;
@@ -190,19 +231,19 @@ visitPackedVarint(
     auto pos = size_t{};
     while (pos < body.size())
     {
-        auto v = uint64_t{};
-        if (!detail::readVarint(body, pos, v))
+        auto varint = uint64_t{};
+        if (not detail::readVarint(body, pos, varint))
         {
             return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
         }
-        if (auto const d = check(
+        if (auto const decision = check(
                 VisitEvent{
                     .kind = EventKind::Scalar,
                     .fieldNumber = field,
-                    .value = static_cast<int64_t>(v)});
-            d.dropped())
+                    .value = static_cast<int64_t>(varint)});
+            decision.dropped())
         {
-            return d;
+            return decision;
         }
     }
     return AdmissionDecision::admit();
@@ -224,18 +265,18 @@ visitPackedFixed(std::span<uint8_t const> body, uint64_t field, Check& check)
 
     for (auto pos = size_t{}; pos + kSize <= body.size(); pos += kSize)
     {
-        auto v = ReadType{};
-        std::memcpy(&v, &body[pos], kSize);
+        auto element = ReadType{};
+        std::memcpy(&element, &body[pos], kSize);
         // Reinterpret with the element's signedness (WriteType), then widen to the variant's
         // int64_t leaf so the check reads it the same way as any other scalar.
-        if (auto const d = check(
+        if (auto const decision = check(
                 VisitEvent{
                     .kind = EventKind::Scalar,
                     .fieldNumber = field,
-                    .value = static_cast<int64_t>(static_cast<WriteType>(v))});
-            d.dropped())
+                    .value = static_cast<int64_t>(static_cast<WriteType>(element))});
+            decision.dropped())
         {
-            return d;
+            return decision;
         }
     }
     return AdmissionDecision::admit();

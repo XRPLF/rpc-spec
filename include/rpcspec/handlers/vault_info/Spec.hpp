@@ -27,10 +27,29 @@ inline constexpr auto kOwnerError = rpc::kMalformedRequest;
 inline constexpr std::string_view kOwnerMessage = "OwnerNotHexString";
 inline constexpr std::string_view kSeqMessage = {};
 #else
+/**
+ * @brief Vault field error.
+ */
 inline constexpr auto kVaultFieldError = rpc::CombinedError{rpc::RippledError::RpcInvalidParams};
+
+/**
+ * @brief Vault id message.
+ */
 inline constexpr std::string_view kVaultIdMessage = "Invalid field 'vault_id', not hex string.";
+
+/**
+ * @brief Owner error.
+ */
 inline constexpr auto kOwnerError = rpc::CombinedError{rpc::RippledError::RpcActMalformed};
+
+/**
+ * @brief Owner message.
+ */
 inline constexpr std::string_view kOwnerMessage = "Invalid field 'owner', not AccountID.";
+
+/**
+ * @brief Seq message.
+ */
 inline constexpr std::string_view kSeqMessage =
     "Invalid field 'seq', not a positive 32-bit integer.";
 #endif
@@ -44,16 +63,31 @@ inline constexpr std::string_view kSeqMessage =
  */
 struct OwnerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("account").
+     */
     static constexpr std::string_view kName = "account";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
+        if (fieldView.isString())
         {
-            if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
+            if (auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+                id.has_value())
                 return *id;
         }
         if (kOwnerMessage.empty())
@@ -63,9 +97,15 @@ struct OwnerConverter
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: owner.
+ */
 inline constexpr auto ownerConv = OwnerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     // uint256Hex and asUint256 accept exactly the same inputs, so the converter never reports
@@ -95,6 +135,8 @@ inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
 /**
  * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
  */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept

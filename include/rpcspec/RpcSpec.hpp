@@ -18,22 +18,38 @@ namespace rpc::spec {
 
 namespace impl {
 
+/**
+ * @brief Per-field plan telling the walk which duplicate-key entry wins.
+ */
 template <std::size_t N>
 struct OverridePlan
 {
+    /**
+     * @brief Whether the field at this index is the first use of its key.
+     */
     std::array<bool, N> shouldRun;
+
+    /**
+     * @brief Index of the last field sharing this key (the one that wins).
+     */
     std::array<std::size_t, N> effectiveIdx;
 };
 
+/**
+ * @brief Work out, for each key, which duplicate entry wins.
+ *
+ * @param keys The fields' keys, in declaration order.
+ * @return The plan for @p keys.
+ */
 template <std::size_t N>
 constexpr OverridePlan<N>
 buildOverridePlan(std::array<std::string_view, N> const& keys)
 {
     OverridePlan<N> plan{};
-    for (std::size_t i = 0; i < N; ++i)
+    for (auto i = 0uz; i < N; ++i)
     {
         bool isFirst = true;
-        for (std::size_t j = 0; j < i; ++j)
+        for (auto j = 0uz; j < i; ++j)
         {
             if (keys[j] == keys[i])
             {
@@ -45,7 +61,7 @@ buildOverridePlan(std::array<std::string_view, N> const& keys)
         if (isFirst)
         {
             std::size_t last = i;
-            for (std::size_t j = i + 1; j < N; ++j)
+            for (auto j = i + 1; j < N; ++j)
             {
                 if (keys[j] == keys[i])
                     last = j;
@@ -71,9 +87,9 @@ buildOverridePlan(std::array<std::string_view, N> const& keys)
  * returning `false`; one returning `void` always runs to completion.
  *
  * @tparam FieldsTuple The spec's field tuple type.
- * @tparam Visit       The per-field action.
- * @param fields       The spec's fields.
- * @param visit        Invoked once per surviving key with the effective field index.
+ * @tparam Visit The per-field action.
+ * @param fields The spec's fields.
+ * @param visit Invoked once per surviving key with the effective field index.
  */
 template <typename FieldsTuple, typename Visit, std::size_t... Is>
 constexpr void
@@ -86,27 +102,36 @@ forEachEffectiveField(FieldsTuple const& fields, Visit visit, std::index_sequenc
         auto const plan = buildOverridePlan(keys);
 
         using Thunk = bool (*)(FieldsTuple const&, Visit&);
-        static constexpr std::array<Thunk, kN> kDispatch{+[](FieldsTuple const& t, Visit& v) {
-            constexpr auto kIdx = std::integral_constant<std::size_t, Is>{};
-            if constexpr (std::is_void_v<decltype(v(t, kIdx))>)
-            {
-                v(t, kIdx);
-                return true;
-            }
-            else
-            {
-                return v(t, kIdx);
-            }
-        }...};
+        static constexpr std::array<Thunk, kN> kDispatch{
+            +[](FieldsTuple const& fields, Visit& visit) {
+                constexpr auto kIdx = std::integral_constant<std::size_t, Is>{};
+                if constexpr (std::is_void_v<decltype(visit(fields, kIdx))>)
+                {
+                    visit(fields, kIdx);
+                    return true;
+                }
+                else
+                {
+                    return visit(fields, kIdx);
+                }
+            }...};
 
-        for (std::size_t i = 0; i < kN; ++i)
+        for (auto i = 0uz; i < kN; ++i)
         {
-            if (plan.shouldRun[i] && !kDispatch[plan.effectiveIdx[i]](fields, visit))
+            if (plan.shouldRun[i] and not kDispatch[plan.effectiveIdx[i]](fields, visit))
                 return;
         }
     }
 }
 
+/**
+ * @brief Run every field's processors against @p root.
+ *
+ * @param fields The spec's fields.
+ * @param root The request root to validate.
+ * @param seq Index sequence over the fields.
+ * @return The first error produced, or empty when all pass.
+ */
 template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
 [[nodiscard]] MaybeError
 process(FieldsTuple const& fields, Root& root, std::index_sequence<Is...> seq)
@@ -114,14 +139,22 @@ process(FieldsTuple const& fields, Root& root, std::index_sequence<Is...> seq)
     MaybeError result{};
     forEachEffectiveField(
         fields,
-        [&](FieldsTuple const& t, auto idx) {
-            result = std::get<idx()>(t).process(root);
+        [&](FieldsTuple const& fields, auto idx) {
+            result = std::get<idx()>(fields).process(root);
             return result.has_value();
         },
         seq);
     return result;
 }
 
+/**
+ * @brief Collect the warnings of every surviving field.
+ *
+ * @param fields The spec's fields.
+ * @param root The request root to check.
+ * @param seq Index sequence over @p fields.
+ * @return All warnings produced by the fields' check items.
+ */
 template <typename FieldsTuple, SomeObjectView Root, std::size_t... Is>
 [[nodiscard]] Warnings
 check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...> seq)
@@ -129,9 +162,9 @@ check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...> se
     Warnings out;
     forEachEffectiveField(
         fields,
-        [&](FieldsTuple const& t, auto idx) {
-            auto w = std::get<idx()>(t).check(root);
-            out.insert(out.end(), w.begin(), w.end());
+        [&](FieldsTuple const& fields, auto idx) {
+            auto warnings = std::get<idx()>(fields).check(root);
+            out.insert(out.end(), warnings.begin(), warnings.end());
         },
         seq);
     return out;
@@ -152,10 +185,22 @@ check(FieldsTuple const& fields, Root const& root, std::index_sequence<Is...> se
 template <typename... Fields>
 struct RpcSpec
 {
+    /**
+     * @brief The spec's fields, as a tuple.
+     */
     using FieldsTuple = std::tuple<Fields...>;
+
+    /**
+     * @brief The spec's fields, in declaration order.
+     */
     FieldsTuple fields;
 
-    consteval RpcSpec(Fields... f) : fields{f...}
+    /**
+     * @brief Construct a @ref RpcSpec.
+     *
+     * @param fields The fields making up the spec.
+     */
+    consteval RpcSpec(Fields... fields) : fields{fields...}
     {
     }
 
@@ -163,7 +208,7 @@ struct RpcSpec
      * @brief Validate @p root, running all field requirements and modifiers.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Mutable root object view (modifiers may write back into it).
+     * @param root Mutable root object view (modifiers may write back into it).
      * @return An error on the first failing field; empty on success.
      */
     template <SomeObjectView Root>
@@ -177,7 +222,7 @@ struct RpcSpec
      * @brief Collect all warnings emitted by check items across all fields.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Const root object view.
+     * @param root Const root object view.
      * @return All warnings produced by check items.
      */
     template <SomeObjectView Root>
@@ -191,15 +236,15 @@ struct RpcSpec
      * @brief `process()` overload accepting any value constructible into an `ObjectView`.
      *
      * @tparam V A value type convertible to `ObjectView` (e.g. `boost::json::value`).
-     * @param v  Mutable value to validate.
+     * @param value Mutable value to validate.
      * @return An error on the first failing field; empty on success.
      */
     template <typename V>
-        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V&>
+        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V&>
     [[nodiscard]] MaybeError
-    process(V& v) const
+    process(V& value) const
     {
-        ObjectView root{v};
+        ObjectView root{value};
         return process(root);
     }
 
@@ -207,19 +252,22 @@ struct RpcSpec
      * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
      *
      * @tparam V A value type convertible to `ObjectView const`.
-     * @param v  Const value to check.
+     * @param value Const value to check.
      * @return All warnings produced by check items.
      */
     template <typename V>
-        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V const&>
+        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V const&>
     [[nodiscard]] Warnings
-    check(V const& v) const
+    check(V const& value) const
     {
-        ObjectView const root{v};
+        ObjectView const root{value};
         return check(root);
     }
 };
 
+/**
+ * @brief Deduction guide for @ref RpcSpec.
+ */
 template <typename... Fs>
 RpcSpec(Fs...) -> RpcSpec<Fs...>;
 
@@ -230,8 +278,8 @@ RpcSpec(Fs...) -> RpcSpec<Fs...>;
  * fields can retighten or replace base fields without removing them explicitly.
  *
  * @tparam Existing Field types of the base spec.
- * @tparam Extra    Additional field types to append.
- * @param base  The spec to extend.
+ * @tparam Extra Additional field types to append.
+ * @param base The spec to extend.
  * @param extra Additional fields appended after the base fields.
  * @return A new `RpcSpec` combining base and extra fields.
  */
@@ -248,7 +296,7 @@ extend(RpcSpec<Existing...> const& base, Extra... extra)
  *
  * @tparam Existing Field types of the base spec.
  * @tparam NewItems Item types of the extra `FieldSpec`.
- * @param base  The spec to extend.
+ * @param base The spec to extend.
  * @param extra A single `FieldSpec` to append.
  * @return A new `RpcSpec` with @p extra appended.
  */

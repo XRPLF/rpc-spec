@@ -22,15 +22,19 @@ namespace rpc::spec::handlers::mptoken_issuance_history {
 
 // Same shape as account_tx's tx_type check: the valid set comes from xrpl::TxFormats at
 // runtime, so this is a CustomValidator rather than the consteval oneOf factory.
-inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> MaybeError {
-    if (!f.isString())
+/**
+ * @brief Validator instance: custom.
+ */
+inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
+    if (not fieldView.isString())
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
 
     auto const& validTypes = txTypesInLowercase();
-    if (!validTypes.contains(std::string{f.asString()}))
+    if (not validTypes.contains(std::string{fieldView.asString()}))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."}};
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
     return {};
 }};
@@ -40,38 +44,81 @@ inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> Ma
  */
 struct Int32BoundConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("int32").
+     */
     static constexpr std::string_view kName = "int32";
+
+    /**
+     * @brief The value this converter produces (`std::optional<int32_t>`).
+     */
     using ValueType = std::optional<int32_t>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        auto const v = static_cast<int32_t>(f.asInt64());
-        if (v == -1)
+        auto const value = static_cast<int32_t>(fieldView.asInt64());
+        if (value == -1)
             return std::optional<int32_t>{std::nullopt};
-        return std::optional<int32_t>{v};
+        return std::optional<int32_t>{value};
     }
 };
 
+/**
+ * @brief Converts the marker field into its strongly-typed value.
+ */
 struct MarkerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("marker").
+     */
     static constexpr std::string_view kName = "marker";
+
+    /**
+     * @brief The value this converter produces (`Marker`).
+     */
     using ValueType = Marker;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        return Marker{.ledger = f.child("ledger").asUint32(), .seq = f.child("seq").asUint32()};
+        return Marker{
+            .ledger = fieldView.child("ledger").asUint32(),
+            .seq = fieldView.child("seq").asUint32()};
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: int32 bound.
+ */
 inline constexpr auto int32Bound = Int32BoundConverter{};
+
+/**
+ * @brief Converter instance: marker.
+ */
 inline constexpr auto markerConv = MarkerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("mpt_issuance_id", &Input::mptIssuanceId, required, uint192Hex, asUint192),
@@ -104,6 +151,8 @@ inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
 /**
  * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
  */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept

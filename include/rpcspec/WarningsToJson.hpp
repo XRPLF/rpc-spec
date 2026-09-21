@@ -27,15 +27,15 @@ namespace rpc::spec {
  * code value), which makes the output reproducible in tests without imposing
  * any overhead in production paths.
  *
- * @param warnings The flat vector of @ref Warning objects to convert.
+ * @param warnings The flat vector of @ref rpc::spec::Warning objects to convert.
  * @return A @c boost::json::array of grouped warning objects.
  */
 [[nodiscard]] inline boost::json::array
 toJsonArray(Warnings const& warnings)
 {
     std::map<rpc::WarningCode, std::vector<std::string>> grouped;
-    for (auto const& w : warnings)
-        grouped[w.code].push_back(w.message);
+    for (auto const& warning : warnings)
+        grouped[warning.code].push_back(warning.message);
 
     boost::json::array out;
     for (auto const& [code, messages] : grouped)

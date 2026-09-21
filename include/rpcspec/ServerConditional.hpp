@@ -51,7 +51,7 @@ inline constexpr bool kIsClioBuild =
 /**
  * @brief True in an xrpld build.
  */
-inline constexpr bool kIsXrpldBuild = !kIsClioBuild;
+inline constexpr bool kIsXrpldBuild = not kIsClioBuild;
 
 /**
  * @brief Applies a set of validators only when @p Active — i.e. only in the matching build.
@@ -65,11 +65,14 @@ inline constexpr bool kIsXrpldBuild = !kIsClioBuild;
  * Use the `ifServerClio()` / `ifServerXrpld()` factories rather than constructing this directly.
  *
  * @tparam Active Whether the inner validators run in this build.
- * @tparam Vs     Processor types to apply when @p Active.
+ * @tparam Vs Processor types to apply when @p Active.
  */
 template <bool Active, typename... Vs>
 struct ServerConditionalValidator
 {
+    /**
+     * @brief Processors run only in the matching server build.
+     */
     std::tuple<Vs...> inners;
 
     /**
@@ -84,28 +87,28 @@ struct ServerConditionalValidator
     /**
      * @brief Runs the inner requirements in the matching build; always succeeds otherwise.
      *
-     * @param f  Field view for the field under validation.
+     * @param fieldView Field view for the field under validation.
      * @return   Empty on success; a `rpc::Status` error if any inner requirement fails.
      */
-    template <SomeFieldView FA>
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify([[maybe_unused]] FA const& f) const
-        requires(SomeRequirement<Vs> || ...)
+    verify([[maybe_unused]] View const& fieldView) const
+        requires(SomeRequirement<Vs> or ...)
     {
         MaybeError result{};
         if constexpr (Active)
         {
             std::apply(
                 [&](auto const&... vs) {
-                    auto tryVerify = [&](auto const& v) -> bool {
-                        if constexpr (SomeRequirement<std::remove_cvref_t<decltype(v)>>)
+                    auto tryVerify = [&](auto const& validator) -> bool {
+                        if constexpr (SomeRequirement<std::remove_cvref_t<decltype(validator)>>)
                         {
-                            result = v.verify(f);
+                            result = validator.verify(fieldView);
                             return result.has_value();
                         }
                         return true;
                     };
-                    (tryVerify(vs) && ...);
+                    (tryVerify(vs) and ...);
                 },
                 inners);
         }
@@ -115,24 +118,24 @@ struct ServerConditionalValidator
     /**
      * @brief Runs the inner checkers in the matching build; always returns no warning otherwise.
      *
-     * @param f  Field view for the field under checking.
+     * @param fieldView Field view for the field under checking.
      * @return   The first warning produced by an inner checker, or `std::nullopt`.
      */
-    template <SomeFieldView FA>
+    template <SomeFieldView View>
     [[nodiscard]] std::optional<Warning>
-    check([[maybe_unused]] FA const& f) const
-        requires(SomeCheck<Vs> || ...)
+    check([[maybe_unused]] View const& fieldView) const
+        requires(SomeCheck<Vs> or ...)
     {
         std::optional<Warning> result{};
         if constexpr (Active)
         {
             std::apply(
                 [&](auto const&... vs) {
-                    auto tryCheck = [&](auto const& v) {
-                        if constexpr (SomeCheck<std::remove_cvref_t<decltype(v)>>)
+                    auto tryCheck = [&](auto const& validator) {
+                        if constexpr (SomeCheck<std::remove_cvref_t<decltype(validator)>>)
                         {
-                            if (!result)
-                                result = v.check(f);
+                            if (not result.has_value())
+                                result = validator.check(fieldView);
                         }
                     };
                     (tryCheck(vs), ...);
@@ -145,28 +148,28 @@ struct ServerConditionalValidator
     /**
      * @brief Runs the inner modifiers in the matching build; always succeeds otherwise.
      *
-     * @param f  Mutable field view for the field under modification.
+     * @param fieldView Mutable field view for the field under modification.
      * @return   Empty on success; a `rpc::Status` error if any inner modifier fails.
      */
-    template <SomeFieldView FA>
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify([[maybe_unused]] FA& f) const
-        requires(SomeModifier<Vs> || ...)
+    modify([[maybe_unused]] View& fieldView) const
+        requires(SomeModifier<Vs> or ...)
     {
         MaybeError result{};
         if constexpr (Active)
         {
             std::apply(
                 [&](auto const&... vs) {
-                    auto tryModify = [&](auto const& v) -> bool {
-                        if constexpr (SomeModifier<std::remove_cvref_t<decltype(v)>>)
+                    auto tryModify = [&](auto const& validator) -> bool {
+                        if constexpr (SomeModifier<std::remove_cvref_t<decltype(validator)>>)
                         {
-                            result = v.modify(f);
+                            result = validator.modify(fieldView);
                             return result.has_value();
                         }
                         return true;
                     };
-                    (tryModify(vs) && ...);
+                    (tryModify(vs) and ...);
                 },
                 inners);
         }

@@ -10,28 +10,28 @@
 namespace rpc::spec {
 
 /**
- * @brief Invoke @p item as a requirement or modifier on @p fa, if applicable.
+ * @brief Invoke @p item as a requirement or modifier on @p fieldView, if applicable.
  *
- * Calls `item.verify(fa)` for requirements and `item.modify(fa)` for modifiers.
+ * Calls `item.verify(fieldView)` for requirements and `item.modify(fieldView)` for modifiers.
  * Returns an empty `MaybeError` for items that are neither (e.g. checks).
  *
  * @tparam Item A field-item type (requirement, modifier, or check).
- * @tparam FA   A mutable field-accessor / field-view type.
- * @param item  The item to dispatch.
- * @param fa    Mutable view of the field being processed.
+ * @tparam View A mutable field-view type.
+ * @param item The item to dispatch.
+ * @param fieldView Mutable view of the field being processed.
  * @return An error if the requirement or modifier fails; empty otherwise.
  */
-template <typename Item, typename FA>
+template <typename Item, typename View>
 MaybeError
-callIfProcessor(Item const& item, FA& fa)
+callIfProcessor(Item const& item, View& fieldView)
 {
     if constexpr (SomeRequirement<Item>)
     {
-        return item.verify(fa);
+        return item.verify(fieldView);
     }
     else if constexpr (SomeModifier<Item>)
     {
-        return item.modify(fa);
+        return item.modify(fieldView);
     }
     else
     {
@@ -40,48 +40,49 @@ callIfProcessor(Item const& item, FA& fa)
 }
 
 /**
- * @brief Invoke @p item as a check on @p fa and collect any warning produced.
+ * @brief Invoke @p item as a check on @p fieldView and collect any warning produced.
  *
  * A no-op for items that do not satisfy `SomeCheck`.
  *
  * @tparam Item A field-item type.
- * @tparam FA   A const field-accessor / field-view type.
- * @param item  The item to dispatch.
- * @param fa    Const view of the field being checked.
- * @param out   Warnings collection; a new entry is appended if the check fires.
+ * @tparam View A const field-view type.
+ * @param item The item to dispatch.
+ * @param fieldView Const view of the field being checked.
+ * @param out Warnings collection; a new entry is appended if the check fires.
  */
-template <typename Item, typename FA>
+template <typename Item, typename View>
 void
-callIfChecker(Item const& item, FA const& fa, Warnings& out)
+callIfChecker(Item const& item, View const& fieldView, Warnings& out)
 {
     if constexpr (SomeCheck<Item>)
     {
-        if (auto w = item.check(fa))
-            out.push_back(std::move(*w));
+        if (auto warning = item.check(fieldView); warning.has_value())
+            out.push_back(std::move(*warning));
     }
 }
 
 /**
- * @brief Run every requirement/modifier in @p items against @p fa, stopping at the first error.
+ * @brief Run every requirement/modifier in @p items against @p fieldView, stopping at the first
+ * error.
  *
  * The one place the "processors in declaration order, short-circuit on failure" rule is spelled
  * out; `FieldSpec`, `BoundField`, `Section` and `IfType` all defer to it so they cannot drift
  * apart on ordering or short-circuiting.
  *
  * @tparam Items The item tuple's element types.
- * @tparam FA    A mutable field-accessor / field-view type.
- * @param items  The items to run.
- * @param fa     Mutable view of the field being processed.
+ * @tparam View A mutable field-view type.
+ * @param items The items to run.
+ * @param fieldView Mutable view of the field being processed.
  * @return The first error produced, or empty if every item succeeded.
  */
-template <typename... Items, typename FA>
+template <typename... Items, typename View>
 [[nodiscard]] MaybeError
-runProcessors(std::tuple<Items...> const& items, FA& fa)
+runProcessors(std::tuple<Items...> const& items, View& fieldView)
 {
     MaybeError result{};
     std::apply(
         [&](auto const&... item) {
-            (void)((result = callIfProcessor(item, fa), result.has_value()) && ...);
+            (void)((result = callIfProcessor(item, fieldView), result.has_value()) and ...);
         },
         items);
     return result;
@@ -91,16 +92,16 @@ runProcessors(std::tuple<Items...> const& items, FA& fa)
  * @brief Append the warnings of every check item in @p items to @p out.
  *
  * @tparam Items The item tuple's element types.
- * @tparam FA    A const field-accessor / field-view type.
- * @param items  The items to run.
- * @param fa     Const view of the field being checked.
- * @param out    Warnings collection; each firing check appends one entry.
+ * @tparam View A const field-view type.
+ * @param items The items to run.
+ * @param fieldView Const view of the field being checked.
+ * @param out Warnings collection; each firing check appends one entry.
  */
-template <typename... Items, typename FA>
+template <typename... Items, typename View>
 void
-runChecks(std::tuple<Items...> const& items, FA const& fa, Warnings& out)
+runChecks(std::tuple<Items...> const& items, View const& fieldView, Warnings& out)
 {
-    std::apply([&](auto const&... item) { (callIfChecker(item, fa, out), ...); }, items);
+    std::apply([&](auto const&... item) { (callIfChecker(item, fieldView, out), ...); }, items);
 }
 
 /**
@@ -116,10 +117,23 @@ runChecks(std::tuple<Items...> const& items, FA const& fa, Warnings& out)
 template <SomeFieldItem... Items>
 struct FieldSpec
 {
+    /**
+     * @brief The JSON key this field reads.
+     */
     std::string_view key;
+
+    /**
+     * @brief The requirements, modifiers and checks attached to this field.
+     */
     std::tuple<Items...> items;
 
-    consteval FieldSpec(std::string_view k, Items... i) : key{k}, items{i...}
+    /**
+     * @brief Construct a @ref FieldSpec.
+     *
+     * @param key The JSON key this field reads.
+     * @param items The requirements, modifiers and checks to attach.
+     */
+    consteval FieldSpec(std::string_view key, Items... items) : key{key}, items{items...}
     {
     }
 
@@ -127,7 +141,7 @@ struct FieldSpec
      * @brief Append a field item, returning a new `FieldSpec` with the extended item list.
      *
      * @tparam Item A requirement, modifier, or check satisfying `SomeFieldItem`.
-     * @param item  The item to append.
+     * @param item The item to append.
      * @return A new `FieldSpec` with @p item appended after the existing items.
      */
     template <SomeFieldItem Item>
@@ -148,31 +162,31 @@ struct FieldSpec
      * and modifier in declaration order, stopping at the first error.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Mutable root object view.
+     * @param root Mutable root object view.
      * @return An error if any requirement or modifier fails; empty otherwise.
      */
     template <SomeObjectView Root>
     [[nodiscard]] MaybeError
     process(Root& root) const
     {
-        auto fa = root.child(key);
-        return runProcessors(items, fa);
+        auto fieldView = root.child(key);
+        return runProcessors(items, fieldView);
     }
 
     /**
      * @brief Collect warnings produced by check items for this field.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Const root object view.
+     * @param root Const root object view.
      * @return All warnings emitted by check items for this field.
      */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const& root) const
     {
-        auto const fa = root.child(key);
+        auto const fieldView = root.child(key);
         Warnings out;
-        runChecks(items, fa, out);
+        runChecks(items, fieldView, out);
         return out;
     }
 
@@ -181,16 +195,16 @@ struct FieldSpec
      *
      * Used by `Section` to validate a nested object field without a full object root.
      *
-     * @tparam FA   A mutable field-view type satisfying `SomeFieldView`.
-     * @param parentFa  Mutable view of the parent field; a child view is derived from it.
+     * @tparam View A mutable field-view type satisfying `SomeFieldView`.
+     * @param parentView Mutable view of the parent field; a child view is derived from it.
      * @return An error if any requirement or modifier fails; empty otherwise.
      */
-    template <SomeFieldView FA>
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    processNested(FA& parentFa) const
+    processNested(View& parentView) const
     {
-        auto childFa = parentFa.child(key);
-        return runProcessors(items, childFa);
+        auto childView = parentView.child(key);
+        return runProcessors(items, childView);
     }
 
     /**
@@ -198,21 +212,24 @@ struct FieldSpec
      *
      * Used by `Section` for nested object fields.
      *
-     * @tparam FA   A const field-view type satisfying `SomeFieldView`.
-     * @param parentFa  Const view of the parent field; a child view is derived from it.
+     * @tparam View A const field-view type satisfying `SomeFieldView`.
+     * @param parentView Const view of the parent field; a child view is derived from it.
      * @return All warnings emitted by check items for this field.
      */
-    template <SomeFieldView FA>
+    template <SomeFieldView View>
     [[nodiscard]] Warnings
-    checkNested(FA const& parentFa) const
+    checkNested(View const& parentView) const
     {
-        auto const childFa = parentFa.child(key);
+        auto const childView = parentView.child(key);
         Warnings out;
-        runChecks(items, childFa, out);
+        runChecks(items, childView, out);
         return out;
     }
 };
 
+/**
+ * @brief Deduction guide for @ref FieldSpec.
+ */
 template <SomeFieldItem... Is>
 FieldSpec(std::string_view, Is...) -> FieldSpec<Is...>;
 
@@ -234,7 +251,7 @@ field(std::string_view key)
  * Equivalent to `field(key) | item0 | item1 | ...` but in a single call.
  *
  * @tparam Items Zero or more field-item types (requirements, modifiers, checks).
- * @param key   JSON field name.
+ * @param key JSON field name.
  * @param items Field items in execution order.
  * @return A fully constructed `FieldSpec`.
  */

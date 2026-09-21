@@ -13,8 +13,19 @@
 
 namespace rpc::spec::handlers::account_tx {
 
+/**
+ * @brief Smallest `limit` the handler accepts.
+ */
 inline constexpr auto kLimitMin = 1;
+
+/**
+ * @brief Largest `limit` the handler accepts; bigger values are clamped down.
+ */
 inline constexpr auto kLimitMax = 1000;
+
+/**
+ * @brief `limit` applied when the request omits the field.
+ */
 inline constexpr auto kLimitDefault = 200;
 
 /**
@@ -22,7 +33,14 @@ inline constexpr auto kLimitDefault = 200;
  */
 struct Marker
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     uint32_t ledger;
+
+    /**
+     * @brief Value of the `seq` field.
+     */
     uint32_t seq;
 };
 
@@ -53,9 +71,21 @@ struct DelegateFilter
         Authorizer
     };
 
+    /**
+     * @brief Value of the `delegate_type` field.
+     */
     Role delegateType;
+
+    /**
+     * @brief Value of the `counter_party` field.
+     */
     std::optional<std::string> counterParty;
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator==(DelegateFilter const&) const = default;
 };
@@ -69,13 +99,44 @@ struct Input
     // ledger_index, ledger_hash, ledger_index_min, or ledger_index_max.
     // `ledger` is unspecified when none of ledger_hash/ledger_index is given, so
     // the handler can choose between range mode (min/max) and the default ledger.
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `account` request field.
+     */
     xrpl::AccountID account;
+
+    /**
+     * @brief Value of the `ledger_index_min` request field.
+     */
     std::optional<int32_t> ledgerIndexMin;
+
+    /**
+     * @brief Value of the `ledger_index_max` request field.
+     */
     std::optional<int32_t> ledgerIndexMax;
+
+    /**
+     * @brief Value of the `binary` request field.
+     */
     JsonBool binary{false};
+
+    /**
+     * @brief Value of the `forward` request field.
+     */
     JsonBool forward{false};
+
+    /**
+     * @brief Value of the `limit` request field.
+     */
     std::optional<uint32_t> limit;
+
+    /**
+     * @brief Value of the `marker` request field.
+     */
     std::optional<Marker> marker;
 
     /**
@@ -85,7 +146,15 @@ struct Input
      * repo-local enum would duplicate xrpl::TxType and risk drift.
      */
     std::optional<std::string> transactionTypeInLowercase;
+
+    /**
+     * @brief Value of the `mpt_issuance_id` request field.
+     */
     std::optional<xrpl::uint192> mptIssuanceId;
+
+    /**
+     * @brief Value of the `delegate` request field.
+     */
     std::optional<DelegateFilter> delegateFilter;
 };
 

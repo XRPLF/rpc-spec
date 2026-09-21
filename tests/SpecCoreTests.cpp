@@ -225,9 +225,9 @@ TEST(RpcSpecDSL_Override, OverridePreservesPositionOfFirstOccurrence)
     static constexpr auto kSpecV2 = kSpecV1 + (field("a") | required | type<std::string>);
 
     auto missingBoth = boost::json::parse(R"JSON({})JSON");
-    auto const r = kSpecV2.process(missingBoth);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Required field 'a' missing");
+    auto const result = kSpecV2.process(missingBoth);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Required field 'a' missing");
 }
 
 TEST(RpcSpecDSL_Override, OnlyLastOverrideWinsAcrossThreeVersions)

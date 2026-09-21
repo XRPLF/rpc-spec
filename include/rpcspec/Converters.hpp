@@ -42,23 +42,37 @@ using Parsed = std::expected<T, rpc::Status>;
  */
 struct AccountIdConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("account").
+     */
     static constexpr std::string_view kName = "account";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
-        auto id = detail::accountFromStringStrict(std::string{f.asString()});
-        if (!id)
+        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+        if (not id.has_value())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}};
+                rpc::RippledError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
         }
         return *id;
     }
@@ -71,31 +85,41 @@ struct AccountIdConverter
  * back the strong type or the original string, so that is all the derived types supply.
  *
  * @tparam HexType The fixed-width XRPL unsigned integer to parse the field as.
- * @tparam Value   The produced value type (`HexType`, or `std::string` to keep the raw text).
+ * @tparam Value The produced value type (`HexType`, or `std::string` to keep the raw text).
  */
 template <typename HexType, typename Value>
 struct HexConverterBase
 {
+    /**
+     * @brief The value this converter produces (`Value`).
+     */
     using ValueType = Value;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(fieldView.key())}};
         }
         HexType parsed;
-        if (!parsed.parseHex(std::string{f.asString()}.c_str()))
+        if (not parsed.parseHex(std::string{fieldView.asString()}.c_str()))
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(fieldView.key())}};
         }
         if constexpr (std::is_same_v<Value, std::string>)
         {
-            return std::string{f.asString()};
+            return std::string{fieldView.asString()};
         }
         else
         {
@@ -113,6 +137,9 @@ struct HexConverterBase
  */
 struct LedgerHashConverter : HexConverterBase<xrpl::uint256, std::string>
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint256Hex").
+     */
     static constexpr std::string_view kName = "uint256Hex";
 };
 
@@ -124,6 +151,9 @@ struct LedgerHashConverter : HexConverterBase<xrpl::uint256, std::string>
  */
 struct Uint256HexConverter : HexConverterBase<xrpl::uint256, xrpl::uint256>
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint256Hex").
+     */
     static constexpr std::string_view kName = "uint256Hex";
 };
 
@@ -134,6 +164,9 @@ struct Uint256HexConverter : HexConverterBase<xrpl::uint256, xrpl::uint256>
  */
 struct Uint192HexConverter : HexConverterBase<xrpl::uint192, xrpl::uint192>
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint192Hex").
+     */
     static constexpr std::string_view kName = "uint192Hex";
 };
 
@@ -147,38 +180,52 @@ struct Uint192HexConverter : HexConverterBase<xrpl::uint192, xrpl::uint192>
 template <bool Strict>
 struct JsonBoolConverterT
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("bool").
+     */
     static constexpr std::string_view kName = "bool";
+
+    /**
+     * @brief The value this converter produces (`JsonBool`).
+     */
     using ValueType = JsonBool;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         if constexpr (Strict)
         {
-            if (!f.isBool())
+            if (not fieldView.isBool())
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            return JsonBool{f.asBool()};
+            return JsonBool{fieldView.asBool()};
         }
         else
         {
-            if (f.isBool())
-                return JsonBool{f.asBool()};
-            if (f.isUint32())
-                return JsonBool{f.asUint32() != 0};
-            if (f.isInt64())
-                return JsonBool{f.asInt64() != 0};
-            if (f.isDouble())
-                return JsonBool{f.asDouble() != 0.0};
-            if (f.isString())
+            if (fieldView.isBool())
+                return JsonBool{fieldView.asBool()};
+            if (fieldView.isUint32())
+                return JsonBool{fieldView.asUint32() != 0};
+            if (fieldView.isInt64())
+                return JsonBool{fieldView.asInt64() != 0};
+            if (fieldView.isDouble())
+                return JsonBool{fieldView.asDouble() != 0.0};
+            if (fieldView.isString())
             {
-                auto const s = f.asString();
-                return JsonBool{!s.empty() && s[0] != 0};
+                auto const text = fieldView.asString();
+                return JsonBool{not text.empty() and text[0] != 0};
             }
-            if (f.isArray())
-                return JsonBool{f.arraySize() != 0};
-            if (f.isObject())
-                return JsonBool{f.objectSize() != 0};
+            if (fieldView.isArray())
+                return JsonBool{fieldView.arraySize() != 0};
+            if (fieldView.isObject())
+                return JsonBool{fieldView.objectSize() != 0};
             return JsonBool{false};
         }
     }
@@ -192,16 +239,30 @@ struct JsonBoolConverterT
  */
 struct Uint32Converter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint32").
+     */
     static constexpr std::string_view kName = "uint32";
+
+    /**
+     * @brief The value this converter produces (`uint32_t`).
+     */
     using ValueType = uint32_t;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isUint32())
+        if (not fieldView.isUint32())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return f.asUint32();
+        return fieldView.asUint32();
     }
 };
 
@@ -210,16 +271,30 @@ struct Uint32Converter
  */
 struct StringConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("string").
+     */
     static constexpr std::string_view kName = "string";
+
+    /**
+     * @brief The value this converter produces (`std::string`).
+     */
     using ValueType = std::string;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isString())
+        if (not fieldView.isString())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return std::string{f.asString()};
+        return std::string{fieldView.asString()};
     }
 };
 
@@ -233,16 +308,31 @@ struct StringConverter
  */
 struct AccountIdActMalformedConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("account").
+     */
     static constexpr std::string_view kName = "account";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
+        if (fieldView.isString())
         {
-            if (auto id = detail::accountFromStringStrict(std::string{f.asString()}); id)
+            if (auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+                id.has_value())
                 return *id;
         }
         return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
@@ -257,18 +347,35 @@ struct AccountIdActMalformedConverter
  */
 struct AccountIdVecConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("accountIdVec").
+     */
     static constexpr std::string_view kName = "accountIdVec";
+
+    /**
+     * @brief The value this converter produces (`std::optional<std::vector<xrpl::AccountID>>`).
+     */
     using ValueType = std::optional<std::vector<xrpl::AccountID>>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        auto const size = f.arraySize();
+        auto const size = fieldView.arraySize();
         std::vector<xrpl::AccountID> result;
         result.reserve(size);
-        for (std::size_t i = 0; i < size; ++i)
-            result.push_back(detail::accountFromValidated(std::string{f.element(i).asString()}));
+        for (auto i = 0uz; i < size; ++i)
+        {
+            result.push_back(
+                detail::accountFromValidated(std::string{fieldView.element(i).asString()}));
+        }
 
         return ValueType{std::move(result)};
     }

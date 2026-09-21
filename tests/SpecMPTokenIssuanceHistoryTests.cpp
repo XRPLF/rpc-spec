@@ -38,96 +38,96 @@ withMptId(std::string const& extra = "")
 
 TEST(MPTokenIssuanceHistorySpec, MinimalRequestParses)
 {
-    auto const r = parseHistory(withMptId());
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
+    auto const result = parseHistory(withMptId());
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
 
     xrpl::uint192 expected{};
     ASSERT_TRUE(expected.parseHex(kMptId));
-    EXPECT_EQ(r->mptIssuanceId, expected);
-    EXPECT_FALSE(r->account.has_value());
-    EXPECT_FALSE(r->limit.has_value());
-    EXPECT_FALSE(static_cast<bool>(r->binary));
-    EXPECT_FALSE(static_cast<bool>(r->forward));
+    EXPECT_EQ(result->mptIssuanceId, expected);
+    EXPECT_FALSE(result->account.has_value());
+    EXPECT_FALSE(result->limit.has_value());
+    EXPECT_FALSE(static_cast<bool>(result->binary));
+    EXPECT_FALSE(static_cast<bool>(result->forward));
 }
 
 TEST(MPTokenIssuanceHistorySpec, MissingMptIssuanceIdFails)
 {
-    auto const r = parseHistory(R"JSON({})JSON");
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseHistory(R"JSON({})JSON");
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(MPTokenIssuanceHistorySpec, MalformedMptIssuanceIdFails)
 {
-    auto const r = parseHistory(R"JSON({"mpt_issuance_id": "NOTAHEX"})JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = parseHistory(R"JSON({"mpt_issuance_id": "NOTAHEX"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(MPTokenIssuanceHistorySpec, AccountParses)
 {
-    auto const r =
+    auto const result =
         parseHistory(withMptId(std::string{R"JSON(, "account": ")JSON"} + kAccount + "\""));
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    EXPECT_TRUE(r->account.has_value());
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    EXPECT_TRUE(result->account.has_value());
 }
 
 TEST(MPTokenIssuanceHistorySpec, MalformedAccountFails)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "account": "not-an-account")JSON"));
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseHistory(withMptId(R"JSON(, "account": "not-an-account")JSON"));
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(MPTokenIssuanceHistorySpec, TxTypeIsLowercasedAndValidated)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "tx_type": "Payment")JSON"));
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    ASSERT_TRUE(r->transactionTypeInLowercase.has_value());
-    EXPECT_EQ(*r->transactionTypeInLowercase, "payment");
+    auto const result = parseHistory(withMptId(R"JSON(, "tx_type": "Payment")JSON"));
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    ASSERT_TRUE(result->transactionTypeInLowercase.has_value());
+    EXPECT_EQ(*result->transactionTypeInLowercase, "payment");
 }
 
 TEST(MPTokenIssuanceHistorySpec, UnknownTxTypeFails)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "tx_type": "NotARealType")JSON"));
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'tx_type'.");
+    auto const result = parseHistory(withMptId(R"JSON(, "tx_type": "NotARealType")JSON"));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'tx_type'.");
 }
 
 TEST(MPTokenIssuanceHistorySpec, LimitIsClampedToMax)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "limit": 9999)JSON"));
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    ASSERT_TRUE(r->limit.has_value());
-    EXPECT_EQ(*r->limit, handlers::mptoken_issuance_history::kLimitMax);
+    auto const result = parseHistory(withMptId(R"JSON(, "limit": 9999)JSON"));
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    ASSERT_TRUE(result->limit.has_value());
+    EXPECT_EQ(*result->limit, handlers::mptoken_issuance_history::kLimitMax);
 }
 
 TEST(MPTokenIssuanceHistorySpec, LimitBelowMinFails)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "limit": 0)JSON"));
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseHistory(withMptId(R"JSON(, "limit": 0)JSON"));
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(MPTokenIssuanceHistorySpec, MarkerParses)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "marker": {"ledger": 7, "seq": 9})JSON"));
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    ASSERT_TRUE(r->marker.has_value());
-    EXPECT_EQ(r->marker->ledger, 7u);
-    EXPECT_EQ(r->marker->seq, 9u);
+    auto const result = parseHistory(withMptId(R"JSON(, "marker": {"ledger": 7, "seq": 9})JSON"));
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    ASSERT_TRUE(result->marker.has_value());
+    EXPECT_EQ(result->marker->ledger, 7u);
+    EXPECT_EQ(result->marker->seq, 9u);
 }
 
 TEST(MPTokenIssuanceHistorySpec, NonObjectMarkerIsInvalidMarker)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "marker": "nope")JSON"));
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "invalidMarker");
+    auto const result = parseHistory(withMptId(R"JSON(, "marker": "nope")JSON"));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "invalidMarker");
 }
 
 TEST(MPTokenIssuanceHistorySpec, MarkerMissingSeqFails)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "marker": {"ledger": 7})JSON"));
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseHistory(withMptId(R"JSON(, "marker": {"ledger": 7})JSON"));
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(MPTokenIssuanceHistorySpec, BinaryAndForwardAreStrictBools)
@@ -143,7 +143,7 @@ TEST(MPTokenIssuanceHistorySpec, BinaryAndForwardAreStrictBools)
 
 TEST(MPTokenIssuanceHistorySpec, LedgerIndexMinusOneSentinelIsUnset)
 {
-    auto const r = parseHistory(withMptId(R"JSON(, "ledger_index_min": -1)JSON"));
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    EXPECT_FALSE(r->ledgerIndexMin.has_value());
+    auto const result = parseHistory(withMptId(R"JSON(, "ledger_index_min": -1)JSON"));
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    EXPECT_FALSE(result->ledgerIndexMin.has_value());
 }

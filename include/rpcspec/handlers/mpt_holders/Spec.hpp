@@ -20,35 +20,58 @@
 
 namespace rpc::spec::handlers::mpt_holders {
 
+/**
+ * @brief Converts the account id hex field into its strongly-typed value.
+ */
 struct AccountIdHexConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint160Hex").
+     */
     static constexpr std::string_view kName = "uint160Hex";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         auto const err = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(fieldView.key())}};
         };
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(fieldView.key())}};
         }
         xrpl::AccountID out;
-        if (!out.parseHex(std::string{f.asString()}.c_str()))
+        if (not out.parseHex(std::string{fieldView.asString()}.c_str()))
             return err();
         return out;
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: account id hex.
+ */
 inline constexpr auto accountIdHex = AccountIdHexConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("mpt_issuance_id", &Input::mptID, required, asUint192),
@@ -71,6 +94,8 @@ inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
 /**
  * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
  */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept

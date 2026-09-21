@@ -17,10 +17,29 @@ namespace rpc::spec::handlers::amm_info {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `account` request field.
+     */
     std::optional<xrpl::AccountID> accountID;
+
+    /**
+     * @brief Value of the `amm_account` request field.
+     */
     std::optional<xrpl::AccountID> ammAccount;
+
+    /**
+     * @brief Value of the `asset` request field.
+     */
     xrpl::Issue issue1 = xrpl::noIssue();
+
+    /**
+     * @brief Value of the `asset2` request field.
+     */
     xrpl::Issue issue2 = xrpl::noIssue();
 };
 

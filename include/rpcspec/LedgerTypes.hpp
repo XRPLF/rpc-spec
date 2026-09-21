@@ -23,9 +23,24 @@ enum class LedgerCategory { AccountOwned, Chain, DeletionBlocker };
  */
 struct LedgerTypeEntry
 {
+    /**
+     * @brief Canonical ledger object name (e.g. "AccountRoot").
+     */
     std::string_view name;
+
+    /**
+     * @brief RPC-facing name (e.g. "account").
+     */
     std::string_view rpcName;
+
+    /**
+     * @brief The libxrpl ledger entry type.
+     */
     xrpl::LedgerEntryType type;
+
+    /**
+     * @brief How the object relates to an account.
+     */
     LedgerCategory category;
 };
 
@@ -74,7 +89,14 @@ inline constexpr auto kLedgerTypesTable = std::to_array<LedgerTypeEntry>({
  */
 struct LedgerTypeInfo
 {
+    /**
+     * @brief The libxrpl ledger entry type.
+     */
     xrpl::LedgerEntryType type;
+
+    /**
+     * @brief How the object relates to an account.
+     */
     LedgerCategory category;
 };
 
@@ -133,7 +155,7 @@ ledgerTypeInfoFromStr(std::string const& entryName)
 ledgerEntryTypeFromStr(std::string const& name)
 {
     auto const info = ledgerTypeInfoFromStr(name);
-    return info ? info->type : xrpl::ltANY;
+    return info.has_value() ? info->type : xrpl::ltANY;
 }
 
 /**
@@ -146,7 +168,7 @@ ledgerEntryTypeFromStr(std::string const& name)
 accountOwnedLedgerTypeFromStr(std::string const& name)
 {
     auto const info = ledgerTypeInfoFromStr(name);
-    if (info && info->category != LedgerCategory::Chain)
+    if (info.has_value() and info->category != LedgerCategory::Chain)
         return info->type;
     return xrpl::ltANY;
 }

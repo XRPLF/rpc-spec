@@ -459,8 +459,8 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
 TEST(RpcSpecDSL_CustomModifier, LambdaInvokedWhenPresent)
 {
     static constexpr auto kSpec = RpcSpec{
-        field("val", customModifier([](auto& f) -> rpc::spec::MaybeError {
-                  f.set(int64_t{99});
+        field("val", customModifier([](auto& fieldView) -> rpc::spec::MaybeError {
+                  fieldView.set(int64_t{99});
                   return {};
               })),
     };
@@ -472,8 +472,8 @@ TEST(RpcSpecDSL_CustomModifier, LambdaInvokedWhenPresent)
 TEST(RpcSpecDSL_CustomModifier, LambdaNotInvokedWhenAbsent)
 {
     static constexpr auto kSpec = RpcSpec{
-        field("val", customModifier([](auto& f) -> rpc::spec::MaybeError {
-                  f.set(int64_t{99});
+        field("val", customModifier([](auto& fieldView) -> rpc::spec::MaybeError {
+                  fieldView.set(int64_t{99});
                   return {};
               })),
     };
@@ -489,9 +489,9 @@ TEST(RpcSpecDSL_CustomModifier, LambdaCanReturnError)
               })),
     };
     auto request = boost::json::parse(R"JSON({ "val": 1 })JSON");
-    auto const r = kSpec.process(request);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(request);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_ToLower, ConvertsToLowercase)
@@ -620,9 +620,9 @@ TEST(TypedSpecModifier, ToLowerRunsBeforeConverter)
         spec<TypedTxInput>(field("tx_type", &TypedTxInput::txType, toLower, asString));
 
     auto request = boost::json::parse(R"JSON({ "tx_type": "Payment" })JSON");
-    auto const r = kSpec.parse(request);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(r->txType, "payment");  // lowercased by the modifier, then converted
+    auto const result = kSpec.parse(request);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->txType, "payment");  // lowercased by the modifier, then converted
 }
 
 TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
@@ -632,7 +632,7 @@ TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
         field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
 
     auto wrongType = boost::json::parse(R"JSON({ "limit": "not a number" })JSON");
-    auto const r = kSpec.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }

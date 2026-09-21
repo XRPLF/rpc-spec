@@ -17,44 +17,88 @@
 
 namespace rpc::spec::handlers::account_lines {
 
+/**
+ * @brief Converts the account id act malformed field into its strongly-typed value.
+ */
 struct AccountIdActMalformedConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("accountActMalformed").
+     */
     static constexpr std::string_view kName = "accountActMalformed";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isString())
+        if (not fieldView.isString())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
-        auto id = detail::accountFromStringStrict(std::string{f.asString()});
-        if (!id)
+        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+        if (not id.has_value())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
         return *id;
     }
 };
 
+/**
+ * @brief Converts the as bool field into its strongly-typed value.
+ */
 struct AsBoolConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("bool").
+     */
     static constexpr std::string_view kName = "bool";
+
+    /**
+     * @brief The value this converter produces (`bool`).
+     */
     using ValueType = bool;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isBool())
+        if (not fieldView.isBool())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return f.asBool();
+        return fieldView.asBool();
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: account id act malformed.
+ */
 inline constexpr auto accountIdActMalformed = AccountIdActMalformedConverter{};
+
+/**
+ * @brief Converter instance: as bool.
+ */
 inline constexpr auto asBool = AsBoolConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.
+ */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountIdActMalformed),
@@ -79,6 +123,8 @@ inline constexpr auto kSpec = versioned<Input>(kInputSpecV1);
 
 /**
  * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
  */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept

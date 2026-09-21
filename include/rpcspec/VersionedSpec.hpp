@@ -32,13 +32,16 @@ namespace rpc::spec {
  * @ref dump delegate to the selected version.
  *
  * @tparam InputT The handler Input struct produced by @ref parse.
- * @tparam N      The number of supported versions.
+ * @tparam N The number of supported versions.
  */
 template <typename InputT, std::size_t N>
 struct VersionedSpec
 {
     static_assert(N >= 1, "rpcspec: versioned() needs at least one spec");
 
+    /**
+     * @brief Signature of the per-version parse thunk.
+     */
     using ParseFn = std::expected<InputT, rpc::Status> (*)(void const*, boost::json::value&);
 
     /**
@@ -64,11 +67,14 @@ struct VersionedSpec
      * entry — resolves to the newest spec (index N-1). This mirrors the legacy
      * per-handler selection `apiVersion == 1 ? V1 : V2`, where every value other
      * than 1 (including the default-constructed 0) used the latest spec.
+     *
+     * @param apiVersion The requested API version.
+     * @return The index into @ref views / @ref parseFns for that version.
      */
     [[nodiscard]] static constexpr std::size_t
     indexFor(uint32_t apiVersion) noexcept
     {
-        if (apiVersion >= 1 && apiVersion <= N)
+        if (apiVersion >= 1 and apiVersion <= N)
             return static_cast<std::size_t>(apiVersion) - 1;
         return N - 1;
     }
@@ -76,7 +82,7 @@ struct VersionedSpec
     /**
      * @brief Validate @p jv and deserialise it into @c InputT using the spec for @p apiVersion.
      *
-     * @param jv         The request JSON (taken by value: spec modifiers normalise it in place).
+     * @param jv The request JSON (taken by value: spec modifiers normalise it in place).
      * @param apiVersion The API version to select the spec for.
      * @return The parsed Input, or a Status describing the validation failure.
      */
@@ -89,6 +95,10 @@ struct VersionedSpec
 
     /**
      * @brief Collect warnings for @p jv using the spec for @p apiVersion.
+     *
+     * @param jv The request JSON.
+     * @param apiVersion The API version to select the spec for.
+     * @return All warnings produced by the selected spec's check items.
      */
     [[nodiscard]] Warnings
     check(boost::json::value const& jv, uint32_t apiVersion) const
@@ -98,15 +108,21 @@ struct VersionedSpec
 
     /**
      * @brief Render the schema for @p apiVersion into @p w.
+     *
+     * @param writer The writer receiving the schema output.
+     * @param apiVersion The API version to select the spec for.
      */
     void
-    dump(SpecDumpWriter& w, uint32_t apiVersion) const
+    dump(SpecDumpWriter& writer, uint32_t apiVersion) const
     {
-        views[indexFor(apiVersion)].dump(w);
+        views[indexFor(apiVersion)].dump(writer);
     }
 
     /**
      * @brief The type-erased view for @p apiVersion (for callers that only need check/dump).
+     *
+     * @param apiVersion The API version to select the spec for.
+     * @return A view over the selected version's spec.
      */
     [[nodiscard]] RpcSpecView
     view(uint32_t apiVersion) const
@@ -116,13 +132,13 @@ struct VersionedSpec
 };
 
 /**
- * @brief Build a @ref VersionedSpec from one @ref TypedSpec per API version.
+ * @brief Build a @ref rpc::spec::VersionedSpec from one @ref rpc::spec::TypedSpec per API version.
  *
  * Each argument must be a spec producing the same @c InputT. Argument order is
- * the version order (arg 0 → version 1, …); see @ref VersionedSpec.
+ * the version order (arg 0 → version 1, …); see @ref rpc::spec::VersionedSpec.
  *
  * @tparam InputT The shared handler Input struct.
- * @param specs   One spec per version, in ascending version order.
+ * @param specs One spec per version, in ascending version order.
  * @return A @c VersionedSpec over the given specs.
  */
 template <typename InputT, typename... Specs>
@@ -132,8 +148,8 @@ versioned(Specs const&... specs)
     return VersionedSpec<InputT, sizeof...(Specs)>{
         .views = {RpcSpecView{specs}...},
         .parseFns = {(
-            +[](void const* s, boost::json::value& jv) -> std::expected<InputT, rpc::Status> {
-                return static_cast<Specs const*>(s)->parse(jv);
+            +[](void const* self, boost::json::value& jv) -> std::expected<InputT, rpc::Status> {
+                return static_cast<Specs const*>(self)->parse(jv);
             })...},
         .selves = {static_cast<void const*>(&specs)...}};
 }

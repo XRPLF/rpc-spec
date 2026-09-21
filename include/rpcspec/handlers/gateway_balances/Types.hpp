@@ -17,8 +17,19 @@ namespace rpc::spec::handlers::gateway_balances {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `account` request field.
+     */
     xrpl::AccountID account;
+
+    /**
+     * @brief Value of the `hotwallet` request field.
+     */
     std::set<xrpl::AccountID> hotWallets;
 };
 

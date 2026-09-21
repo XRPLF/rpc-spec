@@ -24,30 +24,58 @@ namespace rpc::spec {
 template <typename T, SomeProcessor... SubItems>
 struct IfType
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ifType").
+     */
     static constexpr std::string_view kName = "ifType";
+
+    /**
+     * @brief Schema-dump name of the JSON type this branch tests for.
+     */
     static constexpr std::string_view kBranchType = typeNameOf<T>();
 
+    /**
+     * @brief Processors run only when the runtime type matches.
+     */
     std::tuple<SubItems...> subItems;
 
-    consteval explicit IfType(SubItems... s) : subItems{s...}
+    /**
+     * @brief Construct a @ref IfType.
+     *
+     * @param items The processors to run when the runtime type matches.
+     */
+    consteval explicit IfType(SubItems... items) : subItems{items...}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("type", kBranchType);
+        writer.param("type", kBranchType);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify(FA& fa) const
+    modify(View& fieldView) const
     {
-        if (!fa.present() || !fa.template is<T>())
+        if (not fieldView.present() or not fieldView.template is<T>())
             return {};
 
-        return runProcessors(subItems, fa);
+        return runProcessors(subItems, fieldView);
     }
 };
 

@@ -194,7 +194,7 @@ invalidFieldMessage(std::string_view field)
  * @brief The message for a field whose value is not a string when one was required.
  *
  * Clio distinguishes the two failure modes of a string-encoded field; xrpld collapses both into
- * @ref invalidFieldMessage.
+ * @ref rpc::invalidFieldMessage().
  *
  * @param field The field name
  * @return The message
@@ -213,7 +213,7 @@ notStringFieldMessage(std::string_view field)
 /**
  * @brief The message for a string field whose value could not be parsed.
  *
- * The parse-failure half of the pair described on @ref notStringFieldMessage.
+ * The parse-failure half of the pair described on @ref rpc::notStringFieldMessage().
  *
  * @param field The field name
  * @return The message
@@ -233,7 +233,7 @@ malformedFieldMessage(std::string_view field)
  * @brief The message for a `ledger_index` that is neither a valid sequence nor a known shortcut.
  *
  * Clio uses one token for every failure mode of this field - wrong JSON type, out-of-range
- * number, unrecognised string. xrpld phrases it as @ref expectedFieldMessage.
+ * number, unrecognised string. xrpld phrases it as @ref rpc::expectedFieldMessage().
  *
  * @return The message
  */
@@ -252,7 +252,7 @@ malformedLedgerIndexMessage()
  *
  * Clio names no field here. xrpld's marker is a different shape entirely (a hex pair rather than
  * index/hint), so a shared message naming the format would be wrong for one of them - it falls
- * back to @ref invalidFieldMessage there.
+ * back to @ref rpc::invalidFieldMessage() there.
  *
  * @param field The field name, used only in the xrpld form
  * @return The message
@@ -272,9 +272,24 @@ malformedCursorMessage([[maybe_unused]] std::string_view field)
  */
 struct Status
 {
+    /**
+     * @brief The error code, Clio-specific or xrpld.
+     */
     CombinedError code = xrpl::RpcSuccess;
+
+    /**
+     * @brief Short machine-readable error token.
+     */
     std::string error;
+
+    /**
+     * @brief Human-readable error message.
+     */
     std::string message;
+
+    /**
+     * @brief Extra JSON merged into the error response, when present.
+     */
     std::optional<boost::json::object> extraInfo;
 
     Status() = default;
@@ -329,6 +344,12 @@ struct Status
     {
     }
 
+    /**
+     * @brief Compare two statuses field by field.
+     *
+     * @param other The status to compare against.
+     * @return true when every field matches; false otherwise.
+     */
     bool
     operator==(Status const& other) const = default;
 
@@ -418,7 +439,14 @@ struct WarningInfo
     {
     }
 
+    /**
+     * @brief The error code, Clio-specific or xrpld.
+     */
     WarningCode code = WarningCode::WarnUnknown;
+
+    /**
+     * @brief Human-readable error message.
+     */
     std::string_view const message = "unknown warning";
 };
 

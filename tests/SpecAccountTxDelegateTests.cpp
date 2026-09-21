@@ -34,70 +34,72 @@ parseAccountTx(std::string const& delegateJson)
 
 TEST(AccountTxDelegateSpec, AbsentDelegateLeavesFilterUnset)
 {
-    auto const r = parseAccountTx("");
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    EXPECT_FALSE(r->delegateFilter.has_value());
+    auto const result = parseAccountTx("");
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    EXPECT_FALSE(result->delegateFilter.has_value());
 }
 
 TEST(AccountTxDelegateSpec, ActorParses)
 {
-    auto const r = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "actor"})JSON");
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    ASSERT_TRUE(r->delegateFilter.has_value());
-    EXPECT_EQ(r->delegateFilter->delegateType, DelegateFilter::Role::Actor);
-    EXPECT_FALSE(r->delegateFilter->counterParty.has_value());
+    auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "actor"})JSON");
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    ASSERT_TRUE(result->delegateFilter.has_value());
+    EXPECT_EQ(result->delegateFilter->delegateType, DelegateFilter::Role::Actor);
+    EXPECT_FALSE(result->delegateFilter->counterParty.has_value());
 }
 
 TEST(AccountTxDelegateSpec, AuthorizerWithCounterPartyParses)
 {
-    auto const r = parseAccountTx(
+    auto const result = parseAccountTx(
         std::string{
             R"JSON(, "delegate": {"delegate_filter": "authorizer", "counter_party": ")JSON"} +
         kCounterparty + R"JSON("})JSON");
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    ASSERT_TRUE(r->delegateFilter.has_value());
-    EXPECT_EQ(r->delegateFilter->delegateType, DelegateFilter::Role::Authorizer);
-    ASSERT_TRUE(r->delegateFilter->counterParty.has_value());
-    EXPECT_EQ(*r->delegateFilter->counterParty, kCounterparty);
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    ASSERT_TRUE(result->delegateFilter.has_value());
+    EXPECT_EQ(result->delegateFilter->delegateType, DelegateFilter::Role::Authorizer);
+    ASSERT_TRUE(result->delegateFilter->counterParty.has_value());
+    EXPECT_EQ(*result->delegateFilter->counterParty, kCounterparty);
 }
 
 TEST(AccountTxDelegateSpec, NotAnObjectFails)
 {
-    auto const r = parseAccountTx(R"JSON(, "delegate": "actor")JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "delegateNotObject");
+    auto const result = parseAccountTx(R"JSON(, "delegate": "actor")JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "delegateNotObject");
 }
 
 TEST(AccountTxDelegateSpec, MissingDelegateFilterFails)
 {
-    auto const r = parseAccountTx(R"JSON(, "delegate": {})JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Field 'delegate_filter' is required but missing.");
+    auto const result = parseAccountTx(R"JSON(, "delegate": {})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Field 'delegate_filter' is required but missing.");
 }
 
 TEST(AccountTxDelegateSpec, UnknownDelegateFilterValueFails)
 {
-    auto const r = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "bogus"})JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
+    auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "bogus"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(
+        result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
 
 TEST(AccountTxDelegateSpec, NonStringDelegateFilterFails)
 {
-    auto const r = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": 1})JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
+    auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": 1})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(
+        result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
 
 TEST(AccountTxDelegateSpec, MalformedCounterPartyFails)
 {
-    auto const r = parseAccountTx(
+    auto const result = parseAccountTx(
         R"JSON(, "delegate": {"delegate_filter": "actor", "counter_party": "not-an-account"})JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcActMalformed);
-    EXPECT_EQ(r.error().message, "Field 'counter_party' value must be a valid account.");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "Field 'counter_party' value must be a valid account.");
 }

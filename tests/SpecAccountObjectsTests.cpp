@@ -32,27 +32,27 @@ parse(std::string const& json)
 
 TEST(AccountObjectsSpec, SponsoredAbsentLeavesFilterUnset)
 {
-    auto const r = parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
-    ASSERT_TRUE(r.has_value());
-    EXPECT_FALSE(r->sponsored.has_value());
+    auto const result = parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->sponsored.has_value());
 }
 
 TEST(AccountObjectsSpec, SponsoredTrue)
 {
-    auto const r =
+    auto const result =
         parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsored": true})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->sponsored.has_value());
-    EXPECT_TRUE(static_cast<bool>(*r->sponsored));
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->sponsored.has_value());
+    EXPECT_TRUE(static_cast<bool>(*result->sponsored));
 }
 
 TEST(AccountObjectsSpec, SponsoredFalseIsDistinctFromAbsent)
 {
-    auto const r =
+    auto const result =
         parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsored": false})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->sponsored.has_value());
-    EXPECT_FALSE(static_cast<bool>(*r->sponsored));
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->sponsored.has_value());
+    EXPECT_FALSE(static_cast<bool>(*result->sponsored));
 }
 
 TEST(AccountObjectsSpec, SponsoredRejectsNonBool)
@@ -70,11 +70,11 @@ TEST(AccountObjectsSpec, SponsoredRejectsNonBool)
 
 TEST(AccountObjectsSpec, TypeAcceptsSponsorship)
 {
-    auto const r = parse(
+    auto const result = parse(
         R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "type": "sponsorship"})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->type.has_value());
-    EXPECT_EQ(*r->type, xrpl::ltSPONSORSHIP);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->type.has_value());
+    EXPECT_EQ(*result->type, xrpl::ltSPONSORSHIP);
 }
 
 TEST(AccountObjectsSpec, TypeRejectsUnknownAndChainScopedTypes)

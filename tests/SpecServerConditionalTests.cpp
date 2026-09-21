@@ -46,9 +46,9 @@ constexpr auto kSpec = RpcSpec{
 TEST(ServerConditionalClio, IfServerClioValidatorIsApplied)
 {
     auto bad = boost::json::parse(R"JSON({ "clio_only": true })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(ServerConditionalClio, IfServerClioValidatorAllowsNonTriggeringValue)
@@ -66,63 +66,63 @@ TEST(ServerConditionalClio, IfServerXrpldValidatorIsInertInClioBuild)
 TEST(SubscribeSpecClio, ServerStreamRejectedWithNotSupported)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
-    auto const r = handlers::subscribe::kInputSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, ConsensusStreamRejectedWithNotSupported)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["consensus"]})JSON");
-    auto const r = handlers::subscribe::kInputSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, PeerStatusStreamRejectedWithNotSupported)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["peer_status"]})JSON");
-    auto const r = handlers::subscribe::kInputSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, LedgerStreamAccepted)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["ledger"]})JSON");
-    auto const r = handlers::subscribe::kInputSpec.parse(value);
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 1u);
-    EXPECT_EQ((*r->streams)[0], handlers::subscribe::StreamType::Ledger);
+    auto const result = handlers::subscribe::kInputSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 1u);
+    EXPECT_EQ((*result->streams)[0], handlers::subscribe::StreamType::Ledger);
 }
 
 TEST(SubscribeDumpClio, DumpContainsNotSupportedAndServerStream)
 {
     std::ostringstream oss;
-    rpc::spec::SpecDumpWriter w{oss};
-    handlers::subscribe::kInputSpec.dump(w);
-    auto const s = oss.str();
+    rpc::spec::SpecDumpWriter writer{oss};
+    handlers::subscribe::kInputSpec.dump(writer);
+    auto const text = oss.str();
 
     static constexpr auto npos = std::string::npos;
-    EXPECT_NE(s.find("notSupported"), npos) << "missing: notSupported";
-    EXPECT_NE(s.find("server"), npos) << "missing: server";
+    EXPECT_NE(text.find("notSupported"), npos) << "missing: notSupported";
+    EXPECT_NE(text.find("server"), npos) << "missing: server";
 }
 
 TEST(UnsubscribeSpecClio, ServerStreamRejectedWithNotSupported)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
-    auto const r = handlers::unsubscribe::kInputSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = handlers::unsubscribe::kInputSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(UnsubscribeSpecClio, LedgerStreamAccepted)
 {
     auto value = boost::json::parse(R"JSON({"streams": ["ledger"]})JSON");
-    auto const r = handlers::unsubscribe::kInputSpec.parse(value);
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 1u);
-    EXPECT_EQ((*r->streams)[0], handlers::unsubscribe::StreamType::Ledger);
+    auto const result = handlers::unsubscribe::kInputSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 1u);
+    EXPECT_EQ((*result->streams)[0], handlers::unsubscribe::StreamType::Ledger);
 }

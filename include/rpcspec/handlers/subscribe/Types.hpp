@@ -31,6 +31,9 @@ enum class StreamType {
  */
 struct OrderBook
 {
+    /**
+     * @brief Value of the `book` field.
+     */
     xrpl::Book book;
 
     /**
@@ -39,7 +42,15 @@ struct OrderBook
      * Kept as a passthrough string.
      */
     std::optional<std::string> taker;
+
+    /**
+     * @brief Value of the `snapshot` field.
+     */
     bool snapshot = false;
+
+    /**
+     * @brief Value of the `both` field.
+     */
     bool both = false;
 };
 
@@ -48,9 +59,24 @@ struct OrderBook
  */
 struct Input
 {
+    /**
+     * @brief Value of the `accounts` request field.
+     */
     std::optional<std::vector<xrpl::AccountID>> accounts;
+
+    /**
+     * @brief Value of the `streams` request field.
+     */
     std::optional<std::vector<StreamType>> streams;
+
+    /**
+     * @brief Value of the `accounts_proposed` request field.
+     */
     std::optional<std::vector<xrpl::AccountID>> accountsProposed;
+
+    /**
+     * @brief Value of the `books` request field.
+     */
     std::optional<std::vector<OrderBook>> books;
 };
 

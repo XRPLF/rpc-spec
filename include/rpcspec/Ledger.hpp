@@ -57,10 +57,15 @@ inline constexpr LedgerShortcut kDefaultLedgerShortcut =
  */
 struct LedgerSpecifier
 {
+    /**
+     * @brief The selected ledger: unspecified, a shortcut, a hash, or a sequence.
+     */
     std::variant<std::monostate, LedgerShortcut, xrpl::uint256, uint32_t> value;
 
     /**
      * @brief True when the request named no ledger (neither hash nor index).
+     *
+     * @return true when no ledger was named; false otherwise.
      */
     [[nodiscard]] bool
     isUnspecified() const noexcept
@@ -70,6 +75,8 @@ struct LedgerSpecifier
 
     /**
      * @brief True when the value is a shortcut (validated / current / closed).
+     *
+     * @return true when the value is a shortcut; false otherwise.
      */
     [[nodiscard]] bool
     isShortcut() const noexcept
@@ -79,6 +86,8 @@ struct LedgerSpecifier
 
     /**
      * @brief True when the value is a concrete ledger hash.
+     *
+     * @return true when the value is a ledger hash; false otherwise.
      */
     [[nodiscard]] bool
     isHash() const noexcept
@@ -88,6 +97,8 @@ struct LedgerSpecifier
 
     /**
      * @brief True when the value is a concrete ledger sequence.
+     *
+     * @return true when the value is a ledger sequence; false otherwise.
      */
     [[nodiscard]] bool
     isSequence() const noexcept
@@ -111,29 +122,40 @@ struct LedgerSpecifier
         return *this;
     }
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     friend bool
     operator==(LedgerSpecifier const&, LedgerSpecifier const&) = default;
 };
 
 namespace detail {
 
-template <SomeFieldView FA>
+/**
+ * @brief Parse a `ledger_index` value into a LedgerSpecifier.
+ *
+ * @param fieldView The `ledger_index` field.
+ * @return The selection, or a Status describing the failure.
+ */
+template <SomeFieldView View>
 [[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
-ledgerSpecifierFromIndex(FA const& f)
+ledgerSpecifierFromIndex(View const& fieldView)
 {
     auto const invalid = [&] {
         return std::unexpected{
             rpc::Status{rpc::kMalformedField, rpc::malformedLedgerIndexMessage()}};
     };
 
-    if (f.isUint32())
-        return LedgerSpecifier{uint32_t{f.asUint32()}};
-    if (f.isInt64())  // numeric but outside uint32 range
+    if (fieldView.isUint32())
+        return LedgerSpecifier{uint32_t{fieldView.asUint32()}};
+    if (fieldView.isInt64())  // numeric but outside uint32 range
         return invalid();
-    if (!f.isString())
+    if (not fieldView.isString())
         return invalid();
 
-    auto const sv = f.asString();
+    auto const sv = fieldView.asString();
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
     if constexpr (kIsXrpldBuild)
@@ -150,16 +172,22 @@ ledgerSpecifierFromIndex(FA const& f)
     uint32_t seq = 0;
     auto const* const begin = sv.data();
     auto const* const end = sv.data() + sv.size();
-    if (auto const [p, ec] = std::from_chars(begin, end, seq); ec == std::errc{} && p == end)
+    if (auto const [ptr, ec] = std::from_chars(begin, end, seq); ec == std::errc{} and ptr == end)
         return LedgerSpecifier{seq};
     return invalid();
 }
 
-template <SomeFieldView FA>
+/**
+ * @brief Parse a `ledger_hash` value into a LedgerSpecifier.
+ *
+ * @param fieldView The `ledger_hash` field.
+ * @return The selection, or a Status describing the failure.
+ */
+template <SomeFieldView View>
 [[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
-ledgerSpecifierFromHash(FA const& f)
+ledgerSpecifierFromHash(View const& fieldView)
 {
-    if (!f.isString())
+    if (not fieldView.isString())
     {
         if constexpr (kIsClioBuild)
         {
@@ -175,7 +203,7 @@ ledgerSpecifierFromHash(FA const& f)
         }
     }
     xrpl::uint256 hash;
-    if (!hash.parseHex(std::string{f.asString()}.c_str()))
+    if (not hash.parseHex(std::string{fieldView.asString()}.c_str()))
     {
         return std::unexpected{
             rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage("ledger_hash")}};
@@ -201,12 +229,27 @@ ledgerSpecifierFromHash(FA const& f)
 template <typename InputT, typename Member>
 struct LedgerSelectorField
 {
+    /**
+     * @brief Marks this type as a bound field, so TypedSpec dispatches to parseInto().
+     */
     static constexpr bool kIsBound = true;
 
+    /**
+     * @brief The bound key; always "ledger_index".
+     */
     std::string_view key{"ledger_index"};
+
+    /**
+     * @brief Pointer to the LedgerSpecifier member that receives the selection.
+     */
     Member InputT::* member;
 
-    consteval explicit LedgerSelectorField(Member InputT::* m) : member{m}
+    /**
+     * @brief Construct a @ref LedgerSelectorField.
+     *
+     * @param member Pointer to the LedgerSpecifier member to bind.
+     */
+    consteval explicit LedgerSelectorField(Member InputT::* member) : member{member}
     {
     }
 
@@ -214,34 +257,41 @@ struct LedgerSelectorField
         std::is_assignable_v<Member&, LedgerSpecifier>,
         "rpcspec: ledgerSelector must bind a LedgerSpecifier Input member");
 
+    /**
+     * @brief Resolve the ledger pair and assign the result into @p out.
+     *
+     * @param root The request root to read from.
+     * @param out The Input being populated.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] MaybeError
     parseInto(Root& root, InputT& out) const
     {
-        auto const hashFa = root.child("ledger_hash");
-        auto const indexFa = root.child("ledger_index");
+        auto const hashView = root.child("ledger_hash");
+        auto const indexView = root.child("ledger_index");
 
         // ledger_hash is checked first so that, when both are malformed, its error is the one
         // reported - every handler declared ledger_hash ahead of ledger_index.
-        if (hashFa.present())
+        if (hashView.present())
         {
-            auto res = detail::ledgerSpecifierFromHash(hashFa);
-            if (!res.has_value())
+            auto res = detail::ledgerSpecifierFromHash(hashView);
+            if (not res.has_value())
                 return std::unexpected{std::move(res).error()};
             // ledger_index is still validated even though the hash takes precedence.
-            if (indexFa.present())
+            if (indexView.present())
             {
-                if (auto idx = detail::ledgerSpecifierFromIndex(indexFa); !idx.has_value())
+                if (auto idx = detail::ledgerSpecifierFromIndex(indexView); not idx.has_value())
                     return std::unexpected{std::move(idx).error()};
             }
             out.*member = std::move(res).value();
             return {};
         }
 
-        if (indexFa.present())
+        if (indexView.present())
         {
-            auto res = detail::ledgerSpecifierFromIndex(indexFa);
-            if (!res.has_value())
+            auto res = detail::ledgerSpecifierFromIndex(indexView);
+            if (not res.has_value())
                 return std::unexpected{std::move(res).error()};
             out.*member = std::move(res).value();
         }
@@ -249,6 +299,11 @@ struct LedgerSelectorField
         return {};
     }
 
+    /**
+     * @brief Inspect the field and optionally raise a non-blocking warning.
+     *
+     * @return The warning to report, or nullopt when none applies.
+     */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const&) const
@@ -256,14 +311,19 @@ struct LedgerSelectorField
         return {};
     }
 
+    /**
+     * @brief Render this field's schema entry.
+     *
+     * @param writer The writer receiving the schema output.
+     */
     void
-    dump(SpecDumpWriter& w) const
+    dump(SpecDumpWriter& writer) const
     {
         // Render the two underlying keys so the unified selector is still
         // discoverable in the schema dump, each with the value it accepts.
-        w.bulletGroup("ledger_hash", [&] { w.bullet("uint256Hex", [] {}); });
-        w.bulletGroup("ledger_index", [&] {
-            w.bullet("uint32 or shortcut (validated/current/closed)", [] {});
+        writer.bulletGroup("ledger_hash", [&] { writer.bullet("uint256Hex", [] {}); });
+        writer.bulletGroup("ledger_index", [&] {
+            writer.bullet("uint32 or shortcut (validated/current/closed)", [] {});
         });
     }
 };
@@ -274,7 +334,10 @@ struct LedgerSelectorField
  * Reusable across handlers: a spec needing ledger selection writes
  * `ledgerSelector(&Input::ledger)` instead of declaring the two fields by hand.
  *
- * @param member The LedgerSpecifier member to bind
+ * @tparam InputT The handler Input struct.
+ * @tparam Member The bound member's type; must accept a LedgerSpecifier.
+ * @param member The LedgerSpecifier member to bind.
+ * @return A field that produces the unified ledger selection.
  */
 template <typename InputT, typename Member>
 [[nodiscard]] consteval auto

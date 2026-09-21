@@ -35,99 +35,99 @@ parseBookOffers(std::string const& json)
 
 TEST(BookOffersSpec, CurrencyOnlyTakerParses)
 {
-    auto const r = parseBookOffers(R"JSON({
+    auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": "XRP"},
         "taker_pays": {"currency": "XRP"}
     })JSON");
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
-    EXPECT_TRUE(r->takerGets.holds<xrpl::Issue>());
-    EXPECT_TRUE(r->takerPays.holds<xrpl::Issue>());
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
+    EXPECT_TRUE(result->takerGets.holds<xrpl::Issue>());
+    EXPECT_TRUE(result->takerPays.holds<xrpl::Issue>());
 }
 
 TEST(BookOffersSpec, MptIssuanceIdParsesAsMptIssue)
 {
-    auto const r = parseBookOffers(
+    auto const result = parseBookOffers(
         std::string{R"JSON({
         "taker_gets": {"mpt_issuance_id": ")JSON"} +
         kMptId + R"JSON("},
         "taker_pays": {"mpt_issuance_id": ")JSON" +
         kMptId + R"JSON("}
     })JSON");
-    ASSERT_TRUE(r.has_value()) << "msg: " << r.error().message;
+    ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
 
-    ASSERT_TRUE(r->takerGets.holds<xrpl::MPTIssue>());
-    ASSERT_TRUE(r->takerPays.holds<xrpl::MPTIssue>());
+    ASSERT_TRUE(result->takerGets.holds<xrpl::MPTIssue>());
+    ASSERT_TRUE(result->takerPays.holds<xrpl::MPTIssue>());
 
     xrpl::MPTID expected{};
     ASSERT_TRUE(expected.parseHex(kMptId));
-    EXPECT_EQ(r->takerGets.get<xrpl::MPTIssue>().getMptID(), expected);
-    EXPECT_EQ(r->takerPays.get<xrpl::MPTIssue>().getMptID(), expected);
+    EXPECT_EQ(result->takerGets.get<xrpl::MPTIssue>().getMptID(), expected);
+    EXPECT_EQ(result->takerPays.get<xrpl::MPTIssue>().getMptID(), expected);
 }
 
 TEST(BookOffersSpec, MptIssuanceIdWithCurrencyFails)
 {
-    auto const r = parseBookOffers(
+    auto const result = parseBookOffers(
         std::string{R"JSON({
         "taker_gets": {"currency": "USD", "mpt_issuance_id": ")JSON"} +
         kMptId + R"JSON("},
         "taker_pays": {"currency": "XRP"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'taker_gets'.");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_gets'.");
 }
 
 TEST(BookOffersSpec, MptIssuanceIdWithIssuerFails)
 {
-    auto const r = parseBookOffers(
+    auto const result = parseBookOffers(
         std::string{R"JSON({
         "taker_gets": {"currency": "XRP"},
         "taker_pays": {"mpt_issuance_id": ")JSON"} +
         kMptId + R"JSON(", "issuer": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'taker_pays'.");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_pays'.");
 }
 
 TEST(BookOffersSpec, NeitherCurrencyNorMptIssuanceIdFails)
 {
-    auto const r = parseBookOffers(R"JSON({
+    auto const result = parseBookOffers(R"JSON({
         "taker_gets": {},
         "taker_pays": {"currency": "XRP"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Missing field 'taker_gets.currency'.");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Missing field 'taker_gets.currency'.");
 }
 
 TEST(BookOffersSpec, NonStringCurrencyIsInvalidParams)
 {
-    auto const r = parseBookOffers(R"JSON({
+    auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": 123},
         "taker_pays": {"currency": "XRP"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'taker_gets.currency', not string.");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.currency', not string.");
 }
 
 TEST(BookOffersSpec, MalformedTakerGetsMptIdIsDstAmtMalformed)
 {
-    auto const r = parseBookOffers(R"JSON({
+    auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"mpt_issuance_id": "NOTAHEX"},
         "taker_pays": {"currency": "XRP"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcDstAmtMalformed);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcDstAmtMalformed);
 }
 
 TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
 {
-    auto const r = parseBookOffers(R"JSON({
+    auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": "XRP"},
         "taker_pays": {"mpt_issuance_id": "NOTAHEX"}
     })JSON");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcSrcCurMalformed);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcCurMalformed);
 }

@@ -43,14 +43,14 @@ inline constexpr auto type = Type<Ts...>{};
  * @brief Requires a numeric field value to be at least @p v.
  *
  * @tparam T Numeric type of the bound.
- * @param v  The inclusive lower bound.
+ * @param value The inclusive lower bound.
  * @return   A `Min` validator configured with @p v.
  */
 template <typename T>
 consteval auto
-min(T v)
+min(T value)
 {
-    return Min{v};
+    return Min{value};
 }
 
 /**
@@ -80,9 +80,9 @@ inline constexpr auto clampAs = ClampAs<Target>{};
 /**
  * @brief Applies sub-processors only when the field's runtime JSON type is @p T.
  *
- * @tparam T        The JSON type to branch on (e.g. `std::string`, `JsonObject`).
+ * @tparam T The JSON type to branch on (e.g. `std::string`, `JsonObject`).
  * @tparam SubItems Processor types to apply when the type matches.
- * @param  items    The processors to run conditionally.
+ * @param items The processors to run conditionally.
  * @return          An `IfType` modifier.
  */
 template <typename T, SomeProcessor... SubItems>
@@ -95,17 +95,17 @@ ifType(SubItems... items)
 /**
  * @brief Wraps a requirement or modifier and replaces its error with a custom one.
  *
- * @tparam Wrapped  A type satisfying `SomeRequirement` or `SomeModifier`.
- * @param  w        The processor whose error to replace.
- * @param  code     The `rpc::CombinedError` code to report on failure.
- * @param  message  Optional message appended to the status (defaults to empty).
+ * @tparam Wrapped A type satisfying `SomeRequirement` or `SomeModifier`.
+ * @param wrapped The processor whose error to replace.
+ * @param code The `rpc::CombinedError` code to report on failure.
+ * @param message Optional message appended to the status (defaults to empty).
  * @return          A `WithCustomError` wrapper.
  */
 template <typename Wrapped>
 consteval auto
-withCustomError(Wrapped w, rpc::CombinedError code, std::string_view message = {})
+withCustomError(Wrapped wrapped, rpc::CombinedError code, std::string_view message = {})
 {
-    return WithCustomError<Wrapped>{w, code, message};
+    return WithCustomError<Wrapped>{wrapped, code, message};
 }
 
 /**
@@ -124,7 +124,7 @@ timeFormat(std::string_view format)
  * @brief Validates and processes a nested JSON object field using a set of sub-field specs.
  *
  * @tparam SubFields `FieldSpec` types describing the fields inside the sub-object.
- * @param  sf        The sub-field specs to apply.
+ * @param sf The sub-field specs to apply.
  * @return           A `Section` modifier.
  */
 template <typename... SubFields>
@@ -231,7 +231,7 @@ inline constexpr auto notSupported = NotSupported{};
 /**
  * @brief Marks a field as not supported when its value equals @p value.
  *
- * @tparam T   Type of the disallowed value.
+ * @tparam T Type of the disallowed value.
  * @param  value The specific value that triggers the not-supported error.
  * @return     A `NotSupportedIfEqual` validator.
  */
@@ -278,7 +278,7 @@ inline constexpr auto ledgerType = LedgerEntryTypeValidator{};
  * @brief Validates that a field's value is one of a fixed set of string literals.
  *
  * @tparam Strings Deduced string-literal types.
- * @param  vals    The allowed string values.
+ * @param vals The allowed string values.
  * @return         A `OneOfValidator` configured with @p vals.
  */
 template <typename... Strings>
@@ -294,7 +294,7 @@ oneOf(Strings... vals)
  *
  * Unlike `clamp`, this validator rejects out-of-range values instead of clamping them.
  *
- * @tparam T  Numeric type of the bounds.
+ * @tparam T Numeric type of the bounds.
  * @param  lo Inclusive lower bound.
  * @param  hi Inclusive upper bound.
  * @return    A `Between` validator configured with the given bounds.
@@ -310,14 +310,14 @@ between(T lo, T hi)
  * @brief Wraps a callable as a field modifier.
  *
  * @tparam Fn Callable type; must accept a mutable field-view reference.
- * @param  f  The callable to invoke during the modify phase.
+ * @param fn The callable to invoke during the modify phase.
  * @return    A `CustomModifier` wrapping @p f.
  */
 template <typename Fn>
 consteval auto
-customModifier(Fn f)
+customModifier(Fn fn)
 {
-    return CustomModifier<Fn>{f};
+    return CustomModifier<Fn>{fn};
 }
 
 /**
@@ -332,15 +332,15 @@ customModifier(Fn f)
  * field("limit", &Input::limit, type<uint32_t>, clamp(kMin, kMax), defaultTo(kDefault), asUint32)
  * @endcode
  *
- * @tparam V  The default value type.
- * @param  v  The value assigned when the field is omitted from the request.
+ * @tparam V The default value type.
+ * @param value The value assigned when the field is omitted from the request.
  * @return    A `Default` field item.
  */
 template <typename V>
 consteval auto
-defaultTo(V v)
+defaultTo(V value)
 {
-    return Default<V>{v};
+    return Default<V>{value};
 }
 
 }  // namespace rpc::spec

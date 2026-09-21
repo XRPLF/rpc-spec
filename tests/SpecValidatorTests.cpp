@@ -90,10 +90,10 @@ TEST(RpcSpecDSL_TypeObject, AcceptsObjectRejectsOthers)
     EXPECT_TRUE(kSpec.process(obj).has_value());
 
     auto str = boost::json::parse(R"JSON({ "entry": "hello" })JSON");
-    auto const r = kSpec.process(str);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_TRUE(r.error().message.empty());
+    auto const result = kSpec.process(str);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_TRUE(result.error().message.empty());
 
     auto absent = boost::json::parse(R"JSON({})JSON");
     EXPECT_TRUE(kSpec.process(absent).has_value());
@@ -139,9 +139,9 @@ TEST(RpcSpecDSL_MultiType, RejectsNeitherType)
         field("v", type<int64_t, std::string>),
     };
     auto bad = boost::json::parse(R"JSON({ "v": true })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_MultiType, AcceptsObjectWhenIncluded)
@@ -191,9 +191,9 @@ TEST(RpcSpecDSL_Min, Uint32)
     };
 
     auto bad = boost::json::parse(R"JSON({ "n": 5 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 
     auto good = boost::json::parse(R"JSON({ "n": 100 })JSON");
     EXPECT_TRUE(kSpec.process(good).has_value());
@@ -226,9 +226,9 @@ TEST(RpcSpecDSL_Between, Uint32BelowLoFails)
         field("trim", type<uint32_t>, between(uint32_t{1}, uint32_t{25})),
     };
     auto bad = boost::json::parse(R"JSON({ "trim": 0 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Between, Uint32AboveHiFails)
@@ -237,9 +237,9 @@ TEST(RpcSpecDSL_Between, Uint32AboveHiFails)
         field("trim", type<uint32_t>, between(uint32_t{1}, uint32_t{25})),
     };
     auto bad = boost::json::parse(R"JSON({ "trim": 26 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Between, AbsentFieldPasses)
@@ -283,10 +283,10 @@ TEST(RpcSpecDSL_AccountFormat, RejectsInvalidString)
     };
 
     auto bad = boost::json::parse(R"JSON({ "account": "rNotAValidAccount" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcActMalformed);
-    EXPECT_EQ(r.error().message, "accountMalformed");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "accountMalformed");
 }
 
 TEST(RpcSpecDSL_AccountFormat, RejectsNonString)
@@ -296,10 +296,10 @@ TEST(RpcSpecDSL_AccountFormat, RejectsNonString)
     };
 
     auto bad = boost::json::parse(R"JSON({ "account": 12345 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "accountNotString");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "accountNotString");
 }
 
 TEST(RpcSpecDSL_AccountFormat, AbsentFieldAccepted)
@@ -372,10 +372,10 @@ TEST(RpcSpecDSL_HexString, Uint256RejectsMalformedHex)
         field("hash", uint256Hex),
     };
     auto bad = boost::json::parse(R"JSON({ "hash": "NOTAHEX" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'hash'.");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'hash'.");
 }
 
 TEST(RpcSpecDSL_HexString, Uint256RejectsNonString)
@@ -384,10 +384,10 @@ TEST(RpcSpecDSL_HexString, Uint256RejectsNonString)
         field("hash", uint256Hex),
     };
     auto bad = boost::json::parse(R"JSON({ "hash": 42 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'hash'.");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'hash'.");
 }
 
 TEST(RpcSpecDSL_HexString, AbsentFieldSkipped)
@@ -423,18 +423,18 @@ TEST(RpcSpecDSL_Hex256Array, InvalidElementFails)
 {
     static constexpr auto kSpec = RpcSpec{field("credentials", hex256Array)};
     auto bad = boost::json::parse(R"JSON({ "credentials": ["NOTAHEX"] })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Hex256Array, NotAnArrayFails)
 {
     static constexpr auto kSpec = RpcSpec{field("credentials", hex256Array)};
     auto bad = boost::json::parse(R"JSON({ "credentials": "abc" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Hex256Array, AbsentFieldPasses)
@@ -456,6 +456,22 @@ TEST(RpcSpecDSL_LedgerIndex, AcceptsZero)
     static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
     auto req = boost::json::parse(R"JSON({ "ledger_index": 0 })JSON");
     EXPECT_TRUE(kSpec.process(req).has_value());
+}
+
+TEST(RpcSpecDSL_LedgerIndex, RejectsNumericStringWithTrailingCharacters)
+{
+    // checkIsU32Numeric must consume the whole string: a partial parse like "12abc" used to be
+    // accepted here while ledgerSpecifierFromIndex (the typed path) rejected it, so the
+    // validate-only and parse paths disagreed on the same input.
+    static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
+    for (auto const* json :
+         {R"JSON({ "ledger_index": "12abc" })JSON",
+          R"JSON({ "ledger_index": "1 " })JSON",
+          R"JSON({ "ledger_index": "0x10" })JSON"})
+    {
+        auto req = boost::json::parse(json);
+        EXPECT_FALSE(kSpec.process(req).has_value()) << json;
+    }
 }
 
 TEST(RpcSpecDSL_LedgerIndex, AcceptsValidatedString)
@@ -490,19 +506,19 @@ TEST(RpcSpecDSL_LedgerIndex, RejectsArbitraryString)
 {
     static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
     auto req = boost::json::parse(R"JSON({ "ledger_index": "invalid" })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "Invalid field 'ledger_index', not string or number.");
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'ledger_index', not string or number.");
 }
 
 TEST(RpcSpecDSL_LedgerIndex, RejectsBool)
 {
     static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
     auto req = boost::json::parse(R"JSON({ "ledger_index": true })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_TRUE(r.error().message.empty());
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_TRUE(result.error().message.empty());
 }
 
 TEST(RpcSpecDSL_LedgerIndex, AbsentFieldSkipped)
@@ -523,19 +539,19 @@ TEST(RpcSpecDSL_AccountBase58, RejectsNonString)
 {
     static constexpr auto kSpec = RpcSpec{field("account", accountBase58)};
     auto req = boost::json::parse(R"JSON({ "account": 42 })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "accountNotString");
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "accountNotString");
 }
 
 TEST(RpcSpecDSL_AccountBase58, RejectsInvalidAccount)
 {
     static constexpr auto kSpec = RpcSpec{field("account", accountBase58)};
     auto req = boost::json::parse(R"JSON({ "account": "rNotValid" })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_AccountBase58, AbsentFieldSkipped)
@@ -563,20 +579,20 @@ TEST(RpcSpecDSL_Currency, RejectsNonString)
 {
     static constexpr auto kSpec = RpcSpec{field("currency", currency)};
     auto req = boost::json::parse(R"JSON({ "currency": 42 })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "currencyNotString");
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "currencyNotString");
 }
 
 TEST(RpcSpecDSL_Currency, RejectsEmpty)
 {
     static constexpr auto kSpec = RpcSpec{field("currency", currency)};
     auto req = boost::json::parse(R"JSON({ "currency": "" })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "currencyIsEmpty");
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "currencyIsEmpty");
 }
 
 TEST(RpcSpecDSL_Currency, RejectsMalformed)
@@ -584,9 +600,9 @@ TEST(RpcSpecDSL_Currency, RejectsMalformed)
     static constexpr auto kSpec = RpcSpec{field("currency", currency)};
     auto req =
         boost::json::parse(R"JSON({ "currency": "NOT_VALID_CURRENCY_STRING_TOO_LONG" })JSON");
-    auto const r = kSpec.process(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Currency, AbsentFieldSkipped)
@@ -611,9 +627,9 @@ TEST(RpcSpecDSL_NotSupported, PresentFieldFails)
         field("full", notSupported),
     };
     auto present = boost::json::parse(R"JSON({ "full": true })JSON");
-    auto const r = kSpec.process(present);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = kSpec.process(present);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 // Rippled side of the server-conditional branch. The Clio side lives in its own
@@ -634,9 +650,9 @@ TEST(RpcSpecDSL_ServerConditional, IfServerXrpldValidatorIsApplied)
         field("xrpld_only", ifServerXrpld(notSupportedIf(true))),
     };
     auto bad = boost::json::parse(R"JSON({ "xrpld_only": true })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcNotSupported);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
 }
 
 TEST(RpcSpecDSL_OneOf, AcceptsValidValue)
@@ -657,9 +673,9 @@ TEST(RpcSpecDSL_OneOf, RejectsUnknownValue)
         field("role", oneOf("gateway", "user")),
     };
     auto bad = boost::json::parse(R"JSON({ "role": "admin" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_OneOf, RejectsNonString)
@@ -668,9 +684,9 @@ TEST(RpcSpecDSL_OneOf, RejectsNonString)
         field("role", oneOf("gateway", "user")),
     };
     auto bad = boost::json::parse(R"JSON({ "role": 42 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_OneOf, AbsentFieldPasses)
@@ -701,28 +717,28 @@ TEST(RpcSpecDSL_AccountMarker, NotStringFails)
 {
     static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
     auto bad = boost::json::parse(R"JSON({ "marker": 42 })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
-    EXPECT_EQ(r.error().message, "markerNotString");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "markerNotString");
 }
 
 TEST(RpcSpecDSL_AccountMarker, NoCommaFails)
 {
     static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
     auto bad = boost::json::parse(R"JSON({ "marker": "AABB" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountMarker, BadHexPartFails)
 {
     static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
     auto bad = boost::json::parse(R"JSON({ "marker": "NOTVALIDHEX,0" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountMarker, BadHintPartFails)
@@ -730,9 +746,9 @@ TEST(RpcSpecDSL_AccountMarker, BadHintPartFails)
     static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
     auto bad = boost::json::parse(
         R"JSON({ "marker": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,notanumber" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Invalid field 'marker'.");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
 TEST(RpcSpecDSL_AccountType, ValidTypeStringPasses)
@@ -746,9 +762,9 @@ TEST(RpcSpecDSL_AccountType, UnknownTypeStringFails)
 {
     static constexpr auto kSpec = RpcSpec{field("type", accountType)};
     auto bad = boost::json::parse(R"JSON({ "type": "not_a_type" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_AccountType, NonStringFails)
@@ -776,9 +792,9 @@ TEST(RpcSpecDSL_LedgerEntryType, UnknownTypeStringFails)
 {
     static constexpr auto kSpec = RpcSpec{field("type", ledgerType)};
     auto bad = boost::json::parse(R"JSON({ "type": "not_a_type" })JSON");
-    auto const r = kSpec.process(bad);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_LedgerEntryType, AbsentFieldPasses)
@@ -804,9 +820,9 @@ TEST(RpcSpecDSL_Integration, RippleStatePattern)
 
     auto missingCurrency = boost::json::parse(
         R"JSON({ "ripple_state": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON");
-    auto const r = kSpec.process(missingCurrency);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "Required field 'currency' missing");
+    auto const result = kSpec.process(missingCurrency);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Required field 'currency' missing");
 }
 
 TEST(RpcSpecDSL_Integration, StringOrObjectPattern)

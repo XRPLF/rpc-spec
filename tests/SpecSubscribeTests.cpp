@@ -43,158 +43,161 @@ parseUnsub(std::string const& json)
 
 TEST(SubscribeSpec, AccountsTwoElements)
 {
-    auto const r = parseSub(R"JSON({
+    auto const result = parseSub(R"JSON({
         "streams": ["ledger"],
         "accounts": ["rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"]
     })JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->accounts.has_value());
-    EXPECT_EQ(r->accounts->size(), 2u);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->accounts.has_value());
+    EXPECT_EQ(result->accounts->size(), 2u);
 
     auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
-    EXPECT_EQ((*r->accounts)[0], *expected0);
+    EXPECT_EQ((*result->accounts)[0], *expected0);
 
     auto const expected1 = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expected1.has_value());
-    EXPECT_EQ((*r->accounts)[1], *expected1);
+    EXPECT_EQ((*result->accounts)[1], *expected1);
 }
 
 TEST(SubscribeSpec, AccountsProposedTwoElements)
 {
-    auto const r = parseSub(R"JSON({
+    auto const result = parseSub(R"JSON({
         "streams": ["ledger"],
         "accounts_proposed": ["rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"]
     })JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->accountsProposed.has_value());
-    EXPECT_EQ(r->accountsProposed->size(), 2u);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->accountsProposed.has_value());
+    EXPECT_EQ(result->accountsProposed->size(), 2u);
 
     auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
-    EXPECT_EQ((*r->accountsProposed)[0], *expected0);
+    EXPECT_EQ((*result->accountsProposed)[0], *expected0);
 }
 
 TEST(SubscribeSpec, StreamsThreeCommon)
 {
-    auto const r = parseSub(R"JSON({"streams": ["ledger", "validations", "book_changes"]})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 3u);
+    auto const result =
+        parseSub(R"JSON({"streams": ["ledger", "validations", "book_changes"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 3u);
 
     using ST = handlers::subscribe::StreamType;
-    EXPECT_EQ((*r->streams)[0], ST::Ledger);
-    EXPECT_EQ((*r->streams)[1], ST::Validations);
-    EXPECT_EQ((*r->streams)[2], ST::BookChanges);
+    EXPECT_EQ((*result->streams)[0], ST::Ledger);
+    EXPECT_EQ((*result->streams)[1], ST::Validations);
+    EXPECT_EQ((*result->streams)[2], ST::BookChanges);
 }
 
 TEST(SubscribeSpec, StreamsDeprecatedRtTransactionsAlias)
 {
-    auto const r = parseSub(R"JSON({"streams": ["rt_transactions"]})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 1u);
+    auto const result = parseSub(R"JSON({"streams": ["rt_transactions"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 1u);
 
     using ST = handlers::subscribe::StreamType;
-    EXPECT_EQ((*r->streams)[0], ST::TransactionsProposed);
+    EXPECT_EQ((*result->streams)[0], ST::TransactionsProposed);
 }
 
 TEST(SubscribeSpec, StreamsServerAcceptedInRippledBuild)
 {
-    auto const r = parseSub(R"JSON({"streams": ["server"]})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 1u);
+    auto const result = parseSub(R"JSON({"streams": ["server"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 1u);
 
     using ST = handlers::subscribe::StreamType;
-    EXPECT_EQ((*r->streams)[0], ST::Server);
+    EXPECT_EQ((*result->streams)[0], ST::Server);
 }
 
 TEST(SubscribeSpec, StreamsConsensusAcceptedInRippledBuild)
 {
-    auto const r = parseSub(R"JSON({"streams": ["consensus"]})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 1u);
+    auto const result = parseSub(R"JSON({"streams": ["consensus"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 1u);
 
     using ST = handlers::subscribe::StreamType;
-    EXPECT_EQ((*r->streams)[0], ST::Consensus);
+    EXPECT_EQ((*result->streams)[0], ST::Consensus);
 }
 
 TEST(SubscribeSpec, StreamsBogusValueFails)
 {
-    auto const r = parseSub(R"JSON({"streams": ["bogus"]})JSON");
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseSub(R"JSON({"streams": ["bogus"]})JSON");
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(SubscribeSpec, StreamsNotArrayFails)
 {
-    auto const r = parseSub(R"JSON({"streams": "ledger"})JSON");
-    EXPECT_FALSE(r.has_value());
+    auto const result = parseSub(R"JSON({"streams": "ledger"})JSON");
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
 {
     std::ostringstream oss;
-    rpc::spec::SpecDumpWriter w{oss};
-    handlers::subscribe::kInputSpec.dump(w);
-    auto const s = oss.str();
+    rpc::spec::SpecDumpWriter writer{oss};
+    handlers::subscribe::kInputSpec.dump(writer);
+    auto const text = oss.str();
 
     static constexpr auto npos = std::string::npos;
 
-    EXPECT_NE(s.find("accounts"), npos) << "missing: accounts";
-    EXPECT_NE(s.find("streams"), npos) << "missing: streams";
-    EXPECT_NE(s.find("accounts_proposed"), npos) << "missing: accounts_proposed";
-    EXPECT_NE(s.find("books"), npos) << "missing: books";
-    EXPECT_NE(s.find("ledger"), npos) << "missing: ledger";
-    EXPECT_NE(s.find("transactions_proposed"), npos) << "missing: transactions_proposed";
-    EXPECT_NE(s.find("validations"), npos) << "missing: validations";
-    EXPECT_NE(s.find("book_changes"), npos) << "missing: book_changes";
-    EXPECT_NE(s.find("manifests"), npos) << "missing: manifests";
-    EXPECT_NE(s.find("oneOf"), npos) << "missing: oneOf";
+    EXPECT_NE(text.find("accounts"), npos) << "missing: accounts";
+    EXPECT_NE(text.find("streams"), npos) << "missing: streams";
+    EXPECT_NE(text.find("accounts_proposed"), npos) << "missing: accounts_proposed";
+    EXPECT_NE(text.find("books"), npos) << "missing: books";
+    EXPECT_NE(text.find("ledger"), npos) << "missing: ledger";
+    EXPECT_NE(text.find("transactions_proposed"), npos) << "missing: transactions_proposed";
+    EXPECT_NE(text.find("validations"), npos) << "missing: validations";
+    EXPECT_NE(text.find("book_changes"), npos) << "missing: book_changes";
+    EXPECT_NE(text.find("manifests"), npos) << "missing: manifests";
+    EXPECT_NE(text.find("oneOf"), npos) << "missing: oneOf";
 }
 
 TEST(UnsubscribeSpec, AccountsTwoElements)
 {
-    auto const r = parseUnsub(R"JSON({
+    auto const result = parseUnsub(R"JSON({
         "streams": ["ledger"],
         "accounts": ["rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"]
     })JSON");
-    ASSERT_TRUE(r.has_value()) << "error: " << r.error().error << " msg: " << r.error().message;
-    ASSERT_TRUE(r->accounts.has_value());
-    EXPECT_EQ(r->accounts->size(), 2u);
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->accounts.has_value());
+    EXPECT_EQ(result->accounts->size(), 2u);
 
     auto const expected0 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expected0.has_value());
-    EXPECT_EQ((*r->accounts)[0], *expected0);
+    EXPECT_EQ((*result->accounts)[0], *expected0);
 }
 
 TEST(UnsubscribeSpec, StreamsEnumMapping)
 {
-    auto const r = parseUnsub(R"JSON({"streams": ["ledger", "transactions", "manifests"]})JSON");
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->streams.has_value());
-    ASSERT_EQ(r->streams->size(), 3u);
+    auto const result =
+        parseUnsub(R"JSON({"streams": ["ledger", "transactions", "manifests"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->streams.has_value());
+    ASSERT_EQ(result->streams->size(), 3u);
 
     using ST = handlers::unsubscribe::StreamType;
-    EXPECT_EQ((*r->streams)[0], ST::Ledger);
-    EXPECT_EQ((*r->streams)[1], ST::Transactions);
-    EXPECT_EQ((*r->streams)[2], ST::Manifests);
+    EXPECT_EQ((*result->streams)[0], ST::Ledger);
+    EXPECT_EQ((*result->streams)[1], ST::Transactions);
+    EXPECT_EQ((*result->streams)[2], ST::Manifests);
 }
 
 TEST(UnsubscribeDump, StreamValuesPresent)
 {
     std::ostringstream oss;
-    rpc::spec::SpecDumpWriter w{oss};
-    handlers::unsubscribe::kInputSpec.dump(w);
-    auto const s = oss.str();
+    rpc::spec::SpecDumpWriter writer{oss};
+    handlers::unsubscribe::kInputSpec.dump(writer);
+    auto const text = oss.str();
 
     static constexpr auto npos = std::string::npos;
 
-    EXPECT_NE(s.find("streams"), npos) << "missing: streams";
-    EXPECT_NE(s.find("ledger"), npos) << "missing: ledger";
-    EXPECT_NE(s.find("transactions_proposed"), npos) << "missing: transactions_proposed";
-    EXPECT_NE(s.find("validations"), npos) << "missing: validations";
-    EXPECT_NE(s.find("book_changes"), npos) << "missing: book_changes";
-    EXPECT_NE(s.find("oneOf"), npos) << "missing: oneOf";
+    EXPECT_NE(text.find("streams"), npos) << "missing: streams";
+    EXPECT_NE(text.find("ledger"), npos) << "missing: ledger";
+    EXPECT_NE(text.find("transactions_proposed"), npos) << "missing: transactions_proposed";
+    EXPECT_NE(text.find("validations"), npos) << "missing: validations";
+    EXPECT_NE(text.find("book_changes"), npos) << "missing: book_changes";
+    EXPECT_NE(text.find("oneOf"), npos) << "missing: oneOf";
 }

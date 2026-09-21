@@ -29,9 +29,9 @@ LedgerSpecifier
 parseLedger(char const* json)
 {
     auto value = boost::json::parse(json);
-    auto const r = kLedgerSpec.parse(value);
-    EXPECT_TRUE(r.has_value());
-    return r->ledger;
+    auto const result = kLedgerSpec.parse(value);
+    EXPECT_TRUE(result.has_value());
+    return result->ledger;
 }
 
 }  // namespace
@@ -45,10 +45,10 @@ TEST(LedgerSpecifier, DefaultConstructsToUnspecified)
 
 TEST(LedgerSpecifier, ResolvedAppliesServerDefault)
 {
-    auto const r = LedgerSpecifier{}.resolved();
-    ASSERT_TRUE(r.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(r.value), kDefaultLedgerShortcut);
-    EXPECT_EQ(std::get<LedgerShortcut>(r.value), LedgerShortcut::Current);  // xrpld build
+    auto const result = LedgerSpecifier{}.resolved();
+    ASSERT_TRUE(result.isShortcut());
+    EXPECT_EQ(std::get<LedgerShortcut>(result.value), kDefaultLedgerShortcut);
+    EXPECT_EQ(std::get<LedgerShortcut>(result.value), LedgerShortcut::Current);  // xrpld build
 }
 
 TEST(LedgerSpecifier, ResolvedLeavesConcreteValueUnchanged)
@@ -70,17 +70,17 @@ TEST(LedgerSelector, EmptyIndexStringFails)
     // An empty ledger_index is malformed. Only an ABSENT ledger_index means "use the
     // server default" — see NeitherFieldYieldsUnspecified above.
     auto value = boost::json::parse(R"JSON({ "ledger_index": "" })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, TrailingGarbageIndexStringFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": "30abc" })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, ShortcutValidated)
@@ -128,25 +128,25 @@ TEST(LedgerSelector, MaxUint32IndexIsAccepted)
 TEST(LedgerSelector, UnknownIndexStringFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": "latest" })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, OutOfRangeNumericIndexFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": 9999999999 })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, NonStringNonNumberIndexFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": true })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, ValidHashYieldsHash)
@@ -162,17 +162,17 @@ TEST(LedgerSelector, ValidHashYieldsHash)
 TEST(LedgerSelector, MalformedHashFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_hash": "DEADBEEF" })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, NonStringHashFails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_hash": 123 })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 // Not mutually exclusive: when both are present, ledger_hash wins (mirrors the
@@ -193,9 +193,9 @@ TEST(LedgerSelector, BothHashAndMalformedIndexFails)
     // reported rather than skipped just because a usable hash accompanied it.
     auto value = boost::json::parse(
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "nonsense" })JSON");
-    auto const r = kLedgerSpec.parse(value);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams);
+    auto const result = kLedgerSpec.parse(value);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
 
 namespace {
@@ -214,19 +214,19 @@ TEST(LedgerSelector, ComposesAlongsideOtherFields)
 {
     auto value = boost::json::parse(
         R"JSON({ "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "ledger_index": "validated" })JSON");
-    auto const r = kAcctLedgerSpec.parse(value);
-    ASSERT_TRUE(r.has_value());
-    ASSERT_TRUE(r->ledger.isShortcut());
-    EXPECT_EQ(std::get<LedgerShortcut>(r->ledger.value), LedgerShortcut::Validated);
+    auto const result = kAcctLedgerSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->ledger.isShortcut());
+    EXPECT_EQ(std::get<LedgerShortcut>(result->ledger.value), LedgerShortcut::Validated);
 }
 
 TEST(LedgerSelector, ComposedSpecLeavesLedgerUnspecifiedWhenAbsent)
 {
     auto value =
         boost::json::parse(R"JSON({ "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" })JSON");
-    auto const r = kAcctLedgerSpec.parse(value);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_TRUE(r->ledger.isUnspecified());
+    auto const result = kAcctLedgerSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->ledger.isUnspecified());
 }
 
 TEST(LedgerSelector, SpecIsConstantEvaluable)

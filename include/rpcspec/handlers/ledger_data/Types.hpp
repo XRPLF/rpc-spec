@@ -13,7 +13,14 @@
 
 namespace rpc::spec::handlers::ledger_data {
 
+/**
+ * @brief Value of the `k_limit_binary` field.
+ */
 inline constexpr uint32_t kLimitBinary = 2048;
+
+/**
+ * @brief Value of the `k_limit_json` field.
+ */
 inline constexpr uint32_t kLimitJson = 256;
 
 /**
@@ -33,7 +40,14 @@ using MarkerValue = std::variant<xrpl::uint256, uint32_t>;
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `binary` request field.
+     */
     bool binary = false;
 
     /**
@@ -42,8 +56,20 @@ struct Input
      * it. Mirrors xrpld's `maxLimit = rpc::tuning::pageLength(isBinary)`.
      */
     std::optional<uint32_t> limit;
+
+    /**
+     * @brief Value of the `marker` request field.
+     */
     std::optional<MarkerValue> marker;  // nullopt = no marker; uint256 = normal; uint32 = diff/OOO
+
+    /**
+     * @brief Value of the `out_of_order` request field.
+     */
     bool outOfOrder = false;
+
+    /**
+     * @brief Value of the `type` request field.
+     */
     xrpl::LedgerEntryType type = xrpl::LedgerEntryType::ltANY;
 };
 

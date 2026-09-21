@@ -24,18 +24,18 @@ static_assert(rpc::spec::typeNameOf<std::string>() == "string");
 
 TEST(RpcSpec, StatusDefault)
 {
-    rpc::Status const s;
-    EXPECT_FALSE(static_cast<bool>(s));
-    EXPECT_TRUE(s == xrpl::RpcSuccess);
+    rpc::Status const status;
+    EXPECT_FALSE(static_cast<bool>(status));
+    EXPECT_TRUE(status == xrpl::RpcSuccess);
 }
 
 TEST(RpcSpec, LedgerTypesTable)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
-    static_assert(!table.empty());
+    static_assert(not table.empty());
 
-    auto const it =
-        std::ranges::find_if(table, [](auto const& e) { return e.rpcName == "account"; });
+    auto const it = std::ranges::find_if(
+        table, [](auto const& fieldView) { return fieldView.rpcName == "account"; });
     ASSERT_NE(it, table.end());
     EXPECT_EQ(it->type, xrpl::ltACCOUNT_ROOT);
 }
@@ -44,8 +44,8 @@ TEST(RpcSpec, SponsorshipIsARegisteredDeletionBlocker)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
 
-    auto const it =
-        std::ranges::find_if(table, [](auto const& e) { return e.rpcName == "sponsorship"; });
+    auto const it = std::ranges::find_if(
+        table, [](auto const& fieldView) { return fieldView.rpcName == "sponsorship"; });
     ASSERT_NE(it, table.end());
     EXPECT_EQ(it->type, xrpl::ltSPONSORSHIP);
     // ltSPONSORSHIP is not in AccountDelete's nonObligationDeleter allowlist, so an
@@ -57,8 +57,8 @@ TEST(RpcSpec, DeletionBlockersPresent)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
 
-    auto count = std::ranges::count_if(table, [](auto const& e) {
-        return e.category == rpc::spec::LedgerCategory::DeletionBlocker;
+    auto count = std::ranges::count_if(table, [](auto const& fieldView) {
+        return fieldView.category == rpc::spec::LedgerCategory::DeletionBlocker;
     });
     EXPECT_GT(count, 0);
 }

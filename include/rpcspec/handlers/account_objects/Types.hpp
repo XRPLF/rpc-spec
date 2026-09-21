@@ -13,8 +13,19 @@
 
 namespace rpc::spec::handlers::account_objects {
 
+/**
+ * @brief Smallest `limit` the handler accepts.
+ */
 inline constexpr uint32_t kLimitMin = 10;
+
+/**
+ * @brief Largest `limit` the handler accepts; bigger values are clamped down.
+ */
 inline constexpr uint32_t kLimitMax = 400;
+
+/**
+ * @brief `limit` applied when the request omits the field.
+ */
 inline constexpr uint32_t kLimitDefault = 200;
 
 /**
@@ -22,8 +33,19 @@ inline constexpr uint32_t kLimitDefault = 200;
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `account` request field.
+     */
     xrpl::AccountID account;
+
+    /**
+     * @brief Value of the `limit` request field.
+     */
     uint32_t limit;
 
     /**
@@ -32,7 +54,15 @@ struct Input
      * Re-parsed by traverseOwnedNodes downstream, so kept as a validated string.
      */
     std::optional<std::string> marker;
+
+    /**
+     * @brief Value of the `type` request field.
+     */
     std::optional<xrpl::LedgerEntryType> type;
+
+    /**
+     * @brief Value of the `deletion_blockers_only` request field.
+     */
     bool deletionBlockersOnly = false;
 
     /**

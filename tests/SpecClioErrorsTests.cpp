@@ -36,9 +36,9 @@ rpc::Status
 statusOf(Spec const& spec, std::string_view json)
 {
     auto req = boost::json::parse(json);
-    auto const r = spec.process(req);
-    EXPECT_FALSE(r.has_value()) << json;
-    return r.has_value() ? rpc::Status{} : r.error();
+    auto const result = spec.process(req);
+    EXPECT_FALSE(result.has_value()) << json;
+    return result.has_value() ? rpc::Status{} : result.error();
 }
 
 }  // namespace
@@ -116,10 +116,10 @@ TEST(ClioErrors, LedgerIndexUsesOneTokenForEveryFailure)
           R"JSON({"ledger_index": -1})JSON"})
     {
         auto req = boost::json::parse(json);
-        auto const r = kLedgerSpec.parse(req);
-        ASSERT_FALSE(r.has_value()) << json;
-        EXPECT_EQ(r.error(), rpc::RippledError::RpcInvalidParams) << json;
-        EXPECT_EQ(r.error().message, "ledgerIndexMalformed") << json;
+        auto const result = kLedgerSpec.parse(req);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << json;
+        EXPECT_EQ(result.error().message, "ledgerIndexMalformed") << json;
     }
 }
 
@@ -144,9 +144,9 @@ TEST(ClioErrors, LedgerIndexRejectsCurrentAndClosed)
          {R"JSON({"ledger_index": "current"})JSON", R"JSON({"ledger_index": "closed"})JSON"})
     {
         auto req = boost::json::parse(json);
-        auto const r = kLedgerSpec.parse(req);
-        ASSERT_FALSE(r.has_value()) << json;
-        EXPECT_EQ(r.error().message, "ledgerIndexMalformed") << json;
+        auto const result = kLedgerSpec.parse(req);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error().message, "ledgerIndexMalformed") << json;
     }
 }
 
@@ -180,9 +180,9 @@ TEST(ClioErrors, LedgerHashTakesPrecedenceOverLedgerIndexOnError)
     // Every handler declared ledger_hash ahead of ledger_index, so with both malformed the
     // hash error is the one reported.
     auto req = boost::json::parse(R"JSON({"ledger_hash": "xx", "ledger_index": "yy"})JSON");
-    auto const r = kLedgerSpec.parse(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "ledger_hashMalformed");
+    auto const result = kLedgerSpec.parse(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "ledger_hashMalformed");
 }
 
 TEST(ClioErrors, LedgerIndexStillValidatedWhenHashIsValid)
@@ -190,9 +190,9 @@ TEST(ClioErrors, LedgerIndexStillValidatedWhenHashIsValid)
     auto req = boost::json::parse(
         R"JSON({"ledger_hash": "4BC50C9B0D8515D3EAAE1E74B29A95804346C491EE1A95BF25E4AAB854A6A652",
                 "ledger_index": "yy"})JSON");
-    auto const r = kLedgerSpec.parse(req);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().message, "ledgerIndexMalformed");
+    auto const result = kLedgerSpec.parse(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "ledgerIndexMalformed");
 }
 
 TEST(ClioErrors, ToNumberRejectsValuesThatWouldTruncateToUint32)

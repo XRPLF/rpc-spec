@@ -14,8 +14,19 @@
 
 namespace rpc::spec::handlers::mpt_holders {
 
+/**
+ * @brief Smallest `limit` the handler accepts.
+ */
 inline constexpr uint32_t kLimitMin = 1;
+
+/**
+ * @brief Largest `limit` the handler accepts; bigger values are clamped down.
+ */
 inline constexpr uint32_t kLimitMax = 100;
+
+/**
+ * @brief `limit` applied when the request omits the field.
+ */
 inline constexpr uint32_t kLimitDefault = 50;
 
 /**
@@ -28,15 +39,26 @@ inline constexpr std::size_t kMaxAccounts = 100;
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `mpt_issuance_id` request field.
+     */
     xrpl::uint192 mptID;
+
+    /**
+     * @brief Value of the `marker` request field.
+     */
     std::optional<xrpl::AccountID> marker;
 
     /**
      * @brief The client-supplied page size, unset when the request omits it.
      *
      * @note Left optional rather than defaulted so the handler can distinguish an explicit
-     * limit from an absent one; it applies @ref kLimitDefault when unset.
+     * limit from an absent one; it applies `kLimitDefault` when unset.
      */
     std::optional<uint32_t> limit;
 

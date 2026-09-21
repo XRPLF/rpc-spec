@@ -21,7 +21,14 @@ template <typename ConnId>
 class ConnectionLimiter
 {
 public:
+    /**
+     * @brief The clock the bucket measures refill against.
+     */
     using Clock = TokenBucket::Clock;
+
+    /**
+     * @brief A point on @ref Clock.
+     */
     using TimePoint = Clock::time_point;
 
     /**
@@ -36,9 +43,14 @@ public:
     /**
      * @brief Pre-deserialization admission for a message of type @p T arriving on @p conn.
      *
-     * Runs @ref preAdmit (hard byte cap + size-ramp cost + pre hook); if admitted, debits the size
-     * cost from @p conn's bucket. On a drop, any penalty cost the stage carried is debited too.
+     * Runs @ref admission::spec::AdmissionSpec::preAdmit() (hard byte cap + size-ramp cost + pre
+     * hook); if admitted, debits the size cost from @p conn's bucket. On a drop, any penalty cost
+     * the stage carried is debited too.
      *
+     * @tparam T The message type whose @ref AdmissionSpec governs the limits.
+     * @param conn The connection the message arrived on.
+     * @param payload The raw, not-yet-deserialized message bytes.
+     * @param now The current time, used for bucket refill.
      * @return Admit (with the debited cost) or Drop (oversize / pre-hook reject / rate limited).
      */
     template <typename T>
@@ -56,7 +68,12 @@ public:
     /**
      * @brief Streaming admission for a message of type @p T arriving on @p conn.
      *
+     * @tparam T The message type whose @ref AdmissionSpec governs the limits.
+     * @tparam Visitor The traversal callable.
+     * @param conn The connection the message arrived on.
      * @param visitor Caller-provided traversal, invoked as `visitor(check)`.
+     * @param now The current time, used for bucket refill.
+     * @return Admit (with the debited cost) or Drop (check reject / rate limited).
      */
     template <typename T, typename Visitor>
     AdmissionDecision
@@ -75,6 +92,8 @@ public:
 
     /**
      * @brief Forget a connection's bucket (call on disconnect).
+     *
+     * @param conn The connection to drop state for.
      */
     void
     onDisconnect(ConnId const& conn)
@@ -85,6 +104,9 @@ public:
 
     /**
      * @brief Evict connections not seen since @p now - @p idleFor.
+     *
+     * @param now The current time.
+     * @param idleFor How long a connection may go unseen before eviction.
      */
     void
     sweepIdle(TimePoint now, std::chrono::steady_clock::duration idleFor)
@@ -148,7 +170,7 @@ private:
     {
         auto _ = std::scoped_lock<std::mutex>{mutex_};
         if (auto it = touchBucket(state_.buckets, conn, now);
-            !it->second.bucket.tryConsume(decision.tokenCost, now))
+            not it->second.bucket.tryConsume(decision.tokenCost, now))
         {
             return AdmissionDecision::drop("connection rate limit exceeded");
         }
