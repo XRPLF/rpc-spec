@@ -15,7 +15,7 @@
 struct Config
 {
     using ConfigValue =
-        std::variant<uint64_t, double, std::string, std::vector<std::pair<uint64_t, double>>>;
+        std::variant<uint64_t, double, std::string_view, std::vector<std::pair<uint64_t, double>>>;
 
     template <typename T>
     [[nodiscard]] std::optional<T>
@@ -41,26 +41,27 @@ TEST(ResolverTests, ReadConfig)
     config.values["foo.max_payload_bytes"] = uint64_t{1024};
     config.values["foo.size_ramp"] =
         std::vector<std::pair<uint64_t, double>>{{512, 5.0}, {1024, 10.0}};
-    config.values["foo.bar"] = std::string{"hello"};
+    config.values["foo.bar"] = std::string_view{"hello"};
 
     constexpr auto t1 =
-        admission::spec::tunable<"foo.max_payload_bytes">(2048ull, "foo.max_payload_bytes");
+        admission::spec::tunable<"foo.max_payload_bytes">(uint64_t{2048}, "foo.max_payload_bytes");
     constexpr auto t2 = admission::spec::tunable<"foo.size_ramp">(
         admission::spec::ramp({
             {.upToBytes = 256, .cost = 2.5},
             {.upToBytes = 512, .cost = 5.0},
         }),
         "foo.size_ramp");
-    constexpr auto t3 = admission::spec::tunable<"foo.bar">(std::string{"default"}, "foo.bar");
-    constexpr auto t4 = admission::spec::tunable<"foo.baz">(std::string{"default"}, "foo.baz");
+    constexpr auto t3 = admission::spec::tunable<"foo.bar">(std::string_view{"default"}, "foo.bar");
+    constexpr auto t4 = admission::spec::tunable<"foo.baz">(std::string_view{"default"}, "foo.baz");
 
     constexpr auto tunables = std::make_tuple(t1, t2, t3, t4);
 
     auto resolved = admission::spec::detail::resolveTuple(tunables, config);
 
     EXPECT_EQ(resolved.template get<"foo.max_payload_bytes">(), uint64_t{1024});
-    auto expectedRamp = std::vector<admission::spec::SizeTier>{{512, 5.0}, {1024, 10.0}};
+    auto expectedRamp = std::vector<admission::spec::SizeTier>{
+        {.upToBytes = 512, .cost = 5.0}, {.upToBytes = 1024, .cost = 10.0}};
     EXPECT_EQ(resolved.template get<"foo.size_ramp">(), expectedRamp);
-    EXPECT_EQ(resolved.template get<"foo.bar">(), std::string{"hello"});
-    EXPECT_EQ(resolved.template get<"foo.baz">(), std::string{"default"});
+    EXPECT_EQ(resolved.template get<"foo.bar">(), std::string_view{"hello"});
+    EXPECT_EQ(resolved.template get<"foo.baz">(), std::string_view{"default"});
 }

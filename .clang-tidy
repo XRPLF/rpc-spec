@@ -179,4 +179,5 @@ CheckOptions:
   readability-identifier-naming.PublicMemberSuffix: ""
 
 HeaderFilterRegex: '^.*/(rpcspec|admissionspec)/.*\.(h|hpp|ipp)$'
+ExcludeHeaderFilterRegex: '^.*/admissionspec/folly/.*$'
 WarningsAsErrors: "*"
