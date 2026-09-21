@@ -87,7 +87,7 @@ TEST(TypesTests, Tunable)
     EXPECT_EQ(t1.configKey, "test.max_bytes");
     EXPECT_EQ(decltype(t1)::kName, "max_bytes");
     EXPECT_EQ(t1.defaultValue, admission::spec::toResolved(t1.defaultValue));
-    if constexpr (!std::is_same_v<
+    if constexpr (not std::is_same_v<
                       decltype(t1)::ValueType,
                       admission::spec::ResolvedTypeOfT<decltype(t1)>>)
     {
@@ -99,7 +99,7 @@ TEST(TypesTests, Tunable)
     EXPECT_EQ(t2.configKey, "test.max_requests");
     EXPECT_EQ(decltype(t2)::kName, "max_requests");
     EXPECT_EQ(t2.defaultValue, admission::spec::toResolved(t2.defaultValue));
-    if constexpr (!std::is_same_v<
+    if constexpr (not std::is_same_v<
                       decltype(t2)::ValueType,
                       admission::spec::ResolvedTypeOfT<decltype(t2)>>)
     {
@@ -119,7 +119,7 @@ TEST(TypesTests, Tunable)
     auto resolved = std::vector<admission::spec::SizeTier>(
         t3.defaultValue.tiers.begin(), t3.defaultValue.tiers.end());
     EXPECT_EQ(resolved, admission::spec::toResolved(t3.defaultValue));
-    if constexpr (!std::is_same_v<
+    if constexpr (not std::is_same_v<
                       decltype(t3)::ValueType,
                       admission::spec::ResolvedTypeOfT<decltype(t3)>>)
     {

@@ -14,10 +14,17 @@ namespace rpc::spec::handlers::feature {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
-    std::optional<std::string>
-        feature; /**< Either an amendment name or a hex amendment id — an opaque passthrough with no
-                    single strong type; resolved by the (admin) handler. */
+
+    /**
+     * @brief Either an amendment name or a hex amendment id.
+     *
+     * An opaque passthrough with no single strong type; resolved by the (admin) handler.
+     */
+    std::optional<std::string> feature;
 };
 
 }  // namespace rpc::spec::handlers::feature

@@ -11,6 +11,7 @@
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/LedgerTypes.hpp>
+#include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
@@ -39,17 +40,27 @@ namespace rpc::spec {
  */
 struct Required
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("required").
+     */
     static constexpr std::string_view kName = "required";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                "Required field '" + std::string{f.key()} + "' missing"}};
+                "Required field '" + std::string{fieldView.key()} + "' missing"}};
         }
         return {};
     }
@@ -69,201 +80,145 @@ struct Required
 template <typename... Ts>
 struct Type;
 
-template <>
-struct Type<int64_t>
+/**
+ * @brief The JSON value types a field can be constrained to via `Type<T>` / `is<T>()`.
+ *
+ * Exactly the set `SomeFieldView::is<T>()` accepts. Naming it keeps an unsupported `Type<T>`
+ * a clear constraint failure rather than a static_assert deep inside the field view.
+ */
+template <typename T>
+concept SomeJsonType = std::same_as<T, int64_t> or std::same_as<T, uint32_t> or
+    std::same_as<T, bool> or std::same_as<T, double> or std::same_as<T, std::string> or
+    std::same_as<T, JsonObject> or std::same_as<T, JsonArray>;
+
+/**
+ * @brief Constrains a field to one JSON type, or to any of several (OR semantics).
+ */
+template <SomeJsonType T>
+struct Type<T>
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("type").
+     */
     static constexpr std::string_view kName = "type";
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("of", typeNameOf<int64_t>());
+        writer.param("of", typeNameOf<T>());
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present() or fieldView.template is<T>())
             return {};
-        if (!f.isInt64())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
+        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 };
 
-template <>
-struct Type<bool>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<bool>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isBool())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-template <>
-struct Type<std::string>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<std::string>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-template <>
-struct Type<double>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<double>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isDouble())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-template <>
-struct Type<uint32_t>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<uint32_t>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isUint32())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-template <>
-struct Type<JsonObject>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<JsonObject>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isObject())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-template <>
-struct Type<JsonArray>
-{
-    static constexpr std::string_view kName = "type";
-
-    template <typename Writer>
-    void
-    describeParams(Writer& w) const
-    {
-        w.param("of", typeNameOf<JsonArray>());
-    }
-
-    template <SomeFieldView FA>
-    [[nodiscard]] static MaybeError
-    verify(FA const& f)
-    {
-        if (!f.present())
-            return {};
-        if (!f.isArray())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return {};
-    }
-};
-
-// OR-semantics: accepts any of the listed types. Returns RpcInvalidParams if none match.
+/**
+ * @brief Constrains a field to one JSON type, or to any of several (OR semantics).
+ */
 template <typename T1, typename T2, typename... Rest>
 struct Type<T1, T2, Rest...>
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("type").
+     */
     static constexpr std::string_view kName = "type";
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.paramList(
+        writer.paramList(
             "oneOf",
             std::initializer_list<std::string_view>{
                 typeNameOf<T1>(), typeNameOf<T2>(), typeNameOf<Rest>()...});
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (f.template is<T1>() || f.template is<T2>() || (f.template is<Rest>() || ...))
+        if (fieldView.template is<T1>() or fieldView.template is<T2>() or
+            (fieldView.template is<Rest>() or ...))
             return {};
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 };
+
+/**
+ * @brief The numeric types the range validators/modifiers (`Min`, `Between`, `Clamp`) accept.
+ */
+template <typename T>
+concept SomeNumericBound =
+    std::same_as<T, int64_t> or std::same_as<T, uint32_t> or std::same_as<T, double>;
+
+namespace detail {
+
+/**
+ * @brief Read a numeric field as @p T, or nullopt when absent or of a different JSON type.
+ *
+ * Collapsing "absent" and "wrong type" into nullopt is what the range validators want: both
+ * cases pass silently, leaving the type contract to a paired `Type<T>`.
+ *
+ * @tparam T The numeric type to read.
+ * @param fieldView The field view to read from.
+ * @return The value, or nullopt when the field is absent or not a @p T.
+ */
+template <SomeNumericBound T, SomeFieldView View>
+[[nodiscard]] std::optional<T>
+numericValue(View const& fieldView)
+{
+    if (not fieldView.present() or not fieldView.template is<T>())
+        return std::nullopt;
+    if constexpr (std::is_same_v<T, int64_t>)
+    {
+        return fieldView.asInt64();
+    }
+    else if constexpr (std::is_same_v<T, uint32_t>)
+    {
+        return fieldView.asUint32();
+    }
+    else
+    {
+        return fieldView.asDouble();
+    }
+}
+
+}  // namespace detail
 
 /**
  * @brief Validates that a numeric field's value is at least `bound` (inclusive).
@@ -273,61 +228,62 @@ struct Type<T1, T2, Rest...>
  *
  * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
  */
-template <typename T>
-    requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
+template <SomeNumericBound T>
 struct Min
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("min").
+     */
     static constexpr std::string_view kName = "min";
 
+    /**
+     * @brief The inclusive bound.
+     */
     T bound;
-    consteval explicit Min(T v) : bound{v}
+
+    /**
+     * @brief Construct a @ref Min.
+     *
+     * @param value The inclusive lower bound.
+     */
+    consteval explicit Min(T value) : bound{value}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("bound", bound);
+        writer.param("bound", bound);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
-            return {};
-        if constexpr (std::is_same_v<T, int64_t>)
-        {
-            if (!f.isInt64())
-                return {};
-            if (f.asInt64() < bound)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
-        else if constexpr (std::is_same_v<T, uint32_t>)
-        {
-            if (!f.isUint32())
-                return {};
-            if (f.asUint32() < bound)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            if (!f.isDouble())
-                return {};
-            if (f.asDouble() < bound)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
+        auto const value = detail::numericValue<T>(fieldView);
+        if (value.has_value() and *value < bound)
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
 
+/**
+ * @brief Deduction guide for @ref Min.
+ */
 template <typename T>
 Min(T) -> Min<T>;
 
@@ -338,53 +294,68 @@ Min(T) -> Min<T>;
  *
  * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
  */
-template <typename T>
-    requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
+template <SomeNumericBound T>
 struct Clamp
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("clamp").
+     */
     static constexpr std::string_view kName = "clamp";
 
-    T lo, hi;
-    consteval Clamp(T l, T h) : lo{l}, hi{h}
+    /**
+     * @brief Inclusive lower bound.
+     */
+    T lo;
+
+    /**
+     * @brief Inclusive upper bound.
+     */
+    T hi;
+
+    /**
+     * @brief Construct a @ref Clamp.
+     *
+     * @param lo Inclusive lower bound.
+     * @param hi Inclusive upper bound.
+     */
+    consteval Clamp(T lo, T hi) : lo{lo}, hi{hi}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("lo", lo);
-        w.param("hi", hi);
+        writer.param("lo", lo);
+        writer.param("hi", hi);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify(FA& f) const
+    modify(View& fieldView) const
     {
-        if (!f.present())
-            return {};
-        if constexpr (std::is_same_v<T, int64_t>)
-        {
-            if (!f.isInt64())
-                return {};
-            f.set(std::clamp(f.asInt64(), lo, hi));
-        }
-        else if constexpr (std::is_same_v<T, uint32_t>)
-        {
-            if (!f.isUint32())
-                return {};
-            f.set(static_cast<uint32_t>(std::clamp(f.asUint32(), lo, hi)));
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            if (!f.isDouble())
-                return {};
-            f.set(std::clamp(f.asDouble(), lo, hi));
-        }
+        if (auto const value = detail::numericValue<T>(fieldView); value.has_value())
+            fieldView.set(std::clamp(*value, lo, hi));
         return {};
     }
 };
 
+/**
+ * @brief Deduction guide for @ref Clamp.
+ */
 template <typename T>
 Clamp(T, T) -> Clamp<T>;
 
@@ -399,55 +370,74 @@ Clamp(T, T) -> Clamp<T>;
  * @tparam Target A non-bool integral type whose min/max define the clamping bounds.
  */
 template <typename Target>
-    requires std::integral<Target> && (!std::is_same_v<Target, bool>)
+    requires std::integral<Target> and (not std::is_same_v<Target, bool>)
 struct ClampAs
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("clampAs").
+     */
     static constexpr std::string_view kName = "clampAs";
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("target", typeNameOf<Target>());
+        writer.param("target", typeNameOf<Target>());
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify(FA& f) const
+    modify(View& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
 
-        constexpr auto kHI = static_cast<int64_t>(std::numeric_limits<Target>::max());
-        constexpr auto kLO = static_cast<int64_t>(std::numeric_limits<Target>::min());
+        constexpr auto kHi = static_cast<int64_t>(std::numeric_limits<Target>::max());
+        constexpr auto kLo = static_cast<int64_t>(std::numeric_limits<Target>::min());
 
-        if (f.isInt64())
+        if (fieldView.isInt64())
         {
-            auto v = std::clamp(f.asInt64(), kLO, kHI);
+            auto value = std::clamp(fieldView.asInt64(), kLo, kHi);
             if constexpr (std::is_unsigned_v<Target>)
             {
-                if (v < 0)
-                    v = 0;
-                f.set(static_cast<uint32_t>(v));
+                if (value < 0)
+                    value = 0;
+                fieldView.set(static_cast<uint32_t>(value));
             }
             else
             {
-                f.set(v);
+                fieldView.set(value);
             }
             return {};
         }
 
-        if (f.isUint32())
+        if (fieldView.isUint32())
         {
             if constexpr (std::is_unsigned_v<Target>)
             {
-                auto const u = f.asUint32();
-                f.set(static_cast<uint32_t>(std::min<int64_t>(static_cast<int64_t>(u), kHI)));
+                auto const unsignedValue = fieldView.asUint32();
+                fieldView.set(
+                    static_cast<uint32_t>(
+                        std::min<int64_t>(static_cast<int64_t>(unsignedValue), kHi)));
             }
             else
             {
-                auto const v = std::min<int64_t>(static_cast<int64_t>(f.asUint32()), kHI);
-                f.set(v);
+                auto const value =
+                    std::min<int64_t>(static_cast<int64_t>(fieldView.asUint32()), kHi);
+                fieldView.set(value);
             }
         }
         return {};
@@ -461,18 +451,28 @@ struct ClampAs
  */
 struct Deprecated
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("deprecated").
+     */
     static constexpr std::string_view kName = "deprecated";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Inspect the field and optionally raise a non-blocking warning.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to inspect.
+     * @return The warning to report, or nullopt when none applies.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static std::optional<Warning>
-    check(FA const& f)
+    check(View const& fieldView)
     {
-        if (f.present())
+        if (fieldView.present())
         {
             return Warning{
                 .code = rpc::WarningCode::WarnRpcDeprecated,
-                .field = std::string{f.key()},
-                .message = std::format("Field '{}' is deprecated.", f.key())};
+                .field = std::string{fieldView.key()},
+                .message = std::format("Field '{}' is deprecated.", fieldView.key())};
         }
         return std::nullopt;
     }
@@ -486,23 +486,33 @@ struct Deprecated
  */
 struct AccountFormat
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("account").
+     */
     static constexpr std::string_view kName = "account";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
-        if (!detail::accountFromStringStrict(std::string{f.asString()}))
+        if (not detail::accountFromStringStrict(std::string{fieldView.asString()}))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{f.key()} + "Malformed"}};
+                rpc::RippledError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
         }
         return {};
     }
@@ -519,28 +529,49 @@ class TimeFormatValidator final
     std::string_view format_;
 
 public:
+    /**
+     * @brief Identifier for this item in the schema dump ("timeFormat").
+     */
     static constexpr std::string_view kName = "timeFormat";
 
+    /**
+     * @brief Construct a @ref TimeFormatValidator.
+     *
+     * @param format The expected strftime-style format.
+     */
     consteval explicit TimeFormatValidator(std::string_view format) noexcept : format_{format}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("format", format_);
+        writer.param("format", format_);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        if (!detail::systemTpFromUtcStr(std::string{f.asString()}, std::string{format_}))
+        if (not detail::systemTpFromUtcStr(std::string{fieldView.asString()}, std::string{format_}))
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
@@ -556,8 +587,10 @@ public:
 checkIsU32Numeric(std::string_view sv)
 {
     uint32_t unused = 0;
-    auto [_, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), unused);
-    return ec == std::errc();
+    auto const* const begin = sv.data();
+    auto const* const end = sv.data() + sv.size();
+    auto const [ptr, ec] = std::from_chars(begin, end, unused);
+    return ec == std::errc() and ptr == end;
 }
 
 /**
@@ -570,10 +603,13 @@ checkIsU32Numeric(std::string_view sv)
  */
 template <typename HexType>
     requires(
-        std::is_same_v<HexType, xrpl::uint160> || std::is_same_v<HexType, xrpl::uint192> ||
+        std::is_same_v<HexType, xrpl::uint160> or std::is_same_v<HexType, xrpl::uint192> or
         std::is_same_v<HexType, xrpl::uint256>)
 struct HexStringValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("kName").
+     */
     static constexpr std::string_view kName = []() {
         if constexpr (std::is_same_v<HexType, xrpl::uint256>)
         {
@@ -589,22 +625,29 @@ struct HexStringValidator
         }
     }();
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage(fieldView.key())}};
         }
         HexType parsed;
-        if (!parsed.parseHex(std::string{f.asString()}.c_str()))
+        if (not parsed.parseHex(std::string{fieldView.asString()}.c_str()))
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage(fieldView.key())}};
         }
         return {};
     }
@@ -634,45 +677,53 @@ using Uint160HexStringValidator = HexStringValidator<xrpl::uint160>;
  */
 struct LedgerIndexValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ledgerIndex").
+     */
     static constexpr std::string_view kName = "ledgerIndex";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (f.isInt64() || f.isUint32())
+        if (fieldView.isInt64() or fieldView.isUint32())
             return {};
-#if defined(RPCSPEC_IS_CLIO)
-        // Clio uses one token for every failure mode and rejects the `current`/`closed`
-        // shortcuts outright (see ledgerSpecifierFromIndex).
-        auto const wrongType = [] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
-        };
-        auto const unrecognised = wrongType;
-        constexpr bool kAcceptsShortcuts = false;
-#else
-        // xrpld distinguishes the two: a wrong JSON type carries no message, an unrecognised
-        // string names the field.
-        auto const wrongType = [] {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        };
+
         auto const unrecognised = [] {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
         };
-        constexpr bool kAcceptsShortcuts = true;
-#endif
-        if (!f.isString())
-            return wrongType();
-        auto const sv = f.asString();
-        if (sv == "validated" || checkIsU32Numeric(sv))
-            return {};
-        if constexpr (kAcceptsShortcuts)
+
+        if (not fieldView.isString())
         {
-            if (sv == "closed" || sv == "current")
+            // Clio uses one token for every failure mode of this field; xrpld distinguishes
+            // them, reporting a wrong JSON type with no message at all.
+            if constexpr (kIsClioBuild)
+            {
+                return unrecognised();
+            }
+            else
+            {
+                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            }
+        }
+
+        auto const sv = fieldView.asString();
+        if (sv == "validated" or checkIsU32Numeric(sv))
+            return {};
+        if constexpr (kIsXrpldBuild)
+        {
+            // Clio rejects these two outright (see ledgerSpecifierFromIndex).
+            if (sv == "closed" or sv == "current")
                 return {};
         }
         return unrecognised();
@@ -687,21 +738,32 @@ struct LedgerIndexValidator
  */
 struct AccountBase58Validator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("accountBase58").
+     */
     static constexpr std::string_view kName = "accountBase58";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
-        auto const account = detail::parseBase58Wrapper<xrpl::AccountID>(std::string{f.asString()});
-        if (!account || account->isZero())
+        auto const account =
+            detail::parseBase58Wrapper<xrpl::AccountID>(std::string{fieldView.asString()});
+        if (not account.has_value() or account->isZero())
         {
             return std::unexpected{rpc::Status{rpc::kMalformedAddress}};
         }
@@ -717,27 +779,37 @@ struct AccountBase58Validator
  */
 struct CurrencyValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("currency").
+     */
     static constexpr std::string_view kName = "currency";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
-        auto const str = std::string{f.asString()};
+        auto const str = std::string{fieldView.asString()};
         if (str.empty())
         {
-            return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "IsEmpty"}};
+            return std::unexpected{rpc::Status{
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "IsEmpty"}};
         }
         xrpl::Currency currency;
-        if (!xrpl::toCurrency(currency, str))
+        if (not xrpl::toCurrency(currency, str))
         {
             return std::unexpected{rpc::Status{rpc::kMalformedCurrency, "malformedCurrency"}};
         }
@@ -753,31 +825,41 @@ struct CurrencyValidator
  */
 struct IssuerValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("issuer").
+     */
     static constexpr std::string_view kName = "issuer";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         xrpl::AccountID issuer;
-        if (!xrpl::toIssuer(issuer, std::string{f.asString()}))
+        if (not xrpl::toIssuer(issuer, std::string{fieldView.asString()}))
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', bad issuer.", f.key())}};
+                std::format("Invalid field '{}', bad issuer.", fieldView.key())}};
         }
         if (issuer == xrpl::noAccount())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', bad issuer account one.", f.key())}};
+                std::format("Invalid field '{}', bad issuer account one.", fieldView.key())}};
         }
         return {};
     }
@@ -792,45 +874,55 @@ struct IssuerValidator
  */
 struct CurrencyIssueValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("currencyIssue").
+     */
     static constexpr std::string_view kName = "currencyIssue";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isObject())
+        if (not fieldView.isObject())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
         }
-        auto const currFa = f.child("currency");
-        if (!currFa.present() || !currFa.isString())
+        auto const currView = fieldView.child("currency");
+        if (not currView.present() or not currView.isString())
         {
             return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
         }
         xrpl::Currency currency{};
-        if (!xrpl::toCurrency(currency, std::string{currFa.asString()}))
+        if (not xrpl::toCurrency(currency, std::string{currView.asString()}))
         {
             return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
         }
-        auto const issuerFa = f.child("issuer");
+        auto const issuerView = fieldView.child("issuer");
         if (xrpl::isXRP(currency))
         {
-            if (issuerFa.present())
+            if (issuerView.present())
             {
                 return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
         }
         else
         {
-            if (!issuerFa.present() || !issuerFa.isString())
+            if (not issuerView.present() or not issuerView.isString())
             {
                 return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
             xrpl::AccountID issuer;
-            if (!xrpl::toIssuer(issuer, std::string{issuerFa.asString()}))
+            if (not xrpl::toIssuer(issuer, std::string{issuerView.asString()}))
             {
                 return std::unexpected{rpc::Status{rpc::kMalformedRequest}};
             }
@@ -847,32 +939,42 @@ struct CurrencyIssueValidator
  */
 struct ToNumberModifier
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("toNumber").
+     */
     static constexpr std::string_view kName = "toNumber";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    modify(FA& f)
+    modify(View& fieldView)
     {
-        if (!f.present() || !f.isString())
+        if (not fieldView.present() or not fieldView.isString())
             return {};
-        auto const sv = f.asString();
+        auto const sv = fieldView.asString();
         if (sv.find('.') != std::string_view::npos)
         {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         int64_t val = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
-        if (ec != std::errc() || ptr != sv.data() + sv.size())
+        if (ec != std::errc() or ptr != sv.data() + sv.size())
         {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
         // Every consumer reads the result back through FieldView::asUint32(), which casts
         // without checking. Reject anything that would silently become a different number.
-        if (val < 0 || val > int64_t{std::numeric_limits<uint32_t>::max()})
+        if (val < 0 or val > int64_t{std::numeric_limits<uint32_t>::max()})
         {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
-        f.set(val);
+        fieldView.set(val);
         return {};
     }
 };
@@ -886,40 +988,51 @@ struct ToNumberModifier
  */
 struct CredentialTypeValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("credentialType").
+     */
     static constexpr std::string_view kName = "credentialType";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " NotString"}};
+                rpc::kMalformedAuthorizedCredentials, std::string{fieldView.key()} + " NotString"}};
         }
         // Materialise a std::string so this compiles against both libxrpl versions:
         // newer libxrpl exposes strUnHex(std::string_view) (accepts a std::string via
         // conversion), while the older one Clio still pins exposes
         // strUnHex(std::string const&) (binds a std::string directly). Passing the
         // string_view from asString() directly would fail against the older overload.
-        auto const decoded = xrpl::strUnHex(std::string{f.asString()});
-        if (!decoded)
+        auto const decoded = xrpl::strUnHex(std::string{fieldView.asString()});
+        if (not decoded.has_value())
         {
             return std::unexpected{rpc::Status{
-                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " NotHexString"}};
+                rpc::kMalformedAuthorizedCredentials,
+                std::string{fieldView.key()} + " NotHexString"}};
         }
         if (decoded->empty())
         {
             return std::unexpected{rpc::Status{
-                rpc::kMalformedAuthorizedCredentials, std::string{f.key()} + " is empty"}};
+                rpc::kMalformedAuthorizedCredentials, std::string{fieldView.key()} + " is empty"}};
         }
         if (decoded->size() > xrpl::kMaxCredentialTypeLength)
         {
             return std::unexpected{rpc::Status{
                 rpc::kMalformedAuthorizedCredentials,
-                std::string{f.key()} + " greater than max length"}};
+                std::string{fieldView.key()} + " greater than max length"}};
         }
         return {};
     }
@@ -936,20 +1049,30 @@ struct CredentialTypeValidator
  */
 struct AuthorizeCredentialValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("authorizeCredential").
+     */
     static constexpr std::string_view kName = "authorizeCredential";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isArray())
+        if (not fieldView.isArray())
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedRequest, std::string{f.key()} + " not array"}};
+                rpc::Status{rpc::kMalformedRequest, std::string{fieldView.key()} + " not array"}};
         }
-        auto const sz = f.arraySize();
+        auto const sz = fieldView.arraySize();
         if (sz == 0)
         {
             return std::unexpected{rpc::Status{
@@ -964,38 +1087,36 @@ struct AuthorizeCredentialValidator
                     "Max {} number of credentials in authorized_credentials array",
                     xrpl::kMaxCredentialsArraySize)}};
         }
-        for (std::size_t i = 0; i < sz; ++i)
+        for (auto i = 0uz; i < sz; ++i)
         {
-            auto const elem = f.element(i);
-            if (!elem.isObject())
+            auto const elem = fieldView.element(i);
+            if (not elem.isObject())
             {
                 return std::unexpected{rpc::Status{
                     rpc::kMalformedAuthorizedCredentials,
                     "authorized_credentials elements in array are not objects."}};
             }
-            auto const issuerFa = elem.child("issuer");
-            if (!issuerFa.present())
+            auto const issuerView = elem.child("issuer");
+            if (not issuerView.present())
             {
                 return std::unexpected{rpc::Status{
                     rpc::kMalformedAuthorizedCredentials,
                     "Field 'Issuer' is required but missing."}};
             }
-            if (auto err = AccountBase58Validator::verify(issuerFa); !err)
+            if (not AccountBase58Validator::verify(issuerView).has_value())
             {
                 return std::unexpected{
                     rpc::Status{rpc::kMalformedAuthorizedCredentials, "issuer NotString"}};
             }
-            auto const credFa = elem.child("credential_type");
-            if (!credFa.present())
+            auto const credView = elem.child("credential_type");
+            if (not credView.present())
             {
                 return std::unexpected{rpc::Status{
                     rpc::kMalformedAuthorizedCredentials,
                     "Field 'CredentialType' is required but missing."}};
             }
-            if (auto err = CredentialTypeValidator::verify(credFa); !err)
-            {
-                return err;
-            }
+            if (auto res = CredentialTypeValidator::verify(credView); not res.has_value())
+                return res;
         }
         return {};
     }
@@ -1007,27 +1128,45 @@ struct AuthorizeCredentialValidator
  * `fn` is called with the field view when the field is present; absent fields are silently
  * skipped. The callable must return `MaybeError`.
  *
- * @tparam Fn A callable type with signature `MaybeError(FA const&)`.
+ * @tparam Fn A callable type with signature `MaybeError(View const&)`.
  */
 template <typename Fn>
 struct CustomValidator
 {
+    /**
+     * @brief The wrapped callable.
+     */
     Fn fn;
 
-    consteval explicit CustomValidator(Fn f) : fn{f}
+    /**
+     * @brief Construct a @ref CustomValidator.
+     *
+     * @param fn The callable invoked with a const field view.
+     */
+    consteval explicit CustomValidator(Fn fn) : fn{fn}
     {
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        return fn(f);
+        return fn(fieldView);
     }
 };
 
+/**
+ * @brief Deduction guide for @ref CustomValidator.
+ */
 template <typename Fn>
 CustomValidator(Fn) -> CustomValidator<Fn>;
 
@@ -1037,27 +1176,45 @@ CustomValidator(Fn) -> CustomValidator<Fn>;
  * `fn` is called with a mutable field view when the field is present; absent fields are
  * silently skipped. The callable must return `MaybeError`.
  *
- * @tparam Fn A callable type with signature `MaybeError(FA&)`.
+ * @tparam Fn A callable type with signature `MaybeError(View&)`.
  */
 template <typename Fn>
 struct CustomModifier
 {
+    /**
+     * @brief The wrapped callable.
+     */
     Fn fn;
 
-    consteval explicit CustomModifier(Fn f) : fn{f}
+    /**
+     * @brief Construct a @ref CustomModifier.
+     *
+     * @param fn The callable invoked with a mutable field view.
+     */
+    consteval explicit CustomModifier(Fn fn) : fn{fn}
     {
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify(FA& f) const
+    modify(View& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        return fn(f);
+        return fn(fieldView);
     }
 };
 
+/**
+ * @brief Deduction guide for @ref CustomModifier.
+ */
 template <typename Fn>
 CustomModifier(Fn) -> CustomModifier<Fn>;
 
@@ -1068,17 +1225,27 @@ CustomModifier(Fn) -> CustomModifier<Fn>;
  */
 struct NotSupported
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("notSupported").
+     */
     static constexpr std::string_view kName = "notSupported";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (f.present())
+        if (fieldView.present())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcNotSupported,
-                "Not supported field '" + std::string{f.key()} + "'"}};
+                "Not supported field '" + std::string{fieldView.key()} + "'"}};
         }
         return {};
     }
@@ -1096,39 +1263,60 @@ template <typename T>
     requires(std::is_same_v<T, bool>)
 struct NotSupportedIfEqual
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("notSupportedIf").
+     */
     static constexpr std::string_view kName = "notSupportedIf";
 
+    /**
+     * @brief The value this item carries.
+     */
     T value;
-    consteval explicit NotSupportedIfEqual(T v) : value{v}
+
+    /**
+     * @brief Construct a @ref NotSupportedIfEqual.
+     *
+     * @param value The value that makes the field unsupported.
+     */
+    consteval explicit NotSupportedIfEqual(T value) : value{value}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("value", value);
+        writer.param("value", value);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present() or not fieldView.isBool() or fieldView.asBool() != value)
             return {};
-        if constexpr (std::is_same_v<T, bool>)
-        {
-            if (!f.isBool())
-                return {};
-            if (f.asBool() != value)
-                return {};
-        }
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcNotSupported,
-            std::format("Not supported field '{}'s value '{}'", f.key(), value)}};
+            std::format("Not supported field '{}'s value '{}'", fieldView.key(), value)}};
     }
 };
 
+/**
+ * @brief Deduction guide for @ref NotSupportedIfEqual.
+ */
 template <typename T>
 NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
 
@@ -1143,33 +1331,48 @@ NotSupportedIfEqual(T) -> NotSupportedIfEqual<T>;
 template <std::size_t N>
 struct OneOfValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("oneOf").
+     */
     static constexpr std::string_view kName = "oneOf";
 
+    /**
+     * @brief The accepted values.
+     */
     std::array<std::string_view, N> values;
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.paramList("values", values);
+        writer.paramList("values", values);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
-        auto const sv = f.asString();
-        for (auto const& v : values)
-        {
-            if (sv == v)
-                return {};
-        }
+        if (std::ranges::contains(values, fieldView.asString()))
+            return {};
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 };
@@ -1181,20 +1384,29 @@ struct OneOfValidator
  */
 struct ToLowerModifier
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("toLower").
+     */
     static constexpr std::string_view kName = "toLower";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    modify(FA& f)
+    modify(View& fieldView)
     {
-        if (!f.present() || !f.isString())
+        if (not fieldView.present() or not fieldView.isString())
             return {};
-        auto const sv = f.asString();
-        std::string lower{sv};
-        std::transform(lower.begin(), lower.end(), lower.begin(), [](unsigned char c) {
-            return static_cast<char>(std::tolower(c));
+        std::string lower{fieldView.asString()};
+        std::ranges::transform(lower, lower.begin(), [](unsigned char chr) {
+            return static_cast<char>(std::tolower(chr));
         });
-        f.set(std::string_view{lower});
+        fieldView.set(std::string_view{lower});
         return {};
     }
 };
@@ -1207,71 +1419,72 @@ struct ToLowerModifier
  *
  * @tparam T Numeric type; one of `int64_t`, `uint32_t`, or `double`.
  */
-template <typename T>
-    requires(std::is_same_v<T, int64_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, double>)
+template <SomeNumericBound T>
 struct Between
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("between").
+     */
     static constexpr std::string_view kName = "between";
 
-    T lo, hi;
-    consteval Between(T l, T h) : lo{l}, hi{h}
+    /**
+     * @brief Inclusive lower bound.
+     */
+    T lo;
+
+    /**
+     * @brief Inclusive upper bound.
+     */
+    T hi;
+
+    /**
+     * @brief Construct a @ref Between.
+     *
+     * @param lo Inclusive lower bound.
+     * @param hi Inclusive upper bound.
+     */
+    consteval Between(T lo, T hi) : lo{lo}, hi{hi}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("lo", lo);
-        w.param("hi", hi);
+        writer.param("lo", lo);
+        writer.param("hi", hi);
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    verify(FA const& f) const
+    verify(View const& fieldView) const
     {
-        if (!f.present())
-            return {};
-        if constexpr (std::is_same_v<T, int64_t>)
-        {
-            if (!f.isInt64())
-                return {};
-            if (f.asInt64() < lo || f.asInt64() > hi)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
-        else if constexpr (std::is_same_v<T, uint32_t>)
-        {
-            if (!f.isUint32())
-                return {};
-            if (f.asUint32() < lo || f.asUint32() > hi)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
-        else if constexpr (std::is_same_v<T, double>)
-        {
-            if (!f.isDouble())
-                return {};
-            if (f.asDouble() < lo || f.asDouble() > hi)
-            {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-            }
-        }
+        auto const value = detail::numericValue<T>(fieldView);
+        if (value.has_value() and (*value < lo or *value > hi))
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return {};
     }
 };
 
+/**
+ * @brief Deduction guide for @ref Between.
+ */
 template <typename T>
 Between(T, T) -> Between<T>;
 
-/**
- * @brief Validates that a field is an array of valid `uint256` hex-encoded strings.
- *
- * Returns `RpcInvalidParams` if the field is not an array, or if any element is not a
- * string or fails `xrpl::uint256::parseHex`.
- */
 /**
  * @brief Validates a non-empty, bounded array of base58-encoded account IDs.
  *
@@ -1285,38 +1498,49 @@ struct AccountIdArrayValidator
 {
     static_assert(MaxSize > 0, "rpcspec: AccountIdArrayValidator needs a non-zero bound");
 
+    /**
+     * @brief Identifier for this item in the schema dump ("accountIdArray").
+     */
     static constexpr std::string_view kName = "accountIdArray";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
 
-        if (!f.isArray())
+        if (not fieldView.isArray())
         {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage(f.key(), "array")}};
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField, rpc::expectedFieldMessage(fieldView.key(), "array")}};
         }
 
-        if (f.arraySize() == 0 || f.arraySize() > MaxSize)
+        auto const size = fieldView.arraySize();
+        if (size == 0 or size > MaxSize)
         {
             return std::unexpected{rpc::Status{
                 rpc::kMalformedField,
                 rpc::expectedFieldMessage(
-                    f.key(), std::format("an array of 1 to {} account IDs", MaxSize))}};
+                    fieldView.key(), std::format("an array of 1 to {} account IDs", MaxSize))}};
         }
 
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        for (auto i = 0uz; i < size; ++i)
         {
-            auto const elem = f.element(i);
-            if (!elem.isString() ||
-                !detail::accountFromStringStrict(std::string{elem.asString()}).has_value())
+            auto const elem = fieldView.element(i);
+            if (not elem.isString() or
+                not detail::accountFromStringStrict(std::string{elem.asString()}).has_value())
             {
                 return std::unexpected{rpc::Status{
                     rpc::kMalformedField,
-                    rpc::expectedFieldMessage(f.key(), "an array of account IDs")}};
+                    rpc::expectedFieldMessage(fieldView.key(), "an array of account IDs")}};
             }
         }
 
@@ -1324,32 +1548,49 @@ struct AccountIdArrayValidator
     }
 };
 
+/**
+ * @brief Validates that a field is an array of valid `uint256` hex-encoded strings.
+ *
+ * Returns `RpcInvalidParams` if the field is not an array, or if any element is not a
+ * string or fails `xrpl::uint256::parseHex`.
+ */
 struct Hex256ArrayValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("hex256Array").
+     */
     static constexpr std::string_view kName = "hex256Array";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isArray())
+        if (not fieldView.isArray())
         {
             // Mirrors old behaviour: a non-array credentials field is rejected by the leading
             // Type<array> check which produces a plain RpcInvalidParams ("Invalid parameters.").
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         }
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        auto const size = fieldView.arraySize();
+        for (auto i = 0uz; i < size; ++i)
         {
-            auto const elem = f.element(i);
-            if (!elem.isString())
+            auto const elem = fieldView.element(i);
+            if (not elem.isString())
             {
                 return std::unexpected{rpc::Status{
                     rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
             }
             xrpl::uint256 parsed;
-            if (!parsed.parseHex(std::string{elem.asString()}.c_str()))
+            if (not parsed.parseHex(std::string{elem.asString()}.c_str()))
             {
                 return std::unexpected{rpc::Status{
                     rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
@@ -1367,36 +1608,46 @@ struct Hex256ArrayValidator
  */
 struct AccountMarkerValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("accountMarker").
+     */
     static constexpr std::string_view kName = "accountMarker";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotString"}};
+                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
-        auto const sv = f.asString();
+        auto const sv = fieldView.asString();
         auto const commaPos = sv.find(',');
         auto const malformed = [&] {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::malformedCursorMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::malformedCursorMessage(fieldView.key())}};
         };
         if (commaPos == std::string_view::npos)
             return malformed();
         auto const hexPart = std::string{sv.substr(0, commaPos)};
         auto const hintPart = sv.substr(commaPos + 1);
         xrpl::uint256 index;
-        if (!index.parseHex(hexPart.c_str()))
+        if (not index.parseHex(hexPart.c_str()))
             return malformed();
         uint64_t hint = 0;
         auto const [ptr, ec] =
             std::from_chars(hintPart.data(), hintPart.data() + hintPart.size(), hint);
-        if (ec != std::errc() || ptr != hintPart.data() + hintPart.size())
+        if (ec != std::errc() or ptr != hintPart.data() + hintPart.size())
             return malformed();
         return {};
     }
@@ -1410,25 +1661,36 @@ struct AccountMarkerValidator
  */
 struct AccountTypeValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("accountType").
+     */
     static constexpr std::string_view kName = "accountType";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', not string.", f.key())}};
+                std::format("Invalid field '{}', not string.", fieldView.key())}};
         }
-        auto const type = accountOwnedLedgerTypeFromStr(std::string{f.asString()});
+        auto const type = accountOwnedLedgerTypeFromStr(std::string{fieldView.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())}};
+                rpc::RippledError::RpcInvalidParams,
+                std::format("Invalid field '{}'.", fieldView.key())}};
         }
         return {};
     }
@@ -1448,24 +1710,52 @@ struct AccountTypeValidator
 template <typename V>
 struct Default
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("default").
+     */
     static constexpr std::string_view kName = "default";
+
+    /**
+     * @brief Marks this item as a pure default carrier (see SomeDefault).
+     */
     static constexpr bool kIsDefault = true;
+
+    /**
+     * @brief The value this converter produces (`V`).
+     */
     using ValueType = V;
 
+    /**
+     * @brief The value this item carries.
+     */
     V value;
 
-    consteval explicit Default(V v) : value{v}
+    /**
+     * @brief Construct a @ref Default.
+     *
+     * @param value The value assigned when the field is absent.
+     */
+    consteval explicit Default(V value) : value{value}
     {
     }
 
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
     template <typename Writer>
     void
-    describeParams(Writer& w) const
+    describeParams(Writer& writer) const
     {
-        w.param("value", value);
+        writer.param("value", value);
     }
 };
 
+/**
+ * @brief Deduction guide for @ref Default.
+ */
 template <typename V>
 Default(V) -> Default<V>;
 
@@ -1477,25 +1767,36 @@ Default(V) -> Default<V>;
  */
 struct LedgerEntryTypeValidator
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ledgerType").
+     */
     static constexpr std::string_view kName = "ledgerType";
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] static MaybeError
-    verify(FA const& f)
+    verify(View const& fieldView)
     {
-        if (!f.present())
+        if (not fieldView.present())
             return {};
-        if (!f.isString())
+        if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcInvalidParams,
-                std::format("Invalid field '{}', not string.", f.key())}};
+                std::format("Invalid field '{}', not string.", fieldView.key())}};
         }
-        auto const type = ledgerEntryTypeFromStr(std::string{f.asString()});
+        auto const type = ledgerEntryTypeFromStr(std::string{fieldView.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::format("Invalid field '{}'.", f.key())}};
+                rpc::RippledError::RpcInvalidParams,
+                std::format("Invalid field '{}'.", fieldView.key())}};
         }
         return {};
     }

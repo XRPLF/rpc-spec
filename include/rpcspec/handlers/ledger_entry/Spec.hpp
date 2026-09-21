@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'ledger_entry' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Issue.h>
@@ -24,16 +22,19 @@
 
 namespace rpc::spec::handlers::ledger_entry {
 
+/**
+ * @brief Validator for the ripple state accounts field.
+ */
 inline constexpr auto kRippleStateAccountsValidator =
-    CustomValidator{[](auto const& f) -> MaybeError {
-        if (!f.isArray() || f.arraySize() != 2)
+    CustomValidator{[](auto const& fieldView) -> MaybeError {
+        if (not fieldView.isArray() or fieldView.arraySize() != 2)
         {
             return std::unexpected{
                 rpc::Status{rpc::RippledError::RpcInvalidParams, "malformedAccounts"}};
         }
-        auto const elem0 = f.element(0);
-        auto const elem1 = f.element(1);
-        if (!elem0.isString() || !elem1.isString() || elem0.asString() == elem1.asString())
+        auto const elem0 = fieldView.element(0);
+        auto const elem1 = fieldView.element(1);
+        if (not elem0.isString() or not elem1.isString() or elem0.asString() == elem1.asString())
         {
             return std::unexpected{
                 rpc::Status{rpc::RippledError::RpcInvalidParams, "malformedAccounts"}};
@@ -42,19 +43,28 @@ inline constexpr auto kRippleStateAccountsValidator =
             rpc::spec::detail::parseBase58Wrapper<xrpl::AccountID>(std::string{elem0.asString()});
         auto const id2 =
             rpc::spec::detail::parseBase58Wrapper<xrpl::AccountID>(std::string{elem1.asString()});
-        if (!id1 || !id2)
+        if (not id1 or not id2)
         {
             return std::unexpected{rpc::Status{rpc::kMalformedAddress, "malformedAddresses"}};
         }
         return {};
     }};
 
+/**
+ * @brief Validator for the malformed request hex string field.
+ */
 inline constexpr auto kMalformedRequestHexStringValidator =
     withCustomError(uint256Hex, rpc::kMalformedRequest);
 
+/**
+ * @brief Validator for the malformed request int field.
+ */
 inline constexpr auto kMalformedRequestIntValidator =
     withCustomError(type<uint32_t>, rpc::kMalformedRequest);
 
+/**
+ * @brief Validator for the bridge json field.
+ */
 inline constexpr auto kBridgeJsonValidator = withCustomError(
     ifType<JsonObject>(section(
         field("LockingChainDoor", required, accountBase58),
@@ -63,339 +73,656 @@ inline constexpr auto kBridgeJsonValidator = withCustomError(
         field("IssuingChainIssue", required, currencyIssue))),
     rpc::kMalformedRequest);
 
-template <typename FA>
+/**
+ * @brief Build an Issue from a validated currency/issuer object.
+ *
+ * @param fieldView A validated currency/issuer object.
+ * @return The decoded issue.
+ */
+template <typename View>
 inline xrpl::Issue
-issueFromCurrencyIssue(FA const& fa)
+issueFromCurrencyIssue(View const& fieldView)
 {
-    auto const currency =
-        rpc::spec::detail::currencyFromValidated(std::string{fa.child("currency").asString()});
+    auto const currency = rpc::spec::detail::currencyFromValidated(
+        std::string{fieldView.child("currency").asString()});
     if (xrpl::isXRP(currency))
         return xrpl::Issue{currency, xrpl::AccountID{}};
     auto const issuer =
-        rpc::spec::detail::issuerFromValidated(std::string{fa.child("issuer").asString()});
+        rpc::spec::detail::issuerFromValidated(std::string{fieldView.child("issuer").asString()});
     return xrpl::Issue{currency, issuer};
 }
 
-template <typename FA>
+/**
+ * @brief Build a BridgeSpec from a validated bridge object.
+ *
+ * @param fieldView A validated bridge object.
+ * @return The decoded bridge spec.
+ */
+template <typename View>
 inline BridgeSpec
-bridgeSpecFromObject(FA const& fa)
+bridgeSpecFromObject(View const& fieldView)
 {
     BridgeSpec bs;
     bs.lockingChainDoor = rpc::spec::detail::accountFromValidated(
-        std::string{fa.child("LockingChainDoor").asString()});
+        std::string{fieldView.child("LockingChainDoor").asString()});
     bs.issuingChainDoor = rpc::spec::detail::accountFromValidated(
-        std::string{fa.child("IssuingChainDoor").asString()});
-    bs.lockingChainIssue = issueFromCurrencyIssue(fa.child("LockingChainIssue"));
-    bs.issuingChainIssue = issueFromCurrencyIssue(fa.child("IssuingChainIssue"));
+        std::string{fieldView.child("IssuingChainDoor").asString()});
+    bs.lockingChainIssue = issueFromCurrencyIssue(fieldView.child("LockingChainIssue"));
+    bs.issuingChainIssue = issueFromCurrencyIssue(fieldView.child("IssuingChainIssue"));
     return bs;
 }
 
+/**
+ * @brief Converts the directory field into its strongly-typed value.
+ */
 struct DirectoryConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("directory").
+     */
     static constexpr std::string_view kName = "directory";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, DirectoryEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, DirectoryEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         DirectoryEntry entry;
-        auto const ownerFa = f.child("owner");
-        if (ownerFa.present() && ownerFa.isString())
-            entry.owner = rpc::spec::detail::accountFromValidated(std::string{ownerFa.asString()});
-        auto const dirRootFa = f.child("dir_root");
-        if (dirRootFa.present() && dirRootFa.isString())
+        auto const ownerView = fieldView.child("owner");
+        if (ownerView.present() and ownerView.isString())
+        {
+            entry.owner =
+                rpc::spec::detail::accountFromValidated(std::string{ownerView.asString()});
+        }
+        auto const dirRootView = fieldView.child("dir_root");
+        if (dirRootView.present() and dirRootView.isString())
         {
             entry.dirRoot =
-                rpc::spec::detail::uint256FromValidated(std::string{dirRootFa.asString()});
+                rpc::spec::detail::uint256FromValidated(std::string{dirRootView.asString()});
         }
-        auto const subIndexFa = f.child("sub_index");
-        if (subIndexFa.present() && subIndexFa.isUint32())
-            entry.subIndex = subIndexFa.asUint32();
+        auto const subIndexView = fieldView.child("sub_index");
+        if (subIndexView.present() and subIndexView.isUint32())
+            entry.subIndex = subIndexView.asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the offer field into its strongly-typed value.
+ */
 struct OfferConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("offer").
+     */
     static constexpr std::string_view kName = "offer";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, OfferEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, OfferEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         OfferEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
-        entry.seq = f.child("seq").asUint32();
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
+        entry.seq = fieldView.child("seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the escrow field into its strongly-typed value.
+ */
 struct EscrowConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("escrow").
+     */
     static constexpr std::string_view kName = "escrow";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, EscrowEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, EscrowEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         EscrowEntry entry;
-        entry.owner =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("owner").asString()});
-        entry.seq = f.child("seq").asUint32();
+        entry.owner = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("owner").asString()});
+        entry.seq = fieldView.child("seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the ticket field into its strongly-typed value.
+ */
 struct TicketConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ticket").
+     */
     static constexpr std::string_view kName = "ticket";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, TicketEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, TicketEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         TicketEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
-        entry.ticketSeq = f.child("ticket_seq").asUint32();
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
+        entry.ticketSeq = fieldView.child("ticket_seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the permissioned domain field into its strongly-typed value.
+ */
 struct PermissionedDomainConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("permissioned_domain").
+     */
     static constexpr std::string_view kName = "permissioned_domain";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256,
+     * PermissionedDomainEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, PermissionedDomainEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         PermissionedDomainEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
-        entry.seq = f.child("seq").asUint32();
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
+        entry.seq = fieldView.child("seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the vault field into its strongly-typed value.
+ */
 struct VaultConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("vault").
+     */
     static constexpr std::string_view kName = "vault";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, VaultEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, VaultEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         VaultEntry entry;
-        entry.owner =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("owner").asString()});
-        entry.seq = f.child("seq").asUint32();
+        entry.owner = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("owner").asString()});
+        entry.seq = fieldView.child("seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the loan broker field into its strongly-typed value.
+ */
 struct LoanBrokerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("loan_broker").
+     */
     static constexpr std::string_view kName = "loan_broker";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, LoanBrokerEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, LoanBrokerEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         LoanBrokerEntry entry;
-        entry.owner =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("owner").asString()});
-        entry.seq = f.child("seq").asUint32();
+        entry.owner = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("owner").asString()});
+        entry.seq = fieldView.child("seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the loan field into its strongly-typed value.
+ */
 struct LoanConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("loan").
+     */
     static constexpr std::string_view kName = "loan";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, LoanEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, LoanEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         LoanEntry entry;
         entry.loanBrokerId = rpc::spec::detail::uint256FromValidated(
-            std::string{f.child("loan_broker_id").asString()});
-        entry.loanSeq = f.child("loan_seq").asUint32();
+            std::string{fieldView.child("loan_broker_id").asString()});
+        entry.loanSeq = fieldView.child("loan_seq").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the delegate field into its strongly-typed value.
+ */
 struct DelegateConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("delegate").
+     */
     static constexpr std::string_view kName = "delegate";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, DelegateEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, DelegateEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         DelegateEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
-        entry.authorize =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("authorize").asString()});
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
+        entry.authorize = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("authorize").asString()});
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the sponsorship field into its strongly-typed value.
+ */
 struct SponsorshipConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("sponsorship").
+     */
     static constexpr std::string_view kName = "sponsorship";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, SponsorshipEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, SponsorshipEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         SponsorshipEntry entry;
-        entry.sponsor =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("sponsor").asString()});
-        entry.sponsee =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("sponsee").asString()});
+        entry.sponsor = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("sponsor").asString()});
+        entry.sponsee = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("sponsee").asString()});
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the mptoken field into its strongly-typed value.
+ */
 struct MptokenConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("mptoken").
+     */
     static constexpr std::string_view kName = "mptoken";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, MptokenEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, MptokenEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         MptokenEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
         entry.mptIssuanceId = rpc::spec::detail::uint192FromValidated(
-            std::string{f.child("mpt_issuance_id").asString()});
+            std::string{fieldView.child("mpt_issuance_id").asString()});
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the amm field into its strongly-typed value.
+ */
 struct AmmConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("amm").
+     */
     static constexpr std::string_view kName = "amm";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, AmmEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, AmmEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         AmmEntry entry;
-        entry.asset = issueFromCurrencyIssue(f.child("asset"));
-        entry.asset2 = issueFromCurrencyIssue(f.child("asset2"));
+        entry.asset = issueFromCurrencyIssue(fieldView.child("asset"));
+        entry.asset2 = issueFromCurrencyIssue(fieldView.child("asset2"));
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the oracle field into its strongly-typed value.
+ */
 struct OracleConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("oracle").
+     */
     static constexpr std::string_view kName = "oracle";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, OracleEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, OracleEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         OracleEntry entry;
-        entry.account =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("account").asString()});
-        entry.oracleDocumentId = f.child("oracle_document_id").asUint32();
+        entry.account = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("account").asString()});
+        entry.oracleDocumentId = fieldView.child("oracle_document_id").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the credential field into its strongly-typed value.
+ */
 struct CredentialConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("credential").
+     */
     static constexpr std::string_view kName = "credential";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, CredentialEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, CredentialEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         CredentialEntry entry;
-        entry.subject =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("subject").asString()});
-        entry.issuer =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("issuer").asString()});
-        entry.credentialType = std::string{f.child("credential_type").asString()};
+        entry.subject = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("subject").asString()});
+        entry.issuer = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("issuer").asString()});
+        entry.credentialType = std::string{fieldView.child("credential_type").asString()};
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the deposit preauth field into its strongly-typed value.
+ */
 struct DepositPreauthConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("deposit_preauth").
+     */
     static constexpr std::string_view kName = "deposit_preauth";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256,
+     * DepositPreauthEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, DepositPreauthEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         DepositPreauthEntry entry;
-        entry.owner =
-            rpc::spec::detail::accountFromValidated(std::string{f.child("owner").asString()});
-        auto const authFa = f.child("authorized");
-        if (authFa.present() && authFa.isString())
+        entry.owner = rpc::spec::detail::accountFromValidated(
+            std::string{fieldView.child("owner").asString()});
+        auto const authView = fieldView.child("authorized");
+        if (authView.present() and authView.isString())
         {
             entry.authorized =
-                rpc::spec::detail::accountFromValidated(std::string{authFa.asString()});
+                rpc::spec::detail::accountFromValidated(std::string{authView.asString()});
         }
-        auto const credsFa = f.child("authorized_credentials");
-        if (credsFa.present() && credsFa.isArray())
+        auto const credsView = fieldView.child("authorized_credentials");
+        if (credsView.present() and credsView.isArray())
         {
             std::vector<AuthorizeCredentialEntry> creds;
-            for (std::size_t i = 0; i < credsFa.arraySize(); ++i)
+            for (auto i = 0uz; i < credsView.arraySize(); ++i)
             {
-                auto const elem = credsFa.element(i);
+                auto const elem = credsView.element(i);
                 AuthorizeCredentialEntry ace;
                 ace.issuer = rpc::spec::detail::accountFromValidated(
                     std::string{elem.child("issuer").asString()});
@@ -408,98 +735,250 @@ struct DepositPreauthConverter
     }
 };
 
+/**
+ * @brief Converts the ripple state field into its strongly-typed value.
+ */
 struct RippleStateConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ripple_state").
+     */
     static constexpr std::string_view kName = "ripple_state";
+
+    /**
+     * @brief The value this converter produces (`RippleStateEntry`).
+     */
     using ValueType = RippleStateEntry;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         RippleStateEntry entry;
-        auto const accountsFa = f.child("accounts");
-        entry.accounts[0] =
-            rpc::spec::detail::accountFromValidated(std::string{accountsFa.element(0).asString()});
-        entry.accounts[1] =
-            rpc::spec::detail::accountFromValidated(std::string{accountsFa.element(1).asString()});
-        entry.currency =
-            rpc::spec::detail::currencyFromValidated(std::string{f.child("currency").asString()});
+        auto const accountsView = fieldView.child("accounts");
+        entry.accounts[0] = rpc::spec::detail::accountFromValidated(
+            std::string{accountsView.element(0).asString()});
+        entry.accounts[1] = rpc::spec::detail::accountFromValidated(
+            std::string{accountsView.element(1).asString()});
+        entry.currency = rpc::spec::detail::currencyFromValidated(
+            std::string{fieldView.child("currency").asString()});
         return entry;
     }
 };
 
+/**
+ * @brief Converts the bridge field into its strongly-typed value.
+ */
 struct BridgeConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("bridge").
+     */
     static constexpr std::string_view kName = "bridge";
+
+    /**
+     * @brief The value this converter produces (`BridgeSpec`).
+     */
     using ValueType = BridgeSpec;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        return bridgeSpecFromObject(f);
+        return bridgeSpecFromObject(fieldView);
     }
 };
 
+/**
+ * @brief Converts the x chain claim id field into its strongly-typed value.
+ */
 struct XChainClaimIdConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("xchain_owned_claim_id").
+     */
     static constexpr std::string_view kName = "xchain_owned_claim_id";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, XChainClaimIdEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, XChainClaimIdEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         XChainClaimIdEntry entry;
-        entry.bridge = bridgeSpecFromObject(f);
-        entry.claimId = f.child("xchain_owned_claim_id").asUint32();
+        entry.bridge = bridgeSpecFromObject(fieldView);
+        entry.claimId = fieldView.child("xchain_owned_claim_id").asUint32();
         return ValueType{entry};
     }
 };
 
+/**
+ * @brief Converts the x chain create account claim id field into its strongly-typed value.
+ */
 struct XChainCreateAccountClaimIdConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("xchain_owned_create_account_claim_id").
+     */
     static constexpr std::string_view kName = "xchain_owned_create_account_claim_id";
+
+    /**
+     * @brief The value this converter produces (`std::variant<xrpl::uint256, XChainClaimIdEntry>`).
+     */
     using ValueType = std::variant<xrpl::uint256, XChainClaimIdEntry>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
-            return ValueType{rpc::spec::detail::uint256FromValidated(std::string{f.asString()})};
+        if (fieldView.isString())
+        {
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
         XChainClaimIdEntry entry;
-        entry.bridge = bridgeSpecFromObject(f);
-        entry.claimId = f.child("xchain_owned_create_account_claim_id").asUint32();
+        entry.bridge = bridgeSpecFromObject(fieldView);
+        entry.claimId = fieldView.child("xchain_owned_create_account_claim_id").asUint32();
         return ValueType{entry};
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: directory.
+ */
 inline constexpr auto directoryConv = DirectoryConverter{};
+
+/**
+ * @brief Converter instance: offer.
+ */
 inline constexpr auto offerConv = OfferConverter{};
+
+/**
+ * @brief Converter instance: escrow.
+ */
 inline constexpr auto escrowConv = EscrowConverter{};
+
+/**
+ * @brief Converter instance: ticket.
+ */
 inline constexpr auto ticketConv = TicketConverter{};
+
+/**
+ * @brief Converter instance: permissioned domain.
+ */
 inline constexpr auto permissionedDomainConv = PermissionedDomainConverter{};
+
+/**
+ * @brief Converter instance: vault.
+ */
 inline constexpr auto vaultConv = VaultConverter{};
+
+/**
+ * @brief Converter instance: loan broker.
+ */
 inline constexpr auto loanBrokerConv = LoanBrokerConverter{};
+
+/**
+ * @brief Converter instance: loan.
+ */
 inline constexpr auto loanConv = LoanConverter{};
+
+/**
+ * @brief Converter instance: delegate.
+ */
 inline constexpr auto delegateConv = DelegateConverter{};
+
+/**
+ * @brief Converter instance: sponsorship.
+ */
 inline constexpr auto sponsorshipConv = SponsorshipConverter{};
+
+/**
+ * @brief Converter instance: mptoken.
+ */
 inline constexpr auto mptokenConv = MptokenConverter{};
+
+/**
+ * @brief Converter instance: amm.
+ */
 inline constexpr auto ammConv = AmmConverter{};
+
+/**
+ * @brief Converter instance: oracle.
+ */
 inline constexpr auto oracleConv = OracleConverter{};
+
+/**
+ * @brief Converter instance: credential.
+ */
 inline constexpr auto credentialConv = CredentialConverter{};
+
+/**
+ * @brief Converter instance: deposit preauth.
+ */
 inline constexpr auto depositPreauthConv = DepositPreauthConverter{};
+
+/**
+ * @brief Converter instance: ripple state.
+ */
 inline constexpr auto rippleStateConv = RippleStateConverter{};
+
+/**
+ * @brief Converter instance: bridge.
+ */
 inline constexpr auto bridgeConv = BridgeConverter{};
+
+/**
+ * @brief Converter instance: x chain claim id.
+ */
 inline constexpr auto xChainClaimIdConv = XChainClaimIdConverter{};
+
+/**
+ * @brief Converter instance: x chain create account claim id.
+ */
 inline constexpr auto xChainCreateAccountClaimIdConv = XChainCreateAccountClaimIdConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, type<bool>, jsonBool),
@@ -776,10 +1255,16 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("ledger", deprecated),
     field("include_deleted", &Input::includeDeleted, type<bool>, jsonBool));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

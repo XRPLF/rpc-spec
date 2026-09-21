@@ -24,9 +24,9 @@ struct Config
         auto it = values.find(std::string{key});
         if (it != std::end(values))
         {
-            if (auto const* v = std::get_if<T>(&it->second))
+            if (auto const* value = std::get_if<T>(&it->second))
             {
-                return *v;
+                return *value;
             }
         }
         return std::nullopt;

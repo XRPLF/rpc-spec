@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'ledger_data' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -22,28 +20,45 @@
 
 namespace rpc::spec::handlers::ledger_data {
 
+/**
+ * @brief Converts the marker field into its strongly-typed value.
+ */
 struct MarkerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("marker").
+     */
     static constexpr std::string_view kName = "marker";
+
+    /**
+     * @brief The value this converter produces (`std::optional<MarkerValue>`).
+     */
     using ValueType = std::optional<MarkerValue>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (f.isString())
+        if (fieldView.isString())
         {
             xrpl::uint256 parsed;
-            auto const sv = f.asString();
-            if (!parsed.parseHex(std::string{sv}.c_str()))
+            auto const sv = fieldView.asString();
+            if (not parsed.parseHex(std::string{sv}.c_str()))
             {
                 return std::unexpected{
                     rpc::Status{rpc::kMalformedField, rpc::malformedFieldMessage("marker")}};
             }
             return std::optional<MarkerValue>{MarkerValue{parsed}};
         }
-        if (f.isUint32())
-            return std::optional<MarkerValue>{MarkerValue{f.asUint32()}};
+        if (fieldView.isUint32())
+            return std::optional<MarkerValue>{MarkerValue{fieldView.asUint32()}};
 #if defined(RPCSPEC_IS_CLIO)
         // Anything else (bool, object, negative int, ...) is a plain type failure and carries
         // no message.
@@ -54,37 +69,64 @@ struct MarkerConverter
     }
 };
 
+/**
+ * @brief Converts the ledger entry type field into its strongly-typed value.
+ */
 struct LedgerEntryTypeConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("ledgerEntryType").
+     */
     static constexpr std::string_view kName = "ledgerEntryType";
+
+    /**
+     * @brief The value this converter produces (`xrpl::LedgerEntryType`).
+     */
     using ValueType = xrpl::LedgerEntryType;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isString())
+        if (not fieldView.isString())
         {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::expectedFieldMessage(f.key(), "string")}};
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField, rpc::expectedFieldMessage(fieldView.key(), "string")}};
         }
-        auto const entryType = ledgerEntryTypeFromStr(std::string{f.asString()});
+        auto const entryType = ledgerEntryTypeFromStr(std::string{fieldView.asString()});
         if (entryType == xrpl::ltANY)
         {
             return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(f.key())}};
+                rpc::Status{rpc::kMalformedField, rpc::invalidFieldMessage(fieldView.key())}};
         }
         return entryType;
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: marker.
+ */
 inline constexpr auto markerConv = MarkerConverter{};
+
+/**
+ * @brief Converter instance: ledger entry type.
+ */
 inline constexpr auto ledgerEntryTypeConv = LedgerEntryTypeConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 // marker and diffMarker are unified into a single optional<MarkerValue> member;
 // cross-field validation (outOfOrder + marker type) stays in process().
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, jsonBoolStrict),
@@ -97,10 +139,16 @@ inline constexpr auto kInputSpec = spec<Input>(
     field("ledger", deprecated)  // validate-only: emits a deprecation warning, not stored
 );
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

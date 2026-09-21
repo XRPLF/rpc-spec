@@ -43,22 +43,6 @@
 
 namespace rpc::spec {
 
-namespace detail {
-
-template <typename T>
-struct IsOptional : std::false_type
-{
-};
-template <typename T>
-struct IsOptional<std::optional<T>> : std::true_type
-{
-};
-
-}  // namespace detail
-
-template <typename T>
-inline constexpr bool kIsOptional = detail::IsOptional<std::remove_cvref_t<T>>::value;
-
 /**
  * @brief A converter validates a field and produces its strong-typed value.
  *
@@ -66,9 +50,11 @@ inline constexpr bool kIsOptional = detail::IsOptional<std::remove_cvref_t<T>>::
  * Witnessed against FieldViewArchetype so converters stay backend-agnostic.
  */
 template <typename C>
-concept SomeConverter = requires(C const c, detail::FieldViewArchetype const& f) {
+concept SomeConverter = requires(C const converter, detail::FieldViewArchetype const& fieldView) {
     typename C::ValueType;
-    { c.parse(f) } -> std::same_as<std::expected<typename C::ValueType, rpc::Status>>;
+    {
+        converter.parse(fieldView)
+    } -> std::same_as<std::expected<typename C::ValueType, rpc::Status>>;
 };
 
 /**
@@ -76,8 +62,8 @@ concept SomeConverter = requires(C const c, detail::FieldViewArchetype const& f)
  *
  * @tparam InputT The handler Input struct.
  * @tparam Member The bound member's type (its optional-ness defines field presence).
- * @tparam Conv   The typed converter producing the member value.
- * @tparam Items  Extra requirements/modifiers/checks (e.g. `required`, `clamp`, `deprecated`).
+ * @tparam Conv The typed converter producing the member value.
+ * @tparam Items Extra requirements/modifiers/checks (e.g. `required`, `clamp`, `deprecated`).
  *
  * On parse, Items run first in declaration order — requirements validate and
  * modifiers (clamp, toLower, …) mutate the JSON in place — and only then does the
@@ -88,20 +74,44 @@ concept SomeConverter = requires(C const c, detail::FieldViewArchetype const& f)
 template <typename InputT, typename Member, SomeConverter Conv, SomeFieldItem... Items>
 struct BoundField
 {
+    /**
+     * @brief Marks this type as a bound field, so TypedSpec dispatches to parseInto().
+     */
     static constexpr bool kIsBound = true;
 
+    /**
+     * @brief The JSON key this field reads.
+     */
     std::string_view key;
+
+    /**
+     * @brief Pointer to the Input member that receives the converted value.
+     */
     Member InputT::* member;
+
+    /**
+     * @brief The converter producing the member value.
+     */
     Conv conv;
+
+    /**
+     * @brief Requirements, modifiers and checks run before the converter.
+     */
     std::tuple<Items...> items;
 
-    consteval BoundField(std::string_view k, Member InputT::* m, Conv c, Items... it)
-        : key{k}, member{m}, conv{c}, items{it...}
+    /**
+     * @brief Construct a @ref BoundField.
+     *
+     * @param key The JSON key this field reads.
+     * @param member Pointer to the Input member receiving the converted value.
+     * @param conv The converter producing the member value.
+     * @param items Requirements, modifiers and checks run before the converter.
+     */
+    consteval BoundField(std::string_view key, Member InputT::* member, Conv conv, Items... items)
+        : key{key}, member{member}, conv{conv}, items{items...}
     {
     }
 
-    // Guard 1: the converter's output must be assignable to the bound member.
-    // A spec/Input type mismatch is therefore a compile error, not a runtime bug.
     static_assert(
         std::is_assignable_v<Member&, typename Conv::ValueType>,
         "rpcspec: converter output type is not assignable to the bound Input member");
@@ -114,38 +124,29 @@ struct BoundField
      * assigns it through the pointer-to-member. An absent optional field is a no-op.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Mutable root object view (modifiers may write back into it).
-     * @param out   The `InputT` instance being populated.
+     * @param root Mutable root object view (modifiers may write back into it).
+     * @param out The `InputT` instance being populated.
      * @return An error if any item or the converter fails; empty on success.
      */
     template <SomeObjectView Root>
     [[nodiscard]] MaybeError
     parseInto(Root& root, InputT& out) const
     {
-        auto fa = root.child(key);  // mutable view so modifiers can write in place
+        auto fieldView = root.child(key);  // mutable view so modifiers can write in place
 
-        // Requirements + modifiers in declaration order (e.g. `required`, `clamp`,
-        // `toLower`): validate and mutate the field, stopping at the first error.
-        MaybeError pre{};
-        std::apply(
-            [&](auto const&... it) {
-                (void)((pre = callIfProcessor(it, fa), pre.has_value()) && ...);
-            },
-            items);
-        if (!pre.has_value())
+        if (auto const pre = runProcessors(items, fieldView); not pre.has_value())
             return pre;
 
         // Absent → apply a spec-declared default if one is attached (defaultTo), else
         // leave the value-initialised member (optional stays nullopt; scalars stay zeroed).
-        if (!fa.present())
+        if (not fieldView.present())
         {
             std::apply([&](auto const&... it) { (applyIfDefault(it, out), ...); }, items);
             return {};
         }
 
-        // Validate and transform the (possibly modified) value into the strong type.
-        auto res = conv.parse(fa);
-        if (!res.has_value())
+        auto res = conv.parse(fieldView);
+        if (not res.has_value())
             return std::unexpected{std::move(res).error()};
         out.*member = std::move(res).value();
         return {};
@@ -155,30 +156,30 @@ struct BoundField
      * @brief Collect warnings from check items for this field.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Const root object view.
+     * @param root Const root object view.
      * @return All warnings emitted by check items for this field.
      */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const& root) const
     {
-        auto const fa = root.child(key);
+        auto const fieldView = root.child(key);
         Warnings out;
-        std::apply([&](auto const&... it) { (callIfChecker(it, fa, out), ...); }, items);
+        runChecks(items, fieldView, out);
         return out;
     }
 
     /**
      * @brief Render this field's schema entry into the spec dump writer.
      *
-     * @param w  The `SpecDumpWriter` receiving the schema output.
+     * @param writer The `SpecDumpWriter` receiving the schema output.
      */
     void
-    dump(SpecDumpWriter& w) const
+    dump(SpecDumpWriter& writer) const
     {
-        w.bulletGroup(key, [&] {
-            std::apply([&](auto const&... it) { (dumpItem(w, it), ...); }, items);
-            dumpItem(w, conv);  // the converter renders via its kName
+        writer.bulletGroup(key, [&] {
+            std::apply([&](auto const&... it) { (dumpItem(writer, it), ...); }, items);
+            dumpItem(writer, conv);  // the converter renders via its kName
         });
     }
 
@@ -212,12 +213,30 @@ private:
 template <typename InputT, typename Member, SomeFieldItem... Items>
 struct PartialBoundField
 {
+    /**
+     * @brief The JSON key this field reads.
+     */
     std::string_view key;
+
+    /**
+     * @brief Pointer to the Input member that receives the converted value.
+     */
     Member InputT::* member;
+
+    /**
+     * @brief Requirements, modifiers and checks run before the converter.
+     */
     std::tuple<Items...> items;
 
-    consteval PartialBoundField(std::string_view k, Member InputT::* m, Items... it)
-        : key{k}, member{m}, items{it...}
+    /**
+     * @brief Construct a @ref PartialBoundField.
+     *
+     * @param key The JSON key this field reads.
+     * @param member Pointer to the Input member receiving the converted value.
+     * @param items Requirements, modifiers and checks accumulated so far.
+     */
+    consteval PartialBoundField(std::string_view key, Member InputT::* member, Items... items)
+        : key{key}, member{member}, items{items...}
     {
     }
 
@@ -225,7 +244,7 @@ struct PartialBoundField
      * @brief Append a modifier or check item, returning a new `PartialBoundField`.
      *
      * @tparam Item A field-item type satisfying `SomeFieldItem`.
-     * @param item  The item to append.
+     * @param item The item to append.
      * @return A new `PartialBoundField` with @p item appended; still awaiting a converter.
      */
     template <SomeFieldItem Item>
@@ -244,7 +263,7 @@ struct PartialBoundField
      * @brief Complete the field by piping a converter, returning a `BoundField`.
      *
      * @tparam Conv A converter type satisfying `SomeConverter`.
-     * @param conv  The converter that validates and transforms the field value.
+     * @param conv The converter that validates and transforms the field value.
      * @return A fully constructed `BoundField` ready for use in a `TypedSpec`.
      */
     template <SomeConverter Conv>
@@ -261,11 +280,22 @@ struct PartialBoundField
 
 namespace detail {
 
+/**
+ * @brief Whether @p F is a bound field (carries a member and a converter).
+ */
 template <typename F>
 inline constexpr bool kIsBoundField = requires { F::kIsBound; };
 
 // Splits the trailing pack of field() into [items..., converter] and builds the
 // BoundField. ItemIs indexes the leading items; the last element is the converter.
+/**
+ * @brief Split the trailing pack into items plus a converter and build the BoundField.
+ *
+ * @param key The JSON key the field reads.
+ * @param member Pointer to the Input member receiving the converted value.
+ * @param rest Items followed by the final converter.
+ * @return The constructed bound field.
+ */
 template <typename InputT, typename Member, typename... Rest, std::size_t... ItemIs>
 consteval auto
 makeBoundField(
@@ -298,12 +328,12 @@ makeBoundField(
  *        name     member        modifier         converter (last)
  * @endcode
  *
- * @tparam InputT  The handler Input struct.
- * @tparam Member  The type of the bound member.
- * @tparam Rest    Items in execution order; the last element must satisfy `SomeConverter`.
- * @param key      JSON field name.
- * @param member   Pointer-to-member that will receive the converted value.
- * @param rest     Items (modifiers/checks) followed by the converter.
+ * @tparam InputT The handler Input struct.
+ * @tparam Member The type of the bound member.
+ * @tparam Rest Items in execution order; the last element must satisfy `SomeConverter`.
+ * @param key JSON field name.
+ * @param member Pointer-to-member that will receive the converted value.
+ * @param rest Items (modifiers/checks) followed by the converter.
  * @return A fully constructed `BoundField`.
  */
 template <typename InputT, typename Member, typename... Rest>
@@ -325,10 +355,10 @@ field(std::string_view key, Member InputT::* member, Rest... rest)
  * field("limit", &Input::limit) | clamp(10, 400) | asUint32
  * @endcode
  *
- * @tparam InputT  The handler Input struct.
- * @tparam Member  The type of the bound member.
- * @param key      JSON field name.
- * @param member   Pointer-to-member that will receive the converted value.
+ * @tparam InputT The handler Input struct.
+ * @tparam Member The type of the bound member.
+ * @param key JSON field name.
+ * @param member Pointer-to-member that will receive the converted value.
  * @return A `PartialBoundField` awaiting a converter via `operator|`.
  */
 template <typename InputT, typename Member>
@@ -347,12 +377,12 @@ field(std::string_view key, Member InputT::* member)
  * bindings written.
  *
  * @tparam Fields The field types in the spec.
- * @param f       The fields to inspect.
+ * @param fields The fields to inspect.
  * @return The number of distinct bound keys.
  */
 template <typename... Fields>
 [[nodiscard]] consteval std::size_t
-distinctBoundKeyCount(Fields const&... f)
+distinctBoundKeyCount(Fields const&... fields)
 {
     constexpr std::size_t kN = sizeof...(Fields);
     if constexpr (kN == 0)
@@ -361,23 +391,23 @@ distinctBoundKeyCount(Fields const&... f)
     }
     else
     {
-        std::array<std::string_view, kN> const keys{f.key...};
+        std::array<std::string_view, kN> const keys{fields.key...};
         std::array<bool, kN> const bound{detail::kIsBoundField<Fields>...};
         std::size_t distinct = 0;
-        for (std::size_t i = 0; i < kN; ++i)
+        for (auto i = 0uz; i < kN; ++i)
         {
-            if (!bound[i])
+            if (not bound[i])
                 continue;
             bool seen = false;
-            for (std::size_t j = 0; j < i; ++j)
+            for (auto j = 0uz; j < i; ++j)
             {
-                if (bound[j] && keys[j] == keys[i])
+                if (bound[j] and keys[j] == keys[i])
                 {
                     seen = true;
                     break;
                 }
             }
-            if (!seen)
+            if (not seen)
                 ++distinct;
         }
         return distinct;
@@ -395,9 +425,12 @@ distinctBoundKeyCount(Fields const&... f)
 template <typename InputT, typename... Fields>
 struct TypedSpec
 {
+    /**
+     * @brief The spec's fields, in declaration order.
+     */
     std::tuple<Fields...> fields;
 
-    // Guard 2: every member of the Input aggregate must be bound by exactly one
+    // Every member of the Input aggregate must be bound by exactly one
     // (distinct) field. Forgetting to bind a member would silently leave it
     // default-constructed; binding the same number of distinct members as the
     // aggregate has is therefore enforced at compile time via boost::pfr (no
@@ -405,9 +438,14 @@ struct TypedSpec
     // every spec()/extend() result runs through — so a failure makes that
     // constexpr definition ill-formed. Counting distinct keys (not raw bindings)
     // is what lets extend() override a field without tripping the guard.
-    consteval explicit TypedSpec(Fields... f) : fields{f...}
+    /**
+     * @brief Construct a @ref TypedSpec.
+     *
+     * @param fields The fields making up the spec.
+     */
+    consteval explicit TypedSpec(Fields... fields) : fields{fields...}
     {
-        if (distinctBoundKeyCount(f...) != boost::pfr::tuple_size_v<InputT>)
+        if (distinctBoundKeyCount(fields...) != boost::pfr::tuple_size_v<InputT>)
         {
             throw "rpcspec: every Input member must be bound by exactly one field "
                   "(an Input member is unbound, or the bound-member count disagrees with the Input)";
@@ -422,7 +460,7 @@ struct TypedSpec
      * The root must be mutable so modifiers can write in place.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Mutable root object view.
+     * @param root Mutable root object view.
      * @return The populated `InputT` on success, or an error on the first failing field.
      */
     template <SomeObjectView Root>
@@ -436,7 +474,7 @@ struct TypedSpec
      * @brief Collect all warnings emitted by check items across all fields.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
-     * @param root  Const root object view.
+     * @param root Const root object view.
      * @return All warnings produced by check items.
      */
     template <SomeObjectView Root>
@@ -452,27 +490,27 @@ struct TypedSpec
      * Uses last-wins key deduplication, delegating bound fields to
      * `BoundField::dump` and validate-only fields to `dumpFieldSpec`.
      *
-     * @param w  The `SpecDumpWriter` receiving the schema output.
+     * @param writer The `SpecDumpWriter` receiving the schema output.
      */
     void
-    dump(SpecDumpWriter& w) const
+    dump(SpecDumpWriter& writer) const
     {
-        dumpImpl(w, std::index_sequence_for<Fields...>{});
+        dumpImpl(writer, std::index_sequence_for<Fields...>{});
     }
 
     /**
      * @brief `parse()` overload accepting any value constructible into an `ObjectView`.
      *
      * @tparam V A mutable value type convertible to `ObjectView` (e.g. `boost::json::value`).
-     * @param v  Mutable value to parse.
+     * @param value Mutable value to parse.
      * @return The populated `InputT` on success, or an error on the first failing field.
      */
     template <typename V>
-        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V&>
+        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V&>
     [[nodiscard]] std::expected<InputT, rpc::Status>
-    parse(V& v) const
+    parse(V& value) const
     {
-        ObjectView root{v};
+        ObjectView root{value};
         return parse(root);
     }
 
@@ -480,133 +518,99 @@ struct TypedSpec
      * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
      *
      * @tparam V A value type convertible to `ObjectView const`.
-     * @param v  Const value to check.
+     * @param value Const value to check.
      * @return All warnings produced by check items.
      */
     template <typename V>
-        requires(!SomeObjectView<V>) && std::constructible_from<ObjectView, V const&>
+        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V const&>
     [[nodiscard]] Warnings
-    check(V const& v) const
+    check(V const& value) const
     {
-        ObjectView const root{v};
+        ObjectView const root{value};
         return check(root);
     }
 
 private:
     template <SomeObjectView Root, std::size_t... Is>
     [[nodiscard]] std::expected<InputT, rpc::Status>
-    parseImpl(Root& root, std::index_sequence<Is...>) const
+    parseImpl(Root& root, std::index_sequence<Is...> seq) const
     {
         InputT out{};
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = MaybeError (*)(std::tuple<Fields...> const&, Root&, InputT&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](std::tuple<Fields...> const& t, Root& r, InputT& o) -> MaybeError {
-                    return parseOne(std::get<Is>(t), r, o);
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (!plan.shouldRun[i])
-                    continue;
-                if (auto res = kDispatch[plan.effectiveIdx[i]](fields, root, out); !res.has_value())
-                    return std::unexpected{std::move(res).error()};
-            }
-        }
+        MaybeError result{};
+        impl::forEachEffectiveField(
+            fields,
+            [&](auto const& fs, auto idx) {
+                result = parseOne(std::get<idx()>(fs), root, out);
+                return result.has_value();
+            },
+            seq);
+        if (not result.has_value())
+            return std::unexpected{std::move(result).error()};
         return out;
     }
 
     template <SomeObjectView Root, std::size_t... Is>
     [[nodiscard]] Warnings
-    checkImpl(Root const& root, std::index_sequence<Is...>) const
+    checkImpl(Root const& root, std::index_sequence<Is...> seq) const
     {
         Warnings out;
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = Warnings (*)(std::tuple<Fields...> const&, Root const&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](std::tuple<Fields...> const& t, Root const& r) -> Warnings {
-                    return std::get<Is>(t).check(r);
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (!plan.shouldRun[i])
-                    continue;
-                auto w = kDispatch[plan.effectiveIdx[i]](fields, root);
-                out.insert(out.end(), w.begin(), w.end());
-            }
-        }
+        impl::forEachEffectiveField(
+            fields,
+            [&](auto const& fs, auto idx) {
+                auto warnings = std::get<idx()>(fs).check(root);
+                out.insert(out.end(), warnings.begin(), warnings.end());
+            },
+            seq);
         return out;
     }
 
     template <std::size_t... Is>
     void
-    dumpImpl(SpecDumpWriter& w, std::index_sequence<Is...>) const
+    dumpImpl(SpecDumpWriter& writer, std::index_sequence<Is...> seq) const
     {
-        if constexpr (sizeof...(Is) > 0)
-        {
-            constexpr auto kN = sizeof...(Is);
-            std::array<std::string_view, kN> const keys{std::get<Is>(fields).key...};
-            auto const plan = impl::buildOverridePlan(keys);
-
-            using Fn = void (*)(SpecDumpWriter&, std::tuple<Fields...> const&);
-            static constexpr std::array<Fn, kN> kDispatch{
-                +[](SpecDumpWriter& wr, std::tuple<Fields...> const& t) {
-                    dumpOne(wr, std::get<Is>(t));
-                }...};
-
-            for (std::size_t i = 0; i < kN; ++i)
-            {
-                if (plan.shouldRun[i])
-                    kDispatch[plan.effectiveIdx[i]](w, fields);
-            }
-        }
+        impl::forEachEffectiveField(
+            fields, [&](auto const& fs, auto idx) { dumpOne(writer, std::get<idx()>(fs)); }, seq);
     }
 
     template <typename F>
     static void
-    dumpOne(SpecDumpWriter& w, F const& f)
+    dumpOne(SpecDumpWriter& writer, F const& fieldSpec)
     {
         if constexpr (detail::kIsBoundField<F>)
         {
-            f.dump(w);
+            fieldSpec.dump(writer);
         }
         else
         {
-            dumpFieldSpec(w, f);  // validate-only field (shared FieldSpec dumper)
+            dumpFieldSpec(writer, fieldSpec);  // validate-only field (shared FieldSpec dumper)
         }
     }
 
     template <typename F, SomeObjectView Root>
     [[nodiscard]] static MaybeError
-    parseOne(F const& f, Root& root, InputT& out)
+    parseOne(F const& fieldSpec, Root& root, InputT& out)
     {
         if constexpr (detail::kIsBoundField<F>)
         {
-            return f.parseInto(root, out);
+            return fieldSpec.parseInto(root, out);
         }
         else
         {
             // Validate-only field with no Input member (e.g. a deprecated marker or a
             // field like account_tx's `ctid` that is validated but not stored). Run its
             // validators/modifiers; it populates no member. Warnings come via check().
-            return f.process(root);
+            return fieldSpec.process(root);
         }
     }
 };
 
 /**
  * @brief Build a TypedSpec for the given Input struct.
+ *
+ * @tparam InputT The handler Input struct the spec parses into.
+ * @tparam Fields The field types making up the spec.
+ * @param fields The fields, in declaration order.
+ * @return The constructed spec; ill-formed unless every Input member is bound exactly once.
  */
 template <typename InputT, typename... Fields>
 consteval auto
@@ -621,6 +625,13 @@ spec(Fields... fields)
  * Mirrors RpcSpec's extend(): the same Input is shared, base fields are kept, and
  * appended fields with an existing key override the base (last-wins) — so a V2
  * spec extends V1, mapping any extra members and retightening shared ones.
+ *
+ * @tparam InputT The Input struct shared by both specs.
+ * @tparam Existing The base spec's field types.
+ * @tparam Extra The appended field types.
+ * @param base The spec to extend.
+ * @param extra Fields appended after the base fields.
+ * @return A new spec combining base and extra fields.
  */
 template <typename InputT, typename... Existing, typename... Extra>
 [[nodiscard]] consteval auto

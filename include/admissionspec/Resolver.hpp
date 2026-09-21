@@ -11,29 +11,32 @@ namespace admission::spec {
 
 namespace detail {
 
-/** @brief Resolve one scalar tunable: use the config override if the key is present, else the
- * default. */
+/**
+ * @brief Resolve one scalar tunable: use the config override if the key is present, else the
+ * default.
+ */
 template <typename Config, FixedString Name, typename T>
 [[nodiscard]] T
-resolveOne(Config const& config, Tunable<Name, T> const& t)
+resolveOne(Config const& config, Tunable<Name, T> const& tunable)
 {
-    if (auto const v = config.template maybeValue<T>(t.configKey))
+    if (auto const value = config.template maybeValue<T>(tunable.configKey))
     {
-        return *v;
+        return *value;
     }
-    return t.defaultValue;
+    return tunable.defaultValue;
 }
 
-/** @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
+/**
+ * @brief Resolve the ramp tunable: read an array of {up_to_bytes, cost} objects if present, else
  * the default.
  */
 template <typename Config, FixedString Name, size_t N>
 [[nodiscard]] std::vector<admission::spec::SizeTier>
-resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& t)
+resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& tunable)
 {
     std::vector<admission::spec::SizeTier> tiers;
     if (auto const arr =
-            config.template maybeValue<std::vector<std::pair<uint64_t, double>>>(t.configKey))
+            config.template maybeValue<std::vector<std::pair<uint64_t, double>>>(tunable.configKey))
     {
         tiers.reserve(arr->size());
         for (auto const& obj : *arr)
@@ -43,7 +46,7 @@ resolveOne(Config const& config, Tunable<Name, SizeCostRamp<N>> const& t)
     }
     if (tiers.empty())
     {
-        tiers.assign(std::begin(t.defaultValue.tiers), std::end(t.defaultValue.tiers));
+        tiers.assign(std::begin(tunable.defaultValue.tiers), std::end(tunable.defaultValue.tiers));
     }
     return tiers;
 }
@@ -53,8 +56,8 @@ template <typename Config, typename... Tunables>
 resolveTuple(std::tuple<Tunables...> const& tunables, Config const& config)
 {
     return std::apply(
-        [&](Tunables const&... t) {
-            return ResolvedTunables<Tunables...>{resolveOne(config, t)...};
+        [&](Tunables const&... tunable) {
+            return ResolvedTunables<Tunables...>{resolveOne(config, tunable)...};
         },
         tunables);
 }
