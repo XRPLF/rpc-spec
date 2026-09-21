@@ -20,9 +20,24 @@ namespace rpc::spec::handlers::account_info {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `account` request field.
+     */
     std::optional<xrpl::AccountID> account;
+
+    /**
+     * @brief Value of the `ident` request field.
+     */
     std::optional<xrpl::AccountID> ident;
+
+    /**
+     * @brief Value of the `signer_lists` request field.
+     */
     JsonBool signerLists{false};
 };
 

@@ -1,11 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'account_tx' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
-//
-// V1: account, ledger_hash, ledger_index, ledger_index_min/max, ctid, limit, marker,
-//     tx_type, mpt_issuance_id
-// V2: V1 + binary + forward
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -29,77 +23,120 @@ namespace rpc::spec::handlers::account_tx {
 // (lowercase). Because the set comes from xrpl::TxFormats at runtime, we use a
 // CustomValidator lambda rather than the consteval spec::oneOf factory.
 // Returns the same error shape as the old validation::OneOf: "Invalid field '<key>'."
-inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& f) -> MaybeError {
-    if (!f.isString())
+/**
+ * @brief Validator instance: custom.
+ */
+inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
+    if (not fieldView.isString())
     {
         return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
     auto const& validTypes = txTypesInLowercase();
-    auto const sv = f.asString();
-    if (!validTypes.contains(std::string{sv}))
+    auto const sv = fieldView.asString();
+    if (not validTypes.contains(std::string{sv}))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."}};
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
     return {};
 }};
 
+/**
+ * @brief Converts the int32 bound field into its strongly-typed value.
+ */
 struct Int32BoundConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("int32").
+     */
     static constexpr std::string_view kName = "int32";
+
+    /**
+     * @brief The value this converter produces (`std::optional<int32_t>`).
+     */
     using ValueType = std::optional<int32_t>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        auto const v = static_cast<int32_t>(f.asInt64());
-        if (v == -1)
+        auto const value = static_cast<int32_t>(fieldView.asInt64());
+        if (value == -1)
             return std::optional<int32_t>{std::nullopt};
-        return std::optional<int32_t>{v};
+        return std::optional<int32_t>{value};
     }
 };
 
+/**
+ * @brief Converts the marker field into its strongly-typed value.
+ */
 struct MarkerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("marker").
+     */
     static constexpr std::string_view kName = "marker";
+
+    /**
+     * @brief The value this converter produces (`Marker`).
+     */
     using ValueType = Marker;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        return Marker{.ledger = f.child("ledger").asUint32(), .seq = f.child("seq").asUint32()};
+        return Marker{
+            .ledger = fieldView.child("ledger").asUint32(),
+            .seq = fieldView.child("seq").asUint32()};
     }
 };
 
-inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& f) -> MaybeError {
-    if (!f.isObject())
+/**
+ * @brief Validator instance: custom.
+ */
+inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
+    if (not fieldView.isObject())
     {
-        return std::unexpected{
-            rpc::Status{rpc::RippledError::RpcInvalidParams, std::string{f.key()} + "NotObject"}};
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
     }
 
-    auto const filterFa = f.child("delegate_filter");
-    if (!filterFa.present())
+    auto const filterView = fieldView.child("delegate_filter");
+    if (not filterView.present())
     {
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Field 'delegate_filter' is required but missing."}};
     }
 
-    if (!filterFa.isString() ||
-        (filterFa.asString() != "actor" && filterFa.asString() != "authorizer"))
+    if (not filterView.isString() or
+        (filterView.asString() != "actor" and filterView.asString() != "authorizer"))
     {
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Field 'delegate_filter' value must be 'actor' or 'authorizer'."}};
     }
 
-    auto const counterPartyFa = f.child("counter_party");
-    if (counterPartyFa.present())
+    auto const counterPartyView = fieldView.child("counter_party");
+    if (counterPartyView.present())
     {
-        if (auto const err = AccountFormat::verify(counterPartyFa); !err)
+        if (auto const err = AccountFormat::verify(counterPartyView); not err.has_value())
         {
             return std::unexpected{rpc::Status{
                 rpc::RippledError::RpcActMalformed,
@@ -115,34 +152,61 @@ inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& f) -> 
  */
 struct DelegateConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("delegate").
+     */
     static constexpr std::string_view kName = "delegate";
+
+    /**
+     * @brief The value this converter produces (`DelegateFilter`).
+     */
     using ValueType = DelegateFilter;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         DelegateFilter out{};
-        out.delegateType = f.child("delegate_filter").asString() == "actor"
+        out.delegateType = fieldView.child("delegate_filter").asString() == "actor"
             ? DelegateFilter::Role::Actor
             : DelegateFilter::Role::Authorizer;
 
-        auto const counterPartyFa = f.child("counter_party");
-        if (counterPartyFa.present())
-            out.counterParty = std::string{counterPartyFa.asString()};
+        auto const counterPartyView = fieldView.child("counter_party");
+        if (counterPartyView.present())
+            out.counterParty = std::string{counterPartyView.asString()};
 
         return out;
     }
 };
 
 // NOLINTNEXTLINE(readability-identifier-naming)
+/**
+ * @brief Converter instance: delegate.
+ */
 inline constexpr auto delegateConv = DelegateConverter{};
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: int32 bound.
+ */
 inline constexpr auto int32Bound = Int32BoundConverter{};
+
+/**
+ * @brief Converter instance: marker.
+ */
 inline constexpr auto markerConv = MarkerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.
+ */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
@@ -172,15 +236,24 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("mpt_issuance_id", &Input::mptIssuanceId, asUint192),
     field("delegate", &Input::delegateFilter, kDelegateValidator, delegateConv));
 
+/**
+ * @brief The API v2 spec, derived from `kInputSpecV1`.
+ */
 inline constexpr auto kInputSpecV2 = extend(
     kInputSpecV1,
     field("binary", &Input::binary, jsonBoolStrict),
     field("forward", &Input::forward, jsonBoolStrict));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

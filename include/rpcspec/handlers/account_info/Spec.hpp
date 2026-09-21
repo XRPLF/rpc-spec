@@ -1,11 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'account_info' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
-//
-// V1: account, ident (deprecated), ledger_hash, ledger_index, ledger
-//     (deprecated), strict (deprecated)
-// V2: V1 + signer_lists
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -17,6 +11,9 @@
 
 namespace rpc::spec::handlers::account_info {
 
+/**
+ * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.
+ */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, accountId),
@@ -25,13 +22,22 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("ledger", deprecated),
     field("strict", deprecated));
 
+/**
+ * @brief The API v2 spec, derived from `kInputSpecV1`.
+ */
 inline constexpr auto kInputSpecV2 =
     extend(kInputSpecV1, field("signer_lists", &Input::signerLists, jsonBoolStrict));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpecV1, kInputSpecV2);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

@@ -5,6 +5,9 @@
 
 namespace rpc::spec::handlers::server_info {
 
+/**
+ * @brief Value of the `k_backend_counters_key` field.
+ */
 inline constexpr auto kBackendCountersKey = "backend_counters";
 
 /**
@@ -12,6 +15,9 @@ inline constexpr auto kBackendCountersKey = "backend_counters";
  */
 struct Input
 {
+    /**
+     * @brief Value of the `backend_counters` field.
+     */
     JsonBool backendCounters{false};
 };
 

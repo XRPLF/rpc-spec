@@ -16,6 +16,9 @@ namespace rpc::spec::handlers::book_changes {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
 };
 

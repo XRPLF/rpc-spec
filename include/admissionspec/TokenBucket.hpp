@@ -29,7 +29,14 @@ namespace admission::spec {
 class TokenBucket
 {
 public:
+    /**
+     * @brief The clock the bucket measures refill against.
+     */
     using Clock = std::chrono::steady_clock;
+
+    /**
+     * @brief A point on @ref Clock.
+     */
     using TimePoint = Clock::time_point;
 
     /**
@@ -79,14 +86,18 @@ public:
         return bucket_.available(toSeconds(now));
     }
 
-    /** @return The bucket capacity (burst size). */
+    /**
+     * @return The bucket capacity (burst size).
+     */
     [[nodiscard]] double
     capacity() const noexcept
     {
         return bucket_.burst();
     }
 
-    /** @return The refill rate in tokens per second. */
+    /**
+     * @return The refill rate in tokens per second.
+     */
     [[nodiscard]] double
     refillRatePerSecond() const noexcept
     {
@@ -100,7 +111,8 @@ private:
         return std::chrono::duration<double>{tp.time_since_epoch()}.count();
     }
 
-    /** @brief folly derives the token count from (now - zeroTime) * rate, capped at burst. To start
+    /**
+     * @brief folly derives the token count from (now - zeroTime) * rate, capped at burst. To start
      * full at `nowSeconds`, place zeroTime far enough in the past that the bucket has already
      * filled to capacity.
      */

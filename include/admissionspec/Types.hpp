@@ -29,23 +29,49 @@ enum class AdmissionAction { Admit, Drop };
  */
 struct AdmissionDecision
 {
+    /**
+     * @brief Whether the message is admitted or dropped.
+     */
     AdmissionAction action{AdmissionAction::Admit};
+
+    /**
+     * @brief Tokens debited from the connection's bucket.
+     */
     double tokenCost{0.0};
+
+    /**
+     * @brief Human-readable reason, set on a drop.
+     */
     std::string_view reason;
 
+    /**
+     * @brief Whether the message was admitted.
+     *
+     * @return true when admitted; false otherwise.
+     */
     [[nodiscard]] constexpr bool
     admitted() const noexcept
     {
         return action == AdmissionAction::Admit;
     }
 
+    /**
+     * @brief Whether the message was dropped.
+     *
+     * @return true when dropped; false otherwise.
+     */
     [[nodiscard]] constexpr bool
     dropped() const noexcept
     {
         return action == AdmissionAction::Drop;
     }
 
-    /** @brief Construct an "admit" decision with the given token cost. */
+    /**
+     * @brief Construct an "admit" decision with the given token cost.
+     *
+     * @param cost Tokens to debit from the connection's bucket.
+     * @return The admit decision.
+     */
     [[nodiscard]] static constexpr AdmissionDecision
     admit(double cost = 0.0) noexcept
     {
@@ -58,6 +84,10 @@ struct AdmissionDecision
      * @p cost is debited from the connection's bucket as a penalty even though the message is
      * rejected, so cheap-to-generate rejects (oversize, malformed) still apply backpressure instead
      * of being free to spam. Defaults to 0 for callers that do not penalize.
+     *
+     * @param why Human-readable reason, surfaced on the decision.
+     * @param cost Penalty tokens to debit despite the rejection.
+     * @return The drop decision.
      */
     [[nodiscard]] static constexpr AdmissionDecision
     drop(std::string_view why, double cost = 0.0) noexcept
@@ -65,6 +95,11 @@ struct AdmissionDecision
         return {.action = AdmissionAction::Drop, .tokenCost = cost, .reason = why};
     }
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator<=>(AdmissionDecision const&) const = default;
 };
@@ -112,8 +147,8 @@ struct VisitEvent
 
     /// Leaf payload; @c monostate unless @c kind is @c Scalar. A length-delimited protobuf field
     /// (string / packed list / sub-message) is reported as a span over exactly that field's bytes —
-    /// the spec author, who has the schema, picks a walker (@ref visitProtobuf / @ref
-    /// visitPackedVarint) to re-enter over it, or reads it as a scalar.
+    /// the spec author, who has the schema, picks a walker (`visitProtobuf` /
+    /// `visitPackedVarint`) to re-enter over it, or reads it as a scalar.
     std::variant<
         std::monostate,
         bool,
@@ -139,22 +174,40 @@ struct VisitEvent
 template <size_t N>
 struct FixedString
 {
+    /**
+     * @brief The stored characters, including the trailing NUL.
+     */
     char value[N]{};
 
+    /**
+     * @brief Construct a @ref FixedString.
+     *
+     * @param str The string literal to store.
+     */
     consteval FixedString(char const (&str)[N]) noexcept
     {
-        for (size_t i = 0; i < N; ++i)
+        for (auto i = 0uz; i < N; ++i)
         {
             value[i] = str[i];
         }
     }
 
+    /**
+     * @brief The string this fixed-string holds.
+     *
+     * @return A view over the stored characters.
+     */
     [[nodiscard]] constexpr std::string_view
     view() const noexcept
     {
         return std::string_view{value, N - 1};
     }
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator<=>(FixedString const&) const = default;
 };
@@ -170,6 +223,11 @@ struct SizeTier
     uint64_t upToBytes{};  ///< inclusive upper bound, in bytes, for this tier
     double cost{};         ///< tokens charged for a payload whose size falls in this tier
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator<=>(SizeTier const&) const = default;
 };
@@ -184,14 +242,27 @@ struct SizeTier
 template <size_t N>
 struct SizeCostRamp
 {
+    /**
+     * @brief Size tiers, in ascending order of @ref SizeTier::upToBytes.
+     */
     std::array<SizeTier, N> tiers{};
 
     SizeCostRamp() = default;
 
-    consteval SizeCostRamp(std::array<SizeTier, N> t) noexcept : tiers{t}
+    /**
+     * @brief Construct a @ref SizeCostRamp.
+     *
+     * @param tiers The size tiers, in ascending order of upper bound.
+     */
+    consteval SizeCostRamp(std::array<SizeTier, N> tiers) noexcept : tiers{tiers}
     {
     }
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator<=>(SizeCostRamp const&) const = default;
 };
@@ -208,14 +279,16 @@ template <size_t N>
 ramp(SizeTier const (&tiers)[N])
 {
     std::array<SizeTier, N> arr{};
-    for (size_t i = 0; i < N; ++i)
+    for (auto i = 0uz; i < N; ++i)
     {
         arr[i] = tiers[i];
     }
     return SizeCostRamp<N>{arr};
 }
 
-/** @brief Token cost for a payload of @p bytes against a (resolved) list of tiers. */
+/**
+ * @brief Token cost for a payload of @p bytes against a (resolved) list of tiers.
+ */
 [[nodiscard]] constexpr double
 costFor(std::span<SizeTier const> tiers, uint64_t bytes) noexcept
 {
@@ -243,12 +316,31 @@ costFor(std::span<SizeTier const> tiers, uint64_t bytes) noexcept
 template <FixedString Name, typename T>
 struct Tunable
 {
+    /**
+     * @brief The value this converter produces (`T`).
+     */
     using ValueType = T;
+
+    /**
+     * @brief Identifier for this item in the schema dump ("kName").
+     */
     static constexpr std::string_view kName = Name.view();
 
+    /**
+     * @brief Value used when the config supplies no override.
+     */
     T defaultValue{};
+
+    /**
+     * @brief Config key this tunable reads its override from.
+     */
     std::string_view configKey;
 
+    /**
+     * @brief Compare two values of this type.
+     *
+     * @return The comparison result.
+     */
     bool
     operator<=>(Tunable const&) const = default;
 };
@@ -273,19 +365,30 @@ tunable(T defaultValue, std::string_view configKey) noexcept
 template <typename T>
 struct ResolvedTypeOf
 {
+    /**
+     * @brief The resolved type.
+     */
     using type = T;
 };
 
+/**
+ * @brief Maps a tunable's declared type to the type it resolves to.
+ */
 template <size_t N>
 struct ResolvedTypeOf<SizeCostRamp<N>>
 {
+    /**
+     * @brief The resolved type.
+     */
     using type = std::vector<SizeTier>;
 };
 
 template <typename T>
 using ResolvedTypeOfT = typename ResolvedTypeOf<T>::type;
 
-/** @brief Convert a tunable default value to its resolved runtime representation. */
+/**
+ * @brief Convert a tunable default value to its resolved runtime representation.
+ */
 template <typename T>
 [[nodiscard]] constexpr T
 toResolved(T const& value)
@@ -295,9 +398,9 @@ toResolved(T const& value)
 
 template <size_t N>
 [[nodiscard]] inline std::vector<SizeTier>
-toResolved(SizeCostRamp<N> const& r)
+toResolved(SizeCostRamp<N> const& ramp)
 {
-    return std::vector<SizeTier>(std::begin(r.tiers), std::end(r.tiers));
+    return std::vector<SizeTier>(std::begin(ramp.tiers), std::end(ramp.tiers));
 }
 
 namespace detail {
@@ -327,22 +430,37 @@ template <typename... Tunables>
 class ResolvedTunables
 {
 public:
+    /**
+     * @brief Construct a @ref ResolvedTunables.
+     *
+     * @param vals One resolved value per declared tunable, in declaration order.
+     */
     constexpr explicit ResolvedTunables(ResolvedTypeOfT<typename Tunables::ValueType>... vals)
         : values_{std::move(vals)...}
     {
     }
 
-    /** @brief Resolved value of the tunable named @p Name. */
+    /**
+     * @brief Resolved value of the tunable named @p Name.
+     *
+     * @tparam Name The tunable's declared name; a typo is a compile error.
+     * @return A reference to the resolved value.
+     */
     template <FixedString Name>
     [[nodiscard]] constexpr auto const&
     get() const noexcept
     {
-        constexpr size_t kIDX = detail::tunableIndex<Name, Tunables...>();
-        static_assert(kIDX < sizeof...(Tunables), "ResolvedTunables::get: unknown tunable name");
-        return std::get<kIDX>(values_);
+        constexpr size_t kIdx = detail::tunableIndex<Name, Tunables...>();
+        static_assert(kIdx < sizeof...(Tunables), "ResolvedTunables::get: unknown tunable name");
+        return std::get<kIdx>(values_);
     }
 
-    /** @brief Whether a tunable named @p Name was declared. */
+    /**
+     * @brief Whether a tunable named @p Name was declared.
+     *
+     * @tparam Name The tunable name to look for.
+     * @return true when the owning spec declared it; false otherwise.
+     */
     template <FixedString Name>
     [[nodiscard]] static constexpr bool
     has() noexcept
@@ -354,27 +472,37 @@ private:
     std::tuple<ResolvedTypeOfT<typename Tunables::ValueType>...> values_;
 };
 
-/** @brief Maps a `std::tuple<Tunable...>` to the corresponding @ref ResolvedTunables type. */
+/**
+ * @brief Maps a `std::tuple<Tunable...>` to the corresponding @ref ResolvedTunables type.
+ */
 template <typename TunablesTuple>
 struct ResolvedTunablesOf;
 
+/**
+ * @brief Maps a tuple of tunables to the matching @ref ResolvedTunables type.
+ */
 template <typename... Tunables>
 struct ResolvedTunablesOf<std::tuple<Tunables...>>
 {
+    /**
+     * @brief The resolved type.
+     */
     using type = ResolvedTunables<Tunables...>;
 };
 
 template <typename TunablesTuple>
 using ResolvedTunablesOfT = typename ResolvedTunablesOf<TunablesTuple>::type;
 
-/** @brief Build a @ref ResolvedTunables from a tunable tuple using each tunable's default value. */
+/**
+ * @brief Build a @ref ResolvedTunables from a tunable tuple using each tunable's default value.
+ */
 template <typename... Tunables>
 [[nodiscard]] inline ResolvedTunables<Tunables...>
 resolveTunableDefaults(std::tuple<Tunables...> const& tunables)
 {
     return std::apply(
-        [](Tunables const&... t) {
-            return ResolvedTunables<Tunables...>{toResolved(t.defaultValue)...};
+        [](Tunables const&... tunable) {
+            return ResolvedTunables<Tunables...>{toResolved(tunable.defaultValue)...};
         },
         tunables);
 }
@@ -388,7 +516,14 @@ resolveTunableDefaults(std::tuple<Tunables...> const& tunables)
  */
 struct BucketParams
 {
+    /**
+     * @brief Burst size, in tokens.
+     */
     Tunable<"capacity", double> capacity;
+
+    /**
+     * @brief Tokens added back per second.
+     */
     Tunable<"refill_rate_per_second", double> refillRatePerSecond;
 };
 
@@ -398,7 +533,14 @@ struct BucketParams
  */
 struct BucketSettings
 {
+    /**
+     * @brief Burst size, in tokens.
+     */
     double capacity{};
+
+    /**
+     * @brief Tokens added back per second.
+     */
     double refillRatePerSecond{};
 };
 

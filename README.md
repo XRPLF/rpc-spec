@@ -32,17 +32,49 @@ compile error (see `ServerConditional.hpp`).
 
 ```
 include/rpcspec/
-  RpcSpec.hpp          # the spec container + process()
-  FieldSpec.hpp        # per-field declarations
-  Concepts.hpp         # SomeFieldView / SomeObjectView backend concepts
-  Errors.hpp           # Status / error-code mapping
-  Validators.hpp       # built-in JSON param validators
-  ServerConditional.hpp # ifServerClio / ifServerXrpld wrappers
-  detail/              # backend type resolution + parsing (XrplParse)
-  handlers/            # per-handler spec definitions (e.g. ledger)
-tests/                 # standalone unit tests (xrpld backend)
-  stubs/               # libxrpl mock — tests need only gtest + Boost::json
+  Concepts.hpp          # SomeFieldView / SomeObjectView / item concepts
+  Errors.hpp            # Status, error codes, shared error messages
+  FieldView.hpp         # the boost::json backend behind those concepts
+
+  RpcSpec.hpp           # validate-only spec container + process()/check()
+  FieldSpec.hpp         # per-field declarations for RpcSpec
+  Typed.hpp             # TypedSpec: validate AND parse into a handler Input
+  Converters.hpp        # typed converters used by TypedSpec fields
+  Aliases.hpp           # the DSL surface (required, type<T>, clamp, oneOf, …)
+
+  Validators.hpp        # built-in JSON param validators
+  Section.hpp           # nested-object validation
+  IfType.hpp            # run sub-items only for a given runtime JSON type
+  WithCustomError.hpp   # override a wrapped item's error
+  ServerConditional.hpp # ifServerClio / ifServerXrpld + kIsClioBuild flags
+
+  Ledger.hpp            # ledger_hash/ledger_index -> LedgerSpecifier
+  LedgerTypes.hpp       # ledger object type registry
+  TxTypes.hpp           # transaction type-name registry
+  JsonBool.hpp          # lenient V1-API bool
+
+  VersionedSpec.hpp     # one spec per API version + selection
+  HandlerFor.hpp        # the per-handler entry points (parseInput / spec)
+  HandlerForDefs.hpp    # their out-of-line definitions (instantiation TUs only)
+  RpcSpecView.hpp       # type-erased view over any spec
+
+  SpecDump.hpp          # schema dumper
+  SpecDumpWriter.hpp    # its YAML-ish output writer
+
+  detail/               # backend type resolution + parsing (XrplParse)
+  handlers/             # per-handler Types.hpp + Spec.hpp (e.g. ledger)
+
+include/admissionspec/  # independent admission-control/rate-limiting DSL
+  folly/                # vendored folly TokenBucket (not linted or formatted)
+
+cmake/                  # generator for the per-handler instantiation TUs
+tests/                  # standalone unit tests
+  stubs/                # libxrpl mock — tests need only gtest + Boost::json
 ```
+
+Tests build as two executables because the backend macros are mutually exclusive
+within one binary: `rpcspec_tests` (xrpld backend) covers the bulk, and
+`rpcspec_clio_tests` covers the Clio-only branches.
 
 ## Consuming it
 
@@ -64,23 +96,23 @@ not add a global define of their own. Its only direct dependency is
 
 When hacking on the DSL while building a consumer (Clio or xrpld) against it,
 register this repo as an **editable** Conan package. Consumers that require
-`xrpl-rpc-spec/0.1.0` then resolve to your working tree instead of the Conan
+`xrpl-rpc-spec/<version>` then resolve to your working tree instead of the Conan
 cache, so header edits are picked up on the consumer's next build — no
 `conan export`/`conan create` round-trip.
 
 ```sh
-# From this repo's root — registers xrpl-rpc-spec/0.1.0 → this working copy.
+# From this repo's root — registers xrpl-rpc-spec/<version> → this working copy.
 # (name + version come from the conanfile.)
 conan editable add .
 
 # Verify it's registered.
-conan editable list        # -> xrpl-rpc-spec/0.1.0  Path: .../xrpl-rpc-spec
+conan editable list        # -> xrpl-rpc-spec/<version>  Path: .../xrpl-rpc-spec
 
 # Now build the consumer as usual; its `conan install` resolves the requirement
 # to this folder. Edit headers here, rebuild the consumer, changes apply.
 
 # When done, revert to the cached/remote package.
-conan editable remove .    # or: conan editable remove -r xrpl-rpc-spec/0.1.0
+conan editable remove .    # or: conan editable remove -r xrpl-rpc-spec/<version>
 ```
 
 The recipe's `layout()` exposes `include/` as the include dir in editable mode,

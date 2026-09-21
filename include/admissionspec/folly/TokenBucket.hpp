@@ -24,10 +24,9 @@
 //   - folly::Optional / folly::none                      -> std::optional
 //   - FOLLY_UNLIKELY                                     -> local macro
 //   - hardware_destructive_interference_size             -> local constant
+//   - <math.h>'s NAN macro                               -> std::numeric_limits
 
 #pragma once
-
-#include <math.h>
 
 #include <algorithm>
 #include <atomic>
@@ -35,6 +34,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <thread>
 #include <type_traits>
@@ -165,9 +165,9 @@ class TokenBucketStorage {
     assert(rate > 0);
     assert(burstSize > 0);
 
-    double zeroTimeOld = NAN;
-    double zeroTimeNew = NAN;
-    double consumed = NAN;
+    double zeroTimeOld = std::numeric_limits<double>::quiet_NaN();
+    double zeroTimeNew = std::numeric_limits<double>::quiet_NaN();
+    double consumed = std::numeric_limits<double>::quiet_NaN();
     do {
       zeroTimeOld = zeroTime();
       double const tokens = std::min((nowInSeconds - zeroTimeOld) * rate, burstSize);
@@ -221,7 +221,7 @@ class TokenBucketStorage {
   double returnTokensImpl(double tokenCount, double rate) {
     auto zeroTimeOld = zeroTime_.load(std::memory_order_relaxed);
 
-    double zeroTimeNew = NAN;
+    double zeroTimeNew = std::numeric_limits<double>::quiet_NaN();
     do {
       zeroTimeNew = zeroTimeOld - (tokenCount / rate);
 

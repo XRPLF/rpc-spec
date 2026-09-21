@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'account_channels' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -15,6 +13,9 @@
 
 namespace rpc::spec::handlers::account_channels {
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
@@ -27,10 +28,16 @@ inline constexpr auto kInputSpec = spec<Input>(
         | asUint32,
     field("marker", &Input::marker, accountMarker, asString));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

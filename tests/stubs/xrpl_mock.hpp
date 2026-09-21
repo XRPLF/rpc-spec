@@ -35,14 +35,14 @@ namespace xrpl {
 namespace mock_detail {
 
 [[nodiscard]] inline int
-hexVal(unsigned char c)
+hexVal(unsigned char chr)
 {
-    if (c >= '0' && c <= '9')
-        return c - '0';
-    if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
+    if (chr >= '0' and chr <= '9')
+        return chr - '0';
+    if (chr >= 'a' and chr <= 'f')
+        return chr - 'a' + 10;
+    if (chr >= 'A' and chr <= 'F')
+        return chr - 'A' + 10;
     return -1;
 }
 
@@ -54,11 +54,11 @@ hexToBytes(std::string_view sv)
         return std::nullopt;
     std::vector<unsigned char> out;
     out.reserve(sv.size() / 2);
-    for (std::size_t i = 0; i < sv.size(); i += 2)
+    for (auto i = 0uz; i < sv.size(); i += 2)
     {
         int const hi = hexVal(static_cast<unsigned char>(sv[i]));
         int const lo = hexVal(static_cast<unsigned char>(sv[i + 1]));
-        if (hi < 0 || lo < 0)
+        if (hi < 0 or lo < 0)
             return std::nullopt;
         out.push_back(static_cast<unsigned char>((hi << 4) | lo));
     }
@@ -66,27 +66,27 @@ hexToBytes(std::string_view sv)
 }
 
 // Ripple base58 alphabet (note: excludes 0 O I l).
-inline constexpr std::string_view kBASE58_ALPHABET =
+inline constexpr std::string_view kBase58Alphabet =
     "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz";
 
 // Big-endian byte decode of a Ripple-base58 string. Returns nullopt on any
 // character outside the alphabet. Checksum is NOT validated (see fidelity note).
 [[nodiscard]] inline std::optional<std::vector<unsigned char>>
-decodeBase58(std::string_view s)
+decodeBase58(std::string_view text)
 {
-    if (s.empty())
+    if (text.empty())
         return std::nullopt;
     std::vector<unsigned char> bytes;  // little-endian during accumulation
-    for (char const ch : s)
+    for (char const ch : text)
     {
-        auto const pos = kBASE58_ALPHABET.find(ch);
+        auto const pos = kBase58Alphabet.find(ch);
         if (pos == std::string_view::npos)
             return std::nullopt;
         int carry = static_cast<int>(pos);
-        for (auto& b : bytes)
+        for (auto& byte : bytes)
         {
-            carry += 58 * b;
-            b = static_cast<unsigned char>(carry & 0xff);
+            carry += 58 * byte;
+            byte = static_cast<unsigned char>(carry & 0xff);
             carry >>= 8;
         }
         while (carry > 0)
@@ -96,9 +96,9 @@ decodeBase58(std::string_view s)
         }
     }
     // Each leading alphabet[0] char ('r') maps to a leading zero byte.
-    for (char const ch : s)
+    for (char const ch : text)
     {
-        if (ch != kBASE58_ALPHABET[0])
+        if (ch != kBase58Alphabet[0])
             break;
         bytes.push_back(0);
     }
@@ -117,7 +117,7 @@ struct base_uint
     [[nodiscard]] bool
     isZero() const noexcept
     {
-        return std::all_of(std::begin(data_), std::end(data_), [](auto b) { return b == 0; });
+        return std::all_of(std::begin(data_), std::end(data_), [](auto byte) { return byte == 0; });
     }
 
     // Parse exactly Bits/4 hex characters into the raw bytes. Returns false on
@@ -129,7 +129,7 @@ struct base_uint
         if (sv.size() != Bits / 4)
             return false;
         auto const bytes = mock_detail::hexToBytes(sv);
-        if (!bytes || bytes->size() != Bits / 8)
+        if (not bytes or bytes->size() != Bits / 8)
             return false;
         std::copy(bytes->begin(), bytes->end(), std::begin(data_));
         return true;
@@ -160,7 +160,8 @@ class Slice
 
 public:
     Slice() = default;
-    Slice(void const* p, std::size_t n) : data_(static_cast<std::uint8_t const*>(p)), size_(n)
+    Slice(void const* data, std::size_t size)
+        : data_(static_cast<std::uint8_t const*>(data)), size_(size)
     {
     }
 
@@ -178,9 +179,9 @@ public:
 
 template <class Container>
 [[nodiscard]] inline Slice
-makeSlice(Container const& c)
+makeSlice(Container const& container)
 {
-    return Slice{c.data(), c.size()};
+    return Slice{container.data(), container.size()};
 }
 
 // ---- basics/StringUtilities.h -----------------------------------------------
@@ -237,7 +238,7 @@ public:
     [[nodiscard]] bool
     isZero() const noexcept
     {
-        return std::all_of(data_.begin(), data_.end(), [](auto b) { return b == 0; });
+        return std::all_of(data_.begin(), data_.end(), [](auto byte) { return byte == 0; });
     }
 
     // 40 hex characters into the 20 raw bytes; false on wrong length or non-hex input, as
@@ -248,7 +249,7 @@ public:
         if (sv.size() != 2 * size())
             return false;
         auto const bytes = mock_detail::hexToBytes(sv);
-        if (!bytes || bytes->size() != size())
+        if (not bytes or bytes->size() != size())
             return false;
         std::copy(bytes->begin(), bytes->end(), data_.begin());
         return true;
@@ -285,9 +286,9 @@ public:
 [[nodiscard]] inline AccountID
 noAccount()
 {
-    AccountID a;
-    a.data()[19] = 1;
-    return a;
+    AccountID account;
+    account.data()[19] = 1;
+    return account;
 }
 
 [[nodiscard]] inline AccountID
@@ -301,6 +302,14 @@ struct Issue
 {
     Currency currency;
     AccountID account;
+
+    // Constructors mirror libxrpl's Issue: declaring them keeps this type a non-aggregate,
+    // exactly like the real one, so spec code that brace-initialises it stays portable.
+    Issue() = default;
+    Issue(Currency const& currency, AccountID const& account) : currency(currency), account(account)
+    {
+    }
+
     bool
     operator==(Issue const&) const noexcept = default;
 };
@@ -390,21 +399,29 @@ struct Book
     Issue in;
     Issue out;
     std::optional<uint256> domain;  // libxrpl's Book carries an optional permissioned-domain id
+
+    // As with Issue: libxrpl's Book declares these, so the mock does too.
+    Book() = default;
+    Book(Issue const& in, Issue const& out, std::optional<uint256> const& domain)
+        : in(in), out(out), domain(domain)
+    {
+    }
+
     bool
     operator==(Book const&) const noexcept = default;
 };
 
 [[nodiscard]] inline bool
-isXRP(Currency const& c)
+isXRP(Currency const& currency)
 {
-    return c.isXrp();
+    return currency.isXrp();
 }
 
 // libxrpl also has isXRP(AccountID): the XRP "account" is the all-zero ID.
 [[nodiscard]] inline bool
-isXRP(AccountID const& a)
+isXRP(AccountID const& account)
 {
-    return a.isZero();
+    return account.isZero();
 }
 
 // "XRP", any 3-character ISO code, or a 40-char hex code is accepted.
@@ -421,7 +438,7 @@ toCurrency(Currency& currency, std::string const& code)
         currency = Currency{false};
         return true;
     }
-    if (code.size() == 40 && mock_detail::hexToBytes(code).has_value())
+    if (code.size() == 40 and mock_detail::hexToBytes(code).has_value())
     {
         currency = Currency{false};
         return true;
@@ -443,19 +460,19 @@ public:
 calcAccountID(PublicKey const&)
 {
     // Non-zero so a parsed public key yields a valid-looking account.
-    AccountID a;
-    a.data()[0] = 1;
-    return a;
+    AccountID account;
+    account.data()[0] = 1;
+    return account;
 }
 
 enum class KeyType { secp256k1, ed25519 };
 
 [[nodiscard]] inline std::optional<KeyType>
-publicKeyType(Slice const& s)
+publicKeyType(Slice const& slice)
 {
     // libxrpl recognises 33-byte (secp256k1) and 32-byte (ed25519, 0xED-prefixed)
     // keys; for the mock we only need the size gate the wrappers rely on.
-    if (s.size() == 33)
+    if (slice.size() == 33)
         return KeyType::secp256k1;
     return std::nullopt;
 }
@@ -482,13 +499,13 @@ template <>
 parseBase58<AccountID>(std::string const& str)
 {
     auto const bytes = mock_detail::decodeBase58(str);
-    if (!bytes || bytes->size() != 25)
+    if (not bytes or bytes->size() != 25)
         return std::nullopt;
     if ((*bytes)[0] != static_cast<std::uint8_t>(TokenType::AccountID))
         return std::nullopt;
-    AccountID a;
-    std::copy(bytes->begin() + 1, bytes->begin() + 21, a.data());
-    return a;
+    AccountID account;
+    std::copy(bytes->begin() + 1, bytes->begin() + 21, account.data());
+    return account;
 }
 
 // PublicKey (account-public): 1 version byte + 33 key bytes + 4 checksum.
@@ -497,7 +514,7 @@ template <>
 parseBase58<PublicKey>(TokenType type, std::string const& str)
 {
     auto const bytes = mock_detail::decodeBase58(str);
-    if (!bytes || bytes->size() != 38)
+    if (not bytes or bytes->size() != 38)
         return std::nullopt;
     if ((*bytes)[0] != static_cast<std::uint8_t>(type))
         return std::nullopt;
@@ -508,7 +525,7 @@ parseBase58<PublicKey>(TokenType type, std::string const& str)
 toIssuer(AccountID& issuer, std::string const& str)
 {
     auto const parsed = parseBase58<AccountID>(str);
-    if (!parsed)
+    if (not parsed.has_value())
         return false;
     issuer = *parsed;
     return true;
@@ -563,8 +580,8 @@ public:
     [[nodiscard]] static TxFormats const&
     getInstance()
     {
-        static TxFormats const kINSTANCE{};
-        return kINSTANCE;
+        static TxFormats const kInstance{};
+        return kInstance;
     }
 
     [[nodiscard]] auto

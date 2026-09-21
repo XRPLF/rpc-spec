@@ -5,9 +5,6 @@
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
 
-#include <array>
-#include <cstddef>
-#include <string_view>
 #include <tuple>
 #include <utility>
 
@@ -18,22 +15,22 @@ namespace rpc::spec {
  * @tparam T The type to check.
  */
 template <typename T>
-concept HasSubFields = requires(T const& t) { t.subFields; };
+concept HasSubFields = requires(T const& item) { item.subFields; };
 
 /**
  * @brief Detects spec items that own a `subItems` member (e.g. Section, OneOf).
  * @tparam T The type to check.
  */
 template <typename T>
-concept HasSubItems = requires(T const& t) { t.subItems; };
+concept HasSubItems = requires(T const& item) { item.subItems; };
 
 /**
  * @brief Detects spec items that expose a `wrapped()` accessor (e.g. WithMessage).
  * @tparam T The type to check.
  */
 template <typename T>
-concept HasWrapped = requires(T const& t) {
-    { t.wrapped() };
+concept HasWrapped = requires(T const& item) {
+    { item.wrapped() };
 };
 
 /**
@@ -51,7 +48,8 @@ concept HasKName = requires {
  * @tparam Writer The writer type passed to `describeParams`.
  */
 template <typename T, typename Writer>
-concept HasDescribeParams = requires(T const& t, Writer& w) { t.describeParams(w); };
+concept HasDescribeParams =
+    requires(T const& item, Writer& writer) { item.describeParams(writer); };
 
 /**
  * @brief Write a single spec item to the dump writer.
@@ -60,23 +58,23 @@ concept HasDescribeParams = requires(T const& t, Writer& w) { t.describeParams(w
  * HasKName, HasDescribeParams) and emits an appropriate YAML-ish bullet entry.
  *
  * @tparam Item The spec item type.
- * @param w The writer to emit output to.
+ * @param writer The writer to emit output to.
  * @param item The item to dump.
  */
 template <typename Item>
 void
-dumpItem(SpecDumpWriter& w, Item const& item);
+dumpItem(SpecDumpWriter& writer, Item const& item);
 
 /**
  * @brief Write a FieldSpec (one named field and all its attached items) to the dump writer.
  *
  * @tparam Items The item types attached to the field spec.
- * @param w The writer to emit output to.
- * @param f The field spec to dump.
+ * @param writer The writer to emit output to.
+ * @param fieldSpec The field spec to dump.
  */
 template <typename... Items>
 void
-dumpFieldSpec(SpecDumpWriter& w, FieldSpec<Items...> const& f);
+dumpFieldSpec(SpecDumpWriter& writer, FieldSpec<Items...> const& fieldSpec);
 
 /**
  * @brief Write an entire RpcSpec (all its fields) to the dump writer.
@@ -85,104 +83,93 @@ dumpFieldSpec(SpecDumpWriter& w, FieldSpec<Items...> const& f);
  * the overriding entry (matching the runtime override-plan logic).
  *
  * @tparam Fields The field types in the spec.
- * @param w The writer to emit output to.
+ * @param writer The writer to emit output to.
  * @param spec The spec to dump.
  */
 template <typename... Fields>
 void
-dumpRpcSpec(SpecDumpWriter& w, RpcSpec<Fields...> const& spec);
+dumpRpcSpec(SpecDumpWriter& writer, RpcSpec<Fields...> const& spec);
 
 template <typename Item>
 void
-dumpItem(SpecDumpWriter& w, Item const& item)
+dumpItem(SpecDumpWriter& writer, Item const& item)
 {
     if constexpr (HasSubFields<Item>)
     {
-        w.bulletGroup(Item::kName, [&] {
-            std::apply([&](auto const&... sf) { (dumpFieldSpec(w, sf), ...); }, item.subFields);
+        writer.bulletGroup(Item::kName, [&] {
+            std::apply(
+                [&](auto const&... sf) { (dumpFieldSpec(writer, sf), ...); }, item.subFields);
         });
     }
     else if constexpr (HasSubItems<Item>)
     {
-        w.bulletGroup(Item::kName, [&] {
+        writer.bulletGroup(Item::kName, [&] {
             if constexpr (HasDescribeParams<Item, SpecDumpWriter>)
-                item.describeParams(w);
-            std::apply([&](auto const&... it) { (dumpItem(w, it), ...); }, item.subItems);
+                item.describeParams(writer);
+            std::apply([&](auto const&... it) { (dumpItem(writer, it), ...); }, item.subItems);
         });
     }
     else if constexpr (HasWrapped<Item>)
     {
-        w.bulletGroup(Item::kName, [&] {
+        writer.bulletGroup(Item::kName, [&] {
             auto const msg = item.message();
-            if (!msg.empty())
-                w.param("message", msg);
-            dumpItem(w, item.wrapped());
+            if (not msg.empty())
+                writer.param("message", msg);
+            dumpItem(writer, item.wrapped());
         });
     }
     else if constexpr (HasKName<Item>)
     {
         if constexpr (HasDescribeParams<Item, SpecDumpWriter>)
         {
-            w.bulletGroup(Item::kName, [&] { item.describeParams(w); });
+            writer.bulletGroup(Item::kName, [&] { item.describeParams(writer); });
         }
         else
         {
-            w.bullet(Item::kName, [] {});
+            writer.bullet(Item::kName, [] {});
         }
     }
     else
     {
-        w.bullet("custom", [] {});
+        writer.bullet("custom", [] {});
     }
 }
 
 template <typename... Items>
 void
-dumpFieldSpec(SpecDumpWriter& w, FieldSpec<Items...> const& f)
+dumpFieldSpec(SpecDumpWriter& writer, FieldSpec<Items...> const& fieldSpec)
 {
-    w.bulletGroup(
-        f.key, [&] { std::apply([&](auto const&... it) { (dumpItem(w, it), ...); }, f.items); });
+    writer.bulletGroup(fieldSpec.key, [&] {
+        std::apply([&](auto const&... it) { (dumpItem(writer, it), ...); }, fieldSpec.items);
+    });
 }
 
 namespace impl {
 
+/**
+ * @brief Write the spec's fields to @p w, honouring last-wins key overrides.
+ *
+ * @param writer The writer receiving the schema output.
+ * @param spec The spec to render.
+ * @param seq Index sequence over the spec's fields.
+ */
 template <typename... Fields, std::size_t... Is>
 void
-dumpRpcSpec(SpecDumpWriter& w, RpcSpec<Fields...> const& spec, std::index_sequence<Is...>)
+dumpRpcSpec(SpecDumpWriter& writer, RpcSpec<Fields...> const& spec, std::index_sequence<Is...> seq)
 {
-    if constexpr (sizeof...(Is) == 0)
-    {
-        return;
-    }
-    else
-    {
-        using FieldsTuple = typename RpcSpec<Fields...>::FieldsTuple;
-        constexpr auto kN = sizeof...(Is);
-        std::array<std::string_view, kN> const keys{std::get<Is>(spec.fields).key...};
-        auto const plan = buildOverridePlan(keys);
-
-        using DumpFn = void (*)(SpecDumpWriter&, FieldsTuple const&);
-        static constexpr std::array<DumpFn, kN> kDISPATCH{
-            +[](SpecDumpWriter& wr, FieldsTuple const& t) {
-                dumpFieldSpec(wr, std::get<Is>(t));
-            }...};
-
-        for (std::size_t i = 0; i < kN; ++i)
-        {
-            if (!plan.shouldRun[i])
-                continue;
-            kDISPATCH[plan.effectiveIdx[i]](w, spec.fields);
-        }
-    }
+    forEachEffectiveField(
+        spec.fields,
+        [&](auto const& fields, auto idx) { dumpFieldSpec(writer, std::get<idx()>(fields)); },
+        seq);
 }
 
 }  // namespace impl
 
 template <typename... Fields>
 void
-dumpRpcSpec(SpecDumpWriter& w, RpcSpec<Fields...> const& spec)
+dumpRpcSpec(SpecDumpWriter& writer, RpcSpec<Fields...> const& spec)
 {
-    impl::dumpRpcSpec(w, spec, std::index_sequence_for<Fields...>{});
+    impl::dumpRpcSpec(writer, spec, std::index_sequence_for<Fields...>{});
 }
 
 }  // namespace rpc::spec

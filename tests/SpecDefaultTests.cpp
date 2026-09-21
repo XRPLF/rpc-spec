@@ -41,9 +41,9 @@ Input
 parse(char const* json)
 {
     auto value = boost::json::parse(json);
-    auto const r = kSpec.parse(value);
-    EXPECT_TRUE(r.has_value());
-    return *r;
+    auto const result = kSpec.parse(value);
+    EXPECT_TRUE(result.has_value());
+    return *result;
 }
 
 }  // namespace
@@ -72,8 +72,8 @@ TEST(RpcSpecDSL_Default, DefaultDoesNotSuppressRequirementErrors)
     // `min(1)` still runs even when the field is present and invalid; the default
     // is applied only on the absent branch, after items pass.
     auto value = boost::json::parse(R"JSON({ "limit": 0 })JSON");
-    auto const r = kSpec.parse(value);
-    EXPECT_FALSE(r.has_value());
+    auto const result = kSpec.parse(value);
+    EXPECT_FALSE(result.has_value());
 }
 
 TEST(RpcSpecDSL_Default, OptionalMemberWithoutDefaultStaysNullopt)
@@ -85,8 +85,8 @@ TEST(RpcSpecDSL_Default, OptionalMemberWithoutDefaultStaysNullopt)
 TEST(RpcSpecDSL_Default, DumpRendersDefaultValue)
 {
     std::ostringstream oss;
-    SpecDumpWriter w{oss};
-    kSpec.dump(w);
+    SpecDumpWriter writer{oss};
+    kSpec.dump(writer);
     EXPECT_NE(oss.str().find("default"), std::string::npos);
     EXPECT_NE(oss.str().find("value: 200"), std::string::npos);
 }

@@ -58,7 +58,7 @@ class XrplRpcSpecConan(ConanFile):
             self.test_requires("gtest/1.17.0")
 
     def validate(self):
-        if self.options.server == None:
+        if self.options.server is None:
             raise ConanInvalidConfiguration(
                 "xrpl-rpc-spec: the 'server' option must be set to 'clio' or 'xrpld'; "
                 'add \'"xrpl-rpc-spec/*:server": "clio"\' to your conanfile\'s default_options'

@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'get_aggregate_price' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -21,59 +19,82 @@
 
 namespace rpc::spec::handlers::get_aggregate_price {
 
-static constexpr auto kORACLES_MAX = 200;
+/**
+ * @brief Oracles max.
+ */
+inline constexpr auto kOraclesMax = 200;
 
-static constexpr auto kORACLES_VALIDATOR = CustomModifier{[](auto& f) -> MaybeError {
-    if (!f.isArray() || f.arraySize() == 0 || f.arraySize() > kORACLES_MAX)
+/**
+ * @brief Validator for the oracles field.
+ */
+inline constexpr auto kOraclesValidator = CustomModifier{[](auto& fieldView) -> MaybeError {
+    if (not fieldView.isArray() or fieldView.arraySize() == 0 or
+        fieldView.arraySize() > kOraclesMax)
         return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-    for (std::size_t i = 0; i < f.arraySize(); ++i)
+    for (auto i = 0uz; i < fieldView.arraySize(); ++i)
     {
-        auto elem = f.element(i);
-        if (!elem.isObject())
+        auto elem = fieldView.element(i);
+        if (not elem.isObject())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-        auto docIdFa = elem.child("oracle_document_id");
-        auto accountFa = elem.child("account");
+        auto docIdView = elem.child("oracle_document_id");
+        auto accountView = elem.child("account");
 
-        if (!docIdFa.present() || !accountFa.present())
+        if (not docIdView.present() or not accountView.present())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-        if (auto err = Type<uint32_t, std::string>::verify(docIdFa); !err)
+        if (auto err = Type<uint32_t, std::string>::verify(docIdView); not err.has_value())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
 
-        // convert string oracle_document_id to integer in-place;
-        // propagate the error directly (mirrors the old behaviour: returns RpcInvalidParams
-        // when the string is not a valid integer, e.g. "a")
-        if (auto err = ToNumberModifier::modify(docIdFa); !err)
+        // Mirrors the old behaviour: RpcInvalidParams when the string is not a valid
+        // integer, e.g. "a".
+        if (auto err = ToNumberModifier::modify(docIdView); not err.has_value())
             return err;
 
-        if (auto err = AccountBase58Validator::verify(accountFa); !err)
+        if (auto err = AccountBase58Validator::verify(accountView); not err.has_value())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
     }
 
     return {};
 }};
 
+/**
+ * @brief Converts the oracles field into its strongly-typed value.
+ */
 struct OraclesConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("oracles").
+     */
     static constexpr std::string_view kName = "oracles";
+
+    /**
+     * @brief The value this converter produces (`std::vector<Oracle>`).
+     */
     using ValueType = std::vector<Oracle>;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         ValueType result;
-        result.reserve(f.arraySize());
-        for (std::size_t i = 0; i < f.arraySize(); ++i)
+        result.reserve(fieldView.arraySize());
+        for (auto i = 0uz; i < fieldView.arraySize(); ++i)
         {
-            auto const elem = f.element(i);
+            auto const elem = fieldView.element(i);
             auto const docId = elem.child("oracle_document_id");
             auto const account = elem.child("account");
-            // Both are guaranteed valid by kORACLES_VALIDATOR; extract directly.
+            // Both are guaranteed valid by kOraclesValidator; extract directly.
             auto id = detail::accountFromStringStrict(std::string{account.asString()});
-            if (!id)
+            if (not id.has_value())
                 return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
             result.push_back(
                 Oracle{
@@ -85,45 +106,93 @@ struct OraclesConverter
     }
 };
 
+/**
+ * @brief Converts the uint8 field into its strongly-typed value.
+ */
 struct Uint8Converter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("uint8").
+     */
     static constexpr std::string_view kName = "uint8";
+
+    /**
+     * @brief The value this converter produces (`uint8_t`).
+     */
     using ValueType = uint8_t;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        if (!f.isUint32())
+        if (not fieldView.isUint32())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
-        return static_cast<uint8_t>(f.asUint32());
+        return static_cast<uint8_t>(fieldView.asUint32());
     }
 };
 
+/**
+ * @brief Converts the currency field into its strongly-typed value.
+ */
 struct CurrencyConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("currency").
+     */
     static constexpr std::string_view kName = "currency";
+
+    /**
+     * @brief The value this converter produces (`xrpl::Currency`).
+     */
     using ValueType = xrpl::Currency;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        // The `currency` validator already confirmed the field is a valid currency
-        // code string; decode it into the strong type.
+        // The `currency` validator already confirmed this is a valid currency code string.
         xrpl::Currency currency;
-        if (!f.isString() || !xrpl::toCurrency(currency, std::string{f.asString()}))
+        if (not fieldView.isString() or
+            not xrpl::toCurrency(currency, std::string{fieldView.asString()}))
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
         return currency;
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: oracles.
+ */
 inline constexpr auto oraclesConv = OraclesConverter{};
+
+/**
+ * @brief Converter instance: uint8.
+ */
 inline constexpr auto uint8Conv = Uint8Converter{};
+
+/**
+ * @brief Converter instance: currency.
+ */
 inline constexpr auto currencyConv = CurrencyConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field(
@@ -138,14 +207,20 @@ inline constexpr auto kInputSpec = spec<Input>(
         required,
         withCustomError(currency, RippledError::RpcInvalidParams),
         currencyConv),
-    field("oracles", &Input::oracles, required, kORACLES_VALIDATOR, oraclesConv),
+    field("oracles", &Input::oracles, required, kOraclesValidator, oraclesConv),
     field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),
     field("trim", &Input::trim, type<uint32_t>, between(uint32_t{1}, uint32_t{25}), uint8Conv));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

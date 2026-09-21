@@ -1,7 +1,5 @@
 /** @file */
 #pragma once
-// Shared constexpr spec for the 'book_offers' RPC command.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Asset.h>
@@ -21,82 +19,121 @@
 
 namespace rpc::spec::handlers::book_offers {
 
+/**
+ * @brief Converts the taker asset field into its strongly-typed value.
+ */
 template <rpc::RippledError IsrErr>
 struct TakerAssetConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("takerAsset").
+     */
     static constexpr std::string_view kName = "takerAsset";
+
+    /**
+     * @brief The value this converter produces (`xrpl::Asset`).
+     */
     using ValueType = xrpl::Asset;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
-        auto const mptFa = f.child("mpt_issuance_id");
-        if (mptFa.present())
+        auto const mptView = fieldView.child("mpt_issuance_id");
+        if (mptView.present())
         {
             xrpl::MPTID mptId{};
-            if (!mptId.parseHex(std::string{mptFa.asString()}))
+            if (not mptId.parseHex(std::string{mptView.asString()}))
                 return std::unexpected{rpc::Status{IsrErr}};  // unreachable: section validated hex
             return xrpl::MPTIssue{mptId};
         }
 
-        auto const currSv = f.child("currency").asString();
+        auto const currSv = fieldView.child("currency").asString();
         xrpl::Currency currency{};
-        if (!xrpl::toCurrency(currency, std::string{currSv}))
+        if (not xrpl::toCurrency(currency, std::string{currSv}))
             return std::unexpected{rpc::Status{IsrErr}};  // unreachable: section validated currency
-        bool const hasIssuer = f.child("issuer").present();
+        bool const hasIssuer = fieldView.child("issuer").present();
         if (xrpl::isXRP(currency))
         {
             // XRP must not be paired with an issuer.
             if (hasIssuer)
+            {
                 return std::unexpected{rpc::Status{
                     IsrErr,
-                    "Unneeded field '" + std::string{f.key()} +
+                    "Unneeded field '" + std::string{fieldView.key()} +
                         ".issuer' for XRP currency specification."}};
+            }
             return xrpl::xrpIssue();
         }
-        if (!hasIssuer)
+        if (not hasIssuer)
             return xrpl::Issue{currency, xrpl::xrpAccount()};
-        auto const issuerSv = f.child("issuer").asString();
+        auto const issuerSv = fieldView.child("issuer").asString();
         xrpl::AccountID issuer{};
-        if (!xrpl::toIssuer(issuer, std::string{issuerSv}))
+        if (not xrpl::toIssuer(issuer, std::string{issuerSv}))
             return std::unexpected{rpc::Status{IsrErr}};
         return xrpl::Issue{currency, issuer};
     }
 };
 
+/**
+ * @brief Converts the taker field into its strongly-typed value.
+ */
 struct TakerConverter
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("taker").
+     */
     static constexpr std::string_view kName = "taker";
+
+    /**
+     * @brief The value this converter produces (`xrpl::AccountID`).
+     */
     using ValueType = xrpl::AccountID;
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] Parsed<ValueType>
-    parse(FA const& f) const
+    parse(View const& fieldView) const
     {
         auto const err = [] {
             return std::unexpected{
                 rpc::Status{rpc::RippledError::RpcInvalidParams, "Invalid field 'taker'."}};
         };
-        if (!f.isString())
+        if (not fieldView.isString())
             return err();
-        auto id = detail::accountFromStringStrict(std::string{f.asString()});
-        if (!id)
+        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+        if (not id.has_value())
             return err();
         return *id;
     }
 };
 
-static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> MaybeError {
-    if (!f.isObject())
+/**
+ * @brief Validator instance: custom.
+ */
+inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
+    if (not fieldView.isObject())
         return {};
 
-    auto const currencyFa = f.child("currency");
-    auto const mptFa = f.child("mpt_issuance_id");
-    bool const hasCurrency = currencyFa.present();
-    bool const hasMptId = mptFa.present();
+    auto const currencyView = fieldView.child("currency");
+    auto const mptView = fieldView.child("mpt_issuance_id");
+    bool const hasCurrency = currencyView.present();
+    bool const hasMptId = mptView.present();
 
-    if (!hasCurrency && !hasMptId)
+    if (not hasCurrency and not hasMptId)
     {
 #if defined(RPCSPEC_IS_CLIO)
         // Clio requires `currency` inside the taker section, so a request naming neither
@@ -106,25 +143,26 @@ static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> May
 #else
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
-            "Missing field '" + std::string{f.key()} + ".currency'."}};
+            "Missing field '" + std::string{fieldView.key()} + ".currency'."}};
 #endif
     }
 
-    if (hasMptId && (hasCurrency || f.child("issuer").present()))
+    if (hasMptId and (hasCurrency or fieldView.child("issuer").present()))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, "Invalid field '" + std::string{f.key()} + "'."}};
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
 
 #if !defined(RPCSPEC_IS_CLIO)
     // Clio deliberately omits this check and leaves a non-string value to the section's own
     // withCustomError(currency|uint192Hex, Rpc{Src,Dst}...Malformed); checking it here would
     // preempt that and downgrade the code to invalidParams.
-    if ((hasCurrency && !currencyFa.isString()) || (hasMptId && !mptFa.isString()))
+    if ((hasCurrency and not currencyView.isString()) or (hasMptId and not mptView.isString()))
     {
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
-            "Invalid field '" + std::string{f.key()} + ".currency', not string."}};
+            "Invalid field '" + std::string{fieldView.key()} + ".currency', not string."}};
     }
 #endif
 
@@ -132,11 +170,25 @@ static constexpr auto kTakerValidator = CustomValidator{[](auto const& f) -> May
 }};
 
 // NOLINTBEGIN(readability-identifier-naming)
+/**
+ * @brief Converter instance: taker asset.
+ */
 inline constexpr auto takerPaysConv = TakerAssetConverter<RippledError::RpcSrcIsrMalformed>{};
+
+/**
+ * @brief Converter instance: taker asset.
+ */
 inline constexpr auto takerGetsConv = TakerAssetConverter<RippledError::RpcDstIsrMalformed>{};
+
+/**
+ * @brief Converter instance: taker.
+ */
 inline constexpr auto takerConv = TakerConverter{};
 // NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     field(
         "taker_gets",
@@ -184,10 +236,16 @@ inline constexpr auto kInputSpec = spec<Input>(
         asUint32),
     ledgerSelector(&Input::ledger));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {

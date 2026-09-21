@@ -40,13 +40,13 @@ class MockFieldView
     std::string_view key_;
 
 public:
-    MockFieldView(MockValue* v, std::string_view k) noexcept
-        : readValue_{v}, writeValue_{v}, key_{k}
+    MockFieldView(MockValue* value, std::string_view key) noexcept
+        : readValue_{value}, writeValue_{value}, key_{key}
     {
     }
 
-    MockFieldView(MockValue const* v, std::string_view k) noexcept
-        : readValue_{v}, writeValue_{nullptr}, key_{k}
+    MockFieldView(MockValue const* value, std::string_view key) noexcept
+        : readValue_{value}, writeValue_{nullptr}, key_{key}
     {
     }
 
@@ -64,7 +64,7 @@ public:
     [[nodiscard]] bool
     isInt64() const noexcept
     {
-        return readValue_ != nullptr && std::holds_alternative<int64_t>(*readValue_);
+        return readValue_ != nullptr and std::holds_alternative<int64_t>(*readValue_);
     }
     [[nodiscard]] int64_t
     asInt64() const
@@ -75,7 +75,7 @@ public:
     [[nodiscard]] bool
     isUint32() const noexcept
     {
-        return readValue_ != nullptr && std::holds_alternative<uint32_t>(*readValue_);
+        return readValue_ != nullptr and std::holds_alternative<uint32_t>(*readValue_);
     }
     [[nodiscard]] uint32_t
     asUint32() const
@@ -86,7 +86,7 @@ public:
     [[nodiscard]] bool
     isBool() const noexcept
     {
-        return readValue_ != nullptr && std::holds_alternative<bool>(*readValue_);
+        return readValue_ != nullptr and std::holds_alternative<bool>(*readValue_);
     }
     [[nodiscard]] bool
     asBool() const
@@ -97,7 +97,7 @@ public:
     [[nodiscard]] bool
     isString() const noexcept
     {
-        return readValue_ != nullptr && std::holds_alternative<std::string>(*readValue_);
+        return readValue_ != nullptr and std::holds_alternative<std::string>(*readValue_);
     }
     [[nodiscard]] std::string_view
     asString() const
@@ -108,7 +108,7 @@ public:
     [[nodiscard]] bool
     isDouble() const noexcept
     {
-        return readValue_ != nullptr && std::holds_alternative<double>(*readValue_);
+        return readValue_ != nullptr and std::holds_alternative<double>(*readValue_);
     }
     [[nodiscard]] double
     asDouble() const
@@ -142,20 +142,20 @@ public:
     is() const noexcept
     {
         if constexpr (
-            std::is_same_v<T, rpc::spec::JsonObject> || std::is_same_v<T, rpc::spec::JsonArray>)
+            std::is_same_v<T, rpc::spec::JsonObject> or std::is_same_v<T, rpc::spec::JsonArray>)
         {
             return false;
         }
         else
         {
-            return readValue_ != nullptr && std::holds_alternative<T>(*readValue_);
+            return readValue_ != nullptr and std::holds_alternative<T>(*readValue_);
         }
     }
 
     [[nodiscard]] static MockFieldView
-    child(std::string_view k) noexcept
+    child(std::string_view key) noexcept
     {
-        return {static_cast<MockValue const*>(nullptr), k};
+        return {static_cast<MockValue const*>(nullptr), key};
     }
     [[nodiscard]] static MockFieldView
     element(std::size_t) noexcept
@@ -164,29 +164,29 @@ public:
     }
 
     void
-    set(int64_t v)
+    set(int64_t value)
     {
-        *writeValue_ = v;
+        *writeValue_ = value;
     }
     void
-    set(uint32_t v)
+    set(uint32_t value)
     {
-        *writeValue_ = v;
+        *writeValue_ = value;
     }
     void
-    set(std::string_view v)
+    set(std::string_view value)
     {
-        *writeValue_ = std::string{v};
+        *writeValue_ = std::string{value};
     }
     void
-    set(bool v)
+    set(bool value)
     {
-        *writeValue_ = v;
+        *writeValue_ = value;
     }
     void
-    set(double v)
+    set(double value)
     {
-        *writeValue_ = v;
+        *writeValue_ = value;
     }
 };
 

@@ -12,14 +12,17 @@
 namespace admission::spec {
 
 /**
- * @brief A streaming check invoked by a caller-provided visitor as it emits @ref VisitEvent%s.
+ * @brief A streaming check invoked by a caller-provided visitor as it emits @ref
+ * admission::spec::VisitEvent events.
  */
 template <typename F, typename Resolved>
-concept SomeCheck = requires(F f, VisitEvent const& e, Resolved const& cfg) {
-    { f(e, cfg) } -> std::same_as<AdmissionDecision>;
+concept SomeCheck = requires(F check, VisitEvent const& event, Resolved const& cfg) {
+    { check(event, cfg) } -> std::same_as<AdmissionDecision>;
 };
 
-/**  Sentinel for an unattached hook slot. */
+/**
+ * Sentinel for an unattached hook slot.
+ */
 struct NoHook
 {
 };
@@ -29,24 +32,21 @@ struct NoHook
  *
  * A spec is just a bag of named @ref Tunable values plus optional author hooks. Two tunables are
  * required by every spec — @c "max_payload_bytes" (the hard drop cap) and @c "size_ramp" (the
-size→cost
- * ramp) — and @ref makeSpec @c static_asserts their presence. Everything else is an extra tunable
-the
- * hooks read by name. Hooks receive the resolved bag, so their thresholds are config-overridable
-too.
+ * size→cost ramp) — and `makeSpec` @c static_asserts their presence.
+ * Everything else is an extra tunable the hooks read by name. Hooks receive the resolved bag, so
+ * their thresholds are config-overridable too.
  *
  * The type is consteval-constructed and meant to live as a @c static @c constexpr object;
-evaluation
- * runs against a @ref ResolvedTunables produced by resolving the bag.
+ * evaluation runs against a @ref ResolvedTunables produced by resolving the bag.
  *
  * @code
  * consteval auto admissionSpec(std::type_identity<MyMessage>) {
  *     using namespace util::admission;
  *     return makeSpec<MyMessage>(
- *                tunable<"max_payload_bytes">(uint64_t{64 * 1024},
-"admission.my_message.max_payload_bytes"),
- *                tunable<"size_ramp">(ramp({{1024, 0.5}, {64 * 1024, 4.0}}),
-"admission.my_message.size_ramp"),
+ *                tunable<"max_payload_bytes">(
+ *                    uint64_t{64 * 1024}, "admission.my_message.max_payload_bytes"),
+ *                tunable<"size_ramp">(
+ *                    ramp({{1024, 0.5}, {64 * 1024, 4.0}}), "admission.my_message.size_ramp"),
  *                tunable<"max_entries">(size_t{100}, "admission.my_message.max_entries")
  *            )
  *         // streaming: the check sees one event at a time and keeps whatever state it needs, so an
@@ -69,8 +69,8 @@ evaluation
  *         {
  *           inEntries = false;
  *         }
- *         else if (inEntries && e.kind == EventKind::Scalar && ++count > cfg.template
-get<"max_entries">())
+ *         else if (inEntries && e.kind == EventKind::Scalar &&
+ *                  ++count > cfg.template get<"max_entries">())
  *         {
  *             // penalize an amplification attempt harder than a benign reject
  *             return AdmissionDecision::drop("too many entries", 4.0);
@@ -81,9 +81,9 @@ get<"max_entries">())
  * @endcode
  *
  * And at the ingress point, where a @ref ConnectionLimiter owns one token bucket per connection.
-The
- * caller owns the traversal — it hands the limiter a visitor that decodes the raw payload (SAX for
- * JSON, a tag-walk for protobuf) and invokes the per-attribute check on each node it decodes:
+ * The caller owns the traversal — it hands the limiter a visitor that decodes the raw payload
+ * (SAX for JSON, a tag-walk for protobuf) and invokes the per-attribute check on each node it
+ * decodes:
  *
  * @code
  * // Constructed once at startup from resolved config (see Resolver.hpp / BucketSettings).
@@ -113,15 +113,28 @@ The
  * @endcode
  *
  * @note Bucket capacity/refill are connection-scoped (see @ref BucketParams), not part of this
-spec.
+ * spec.
  */
 template <typename T, typename TunablesTuple, typename Check = NoHook>
 class AdmissionSpec
 {
 public:
+    /**
+     * @brief The message type this spec governs.
+     */
     using Type = T;
+
+    /**
+     * @brief The resolved tunable bag this spec evaluates against.
+     */
     using Resolved = ResolvedTunablesOfT<TunablesTuple>;
 
+    /**
+     * @brief Construct a @ref AdmissionSpec.
+     *
+     * @param tunables The declared tunables.
+     * @param check The streaming check, or NoHook when none is attached.
+     */
     consteval AdmissionSpec(TunablesTuple tunables, Check check)
         : tunables_{std::move(tunables)}, check_{std::move(check)}
     {
@@ -129,6 +142,10 @@ public:
 
     /**
      * @brief Attach a streaming check; returns the updated spec.
+     *
+     * @tparam C The check callable, invoked per @ref VisitEvent.
+     * @param check The check to attach.
+     * @return A copy of this spec carrying @p check.
      */
     template <typename C>
         requires SomeCheck<C, Resolved>
@@ -138,6 +155,11 @@ public:
         return AdmissionSpec<T, TunablesTuple, C>{tunables_, check};
     }
 
+    /**
+     * @brief The spec's declared tunables.
+     *
+     * @return A reference to the tunable tuple.
+     */
     [[nodiscard]] constexpr TunablesTuple const&
     tunables() const noexcept
     {
@@ -146,6 +168,8 @@ public:
 
     /**
      * @brief Build a @ref ResolvedTunables from the spec's defaults (no config overrides).
+     *
+     * @return The resolved tunable bag.
      */
     [[nodiscard]] Resolved
     resolveDefaults() const
@@ -155,11 +179,15 @@ public:
 
     /**
      * @brief Pre-deserialization stage: enforce the hard byte cap and compute the size cost.
+     *
+     * @param payload The raw message bytes.
+     * @param cfg The resolved tunables supplying the cap and the size ramp.
+     * @return Admit carrying the size cost, or Drop when the cap is exceeded.
      */
     [[nodiscard]] AdmissionDecision
     preAdmit(std::span<uint8_t const> payload, Resolved const& cfg) const
     {
-        double cost =
+        double const cost =
             costFor(cfg.template get<"size_ramp">(), static_cast<uint64_t>(payload.size()));
 
         if (payload.size() > cfg.template get<"max_payload_bytes">())
@@ -172,6 +200,9 @@ public:
 
     /**
      * @brief Make a fresh, state-carrying checker bound to @p cfg for one message walk.
+     *
+     * @param cfg The resolved tunables the check reads its thresholds from.
+     * @return A callable taking a @ref VisitEvent and returning an @ref AdmissionDecision.
      */
     [[nodiscard]] auto
     makeChecker(Resolved const& cfg) const
@@ -182,7 +213,9 @@ public:
         }
         else
         {
-            return [check = check_, &cfg](VisitEvent const& e) mutable { return check(e, cfg); };
+            return [check = check_, &cfg](VisitEvent const& event) mutable {
+                return check(event, cfg);
+            };
         }
     }
 
@@ -239,7 +272,7 @@ concept HasAdmissionTrait = requires { AdmissionTraits<T>::spec(); };
  * specialization).
  */
 template <typename T>
-concept HasAdmissionSpec = detail::HasAdmissionAdl<T> || detail::HasAdmissionTrait<T>;
+concept HasAdmissionSpec = detail::HasAdmissionAdl<T> or detail::HasAdmissionTrait<T>;
 
 /**
  * @brief Resolve the @ref AdmissionSpec associated with @p T.
@@ -304,9 +337,10 @@ preAdmit(std::span<uint8_t const> payload)
 /**
  * @brief Make a fresh streaming checker for type @p T, bound to its resolved tunables.
  *
- * The binding point between a caller-provided payload visitor and the type's @ref AdmissionSpec:
- * call once per message to get an `AdmissionDecision(VisitEvent const&)` callable, then feed it
- * each event and stop on the first drop. See @ref ConnectionLimiter::admit.
+ * The binding point between a caller-provided payload visitor and the type's
+ * @ref AdmissionSpec — call once per message to get an `AdmissionDecision(VisitEvent const&)`
+ * callable, then feed it each event and stop on the first drop. See @ref
+ * admission::spec::ConnectionLimiter::admit().
  */
 template <typename T>
     requires HasAdmissionSpec<T>

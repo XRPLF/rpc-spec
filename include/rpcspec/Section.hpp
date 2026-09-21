@@ -17,7 +17,7 @@ namespace rpc::spec {
  * both requirements and modifiers on nested fields. When the field is absent
  * the Section is a no-op; when the field is present but not an object it
  * returns RpcInvalidParams. Nested FieldSpecs are applied via processNested()
- * which navigates into the object using FA::child().
+ * which navigates into the object using View::child().
  *
  * Example:
  *   field("taker_pays", section(
@@ -28,33 +28,54 @@ namespace rpc::spec {
 template <typename... SubFields>
 struct Section
 {
+    /**
+     * @brief Identifier for this item in the schema dump ("section").
+     */
     static constexpr std::string_view kName = "section";
 
+    /**
+     * @brief Field specs applied to the nested object.
+     */
     std::tuple<SubFields...> subFields;
 
+    /**
+     * @brief Construct a @ref Section.
+     *
+     * @param sf The field specs applied to the nested object.
+     */
     consteval explicit Section(SubFields... sf) : subFields{sf...}
     {
     }
 
-    template <SomeFieldView FA>
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
     [[nodiscard]] MaybeError
-    modify(FA& fa) const
+    modify(View& fieldView) const
     {
-        if (!fa.present())
+        if (not fieldView.present())
             return {};
-        if (!fa.isObject())
+        if (not fieldView.isObject())
             return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
 
         MaybeError result{};
         std::apply(
             [&](auto const&... subSpec) {
-                (void)((result = subSpec.processNested(fa), result.has_value()) && ...);
+                (void)((result = subSpec.processNested(fieldView), result.has_value()) and ...);
             },
             subFields);
         return result;
     }
 };
 
+/**
+ * @brief Deduction guide for @ref Section.
+ */
 template <typename... Fs>
 Section(Fs...) -> Section<Fs...>;
 

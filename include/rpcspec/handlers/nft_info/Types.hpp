@@ -16,7 +16,14 @@ namespace rpc::spec::handlers::nft_info {
  */
 struct Input
 {
+    /**
+     * @brief The ledger selected by `ledger_hash` / `ledger_index`, or unspecified.
+     */
     LedgerSpecifier ledger;
+
+    /**
+     * @brief Value of the `nft_id` request field.
+     */
     xrpl::uint256 nftID;
 };
 

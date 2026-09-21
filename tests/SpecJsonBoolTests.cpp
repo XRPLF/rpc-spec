@@ -1,16 +1,14 @@
-/** @file
+/**
+ * @file
  *  GTest coverage for the lenient `jsonBool` converter and the JsonBool type.
  *  Compiled under RPCSPEC_IS_XRPLD.
  */
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
-#include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Typed.hpp>
-
-#include <xrpl_mock.hpp>
 
 using namespace rpc::spec;
 
@@ -26,9 +24,9 @@ JsonBool
 parseFlag(char const* json)
 {
     auto value = boost::json::parse(json);
-    auto const r = kFlagSpec.parse(value);
-    EXPECT_TRUE(r.has_value());
-    return r->flag;
+    auto const result = kFlagSpec.parse(value);
+    EXPECT_TRUE(result.has_value());
+    return result->flag;
 }
 }  // namespace
 

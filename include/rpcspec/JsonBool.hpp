@@ -21,6 +21,9 @@ namespace rpc::spec {
  */
 struct JsonBool
 {
+    /**
+     * @brief The coerced boolean value.
+     */
     bool value = false;
 
     /** @cond */
@@ -56,11 +59,11 @@ tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const&
         case boost::json::kind::string:
             // Also should be `jsonValue.as_string() != "false"` but xrpld doesn't do
             // that. Anyway for v2 api we have bool validation
-            return JsonBool{!jsonValue.as_string().empty() && jsonValue.as_string()[0] != 0};
+            return JsonBool{not jsonValue.as_string().empty() and jsonValue.as_string()[0] != 0};
         case boost::json::kind::array:
-            return JsonBool{!jsonValue.as_array().empty()};
+            return JsonBool{not jsonValue.as_array().empty()};
         case boost::json::kind::object:
-            return JsonBool{!jsonValue.as_object().empty()};
+            return JsonBool{not jsonValue.as_object().empty()};
     }
     throw std::runtime_error("Invalid json value");
 }

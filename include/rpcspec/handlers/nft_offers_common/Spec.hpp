@@ -1,7 +1,6 @@
 /** @file */
 #pragma once
 // Shared constexpr spec for the 'nft_buy_offers' / 'nft_sell_offers' RPC commands.
-// Single source of truth — both Clio and xrpld include this file.
 
 #include <xrpl/basics/base_uint.h>
 
@@ -18,6 +17,9 @@
 
 namespace rpc::spec::handlers::nft_offers_common {
 
+/**
+ * @brief The spec that validates a request and parses it into `Input`.
+ */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("nft_id", &Input::nftID, required, asUint256),
@@ -31,10 +33,16 @@ inline constexpr auto kInputSpec = spec<Input>(
         asUint32),
     field("marker", &Input::marker, asUint256));
 
-/** @brief Version-selecting spec (resolved from Input via specFor). */
+/**
+ * @brief Version-selecting spec (resolved from Input via specFor).
+ */
 inline constexpr auto kSpec = versioned<Input>(kInputSpec);
 
-/** @brief ADL hook: resolve the versioned spec from the Input type. */
+/**
+ * @brief ADL hook: resolve the versioned spec from the Input type.
+ *
+ * @return A reference to this handler's `kSpec`, for `HandlerFor` to select a version from.
+ */
 [[nodiscard]] constexpr auto const&
 specFor(Input const*) noexcept
 {
