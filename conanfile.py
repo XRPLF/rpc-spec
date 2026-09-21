@@ -49,6 +49,12 @@ class XrplRpcSpecConan(ConanFile):
         "boost/*:without_cobalt": True,
     }
 
+    def configure(self):
+        # Match what Clio and xrpld request, so the prebuilt Boost on the xrplf remote is
+        # reused instead of rebuilt from source. Both set this for apple-clang.
+        if self.settings.compiler == "apple-clang":
+            self.options["boost"].visibility = "global"
+
     def requirements(self):
         if self.options.tests:
             # Tests run against the xrpld (xrpl::) backend, but mock the small
