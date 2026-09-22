@@ -259,8 +259,8 @@ template <typename T, typename Check>
 visitPackedFixed(std::span<uint8_t const> body, uint64_t field, Check& check)
 {
     using Trait = detail::PackedTrait<T>;
-    using ReadType = typename Trait::ReadType;
-    using WriteType = typename Trait::WriteType;
+    using ReadType = Trait::ReadType;
+    using WriteType = Trait::WriteType;
     static constexpr auto kSize = sizeof(ReadType);
 
     for (auto pos = size_t{}; pos + kSize <= body.size(); pos += kSize)

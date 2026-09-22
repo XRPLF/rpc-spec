@@ -1,0 +1,83 @@
+name: Reusable build and test
+
+on:
+  workflow_call:
+    inputs:
+      runs_on:
+        description: Runner to run the job on
+        required: true
+        type: string
+
+      container:
+        description: "The container object as a JSON string (leave empty to run natively)"
+        required: true
+        type: string
+
+      compiler:
+        description: 'Compiler to build with ("gcc", "clang" or "apple-clang")'
+        required: true
+        type: string
+
+      build_type:
+        description: Build type
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ${{ inputs.runs_on }}
+    container: ${{ inputs.container != '' && fromJson(inputs.container) || null }}
+
+    steps:
+      - name: Cleanup workspace
+        if: ${{ runner.os == 'macOS' }}
+        uses: XRPLF/actions/cleanup-workspace@c7d9ce5ebb03c752a354889ecd870cadfc2b1cd4
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare runner
+        uses: XRPLF/actions/prepare-runner@b3e255d74d785d053e4903da8ac90983cd7d9e82
+        with:
+          enable_ccache: false
+
+      - name: Print build environment
+        uses: XRPLF/actions/print-build-env@59dec886e4afb05a1724443af08baccbc045b574
+
+      - name: Set compiler environment
+        if: ${{ runner.os == 'Linux' }}
+        uses: ./.github/actions/set-compiler-env
+        with:
+          compiler: ${{ inputs.compiler }}
+
+      - name: Setup conan
+        run: ./conan/init.sh
+
+      - name: Run conan
+        uses: ./.github/actions/conan
+        with:
+          build_type: ${{ inputs.build_type }}
+
+      - name: Run CMake
+        uses: ./.github/actions/cmake
+        with:
+          build_type: ${{ inputs.build_type }}
+
+      - name: Get number of processors
+        uses: XRPLF/actions/get-nproc@cf0433aa74563aead044a1e395610c96d65a37cf
+        id: nproc
+
+      - name: Build the tests
+        run: |
+          cmake --build --preset "${RPCSPEC_PRESET}" --parallel ${{ steps.nproc.outputs.nproc }}
+
+      # Two executables are built from one configure: rpcspec_tests covers the xrpld
+      # backend and rpcspec_clio_tests the Clio one. The backend macros are mutually
+      # exclusive within a binary, so both are needed to cover the whole DSL.
+      - name: Run the tests
+        run: |
+          ctest --preset "${RPCSPEC_PRESET}" --output-on-failure

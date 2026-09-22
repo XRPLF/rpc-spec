@@ -308,7 +308,7 @@ using SpecOf = decltype(admissionSpecFor<T>());
  */
 template <typename T>
     requires HasAdmissionSpec<T>
-using ResolvedOf = typename SpecOf<T>::Resolved;
+using ResolvedOf = SpecOf<T>::Resolved;
 
 /**
  * @brief The resolved tunables for type @p T.

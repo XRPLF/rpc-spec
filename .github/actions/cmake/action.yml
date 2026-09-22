@@ -1,0 +1,25 @@
+name: Run CMake
+description: Configure the standalone test build using the Conan-generated preset
+
+inputs:
+  build_type:
+    description: Build type. Could be 'Release', 'Debug'
+    required: true
+    default: "Release"
+
+runs:
+  using: composite
+  steps:
+    - name: Run cmake
+      shell: bash
+      env:
+        BUILD_TYPE: "${{ inputs.build_type }}"
+      run: |
+        # Conan names its single-config presets after the lowercased build type.
+        PRESET="conan-$(echo "${BUILD_TYPE}" | tr '[:upper:]' '[:lower:]')"
+        cmake --preset "${PRESET}" \
+            -Drpcspec_tests=ON \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        # Export both for later steps: ctest needs the preset, clang-tidy the build dir.
+        echo "RPCSPEC_PRESET=${PRESET}" >>"${GITHUB_ENV}"
+        echo "RPCSPEC_BUILD_DIR=build/${BUILD_TYPE}" >>"${GITHUB_ENV}"
