@@ -131,3 +131,26 @@ TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcCurMalformed);
 }
+
+TEST(BookOffersSpec, NonStringMptIssuanceIdNamesMptIssuanceIdField)
+{
+    // Deliberately diverges from xrpld, which names `.currency` here — see #3205.
+    auto const result = parseBookOffers(R"JSON({
+        "taker_gets": {"mpt_issuance_id": 123},
+        "taker_pays": {"currency": "XRP"}
+    })JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.mpt_issuance_id', not string.");
+}
+
+TEST(BookOffersSpec, NonStringTakerPaysMptIssuanceIdNamesMptIssuanceIdField)
+{
+    auto const result = parseBookOffers(R"JSON({
+        "taker_gets": {"currency": "XRP"},
+        "taker_pays": {"mpt_issuance_id": true}
+    })JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_pays.mpt_issuance_id', not string.");
+}
