@@ -135,16 +135,9 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
 
     if (not hasCurrency and not hasMptId)
     {
-#if defined(RPCSPEC_IS_CLIO)
-        // Clio requires `currency` inside the taker section, so a request naming neither
-        // fails with that Required message rather than one mentioning mpt_issuance_id.
-        return std::unexpected{
-            rpc::Status{rpc::RippledError::RpcInvalidParams, "Required field 'currency' missing"}};
-#else
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Missing field '" + std::string{fieldView.key()} + ".currency'."}};
-#endif
     }
 
     if (hasMptId and (hasCurrency or fieldView.child("issuer").present()))
@@ -154,17 +147,24 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
             "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
 
-#if !defined(RPCSPEC_IS_CLIO)
-    // Clio deliberately omits this check and leaves a non-string value to the section's own
-    // withCustomError(currency|uint192Hex, Rpc{Src,Dst}...Malformed); checking it here would
-    // preempt that and downgrade the code to invalidParams.
-    if ((hasCurrency and not currencyView.isString()) or (hasMptId and not mptView.isString()))
+    // Wrong types are caught here, ahead of the section's own
+    // withCustomError(currency|uint192Hex, Rpc{Src,Dst}...Malformed), so those own bad *values*
+    // only; that ordering is what makes a wrong type invalidParams rather than
+    // src/dstCurMalformed. xrpld's validateTakerJSON names `.currency` in both arms, which
+    // misreports the mpt_issuance_id case — see #3205.
+    if (hasCurrency and not currencyView.isString())
     {
         return std::unexpected{rpc::Status{
             rpc::RippledError::RpcInvalidParams,
             "Invalid field '" + std::string{fieldView.key()} + ".currency', not string."}};
     }
-#endif
+
+    if (hasMptId and not mptView.isString())
+    {
+        return std::unexpected{rpc::Status{
+            rpc::RippledError::RpcInvalidParams,
+            "Invalid field '" + std::string{fieldView.key()} + ".mpt_issuance_id', not string."}};
+    }
 
     return {};
 }};
