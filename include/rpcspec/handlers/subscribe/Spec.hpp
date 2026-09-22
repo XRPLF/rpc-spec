@@ -374,7 +374,7 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
 
         if (payCurrency == getCurrency and payIssuer == getIssuer)
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcBadMarket, "badMarket"}};
+            return std::unexpected{rpc::Status{rpc::RippledError::RpcBadMarket}};
         }
 
         // book-level domain (mirrors inner parseBook overload): must parse as hex

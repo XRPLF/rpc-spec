@@ -7,6 +7,7 @@
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
 
 #include <expected>
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -36,7 +37,7 @@ parse(std::string const& json)
 [[nodiscard]] std::string
 request(std::string const& extra)
 {
-    return R"({"mpt_issuance_id": ")" + std::string{kMptId} + R"(")" + extra + "}";
+    return std::format(R"({{"mpt_issuance_id": "{}"{}}})", kMptId, extra);
 }
 
 }  // namespace
@@ -50,8 +51,8 @@ TEST(MPTHoldersSpec, AccountsAbsentLeavesFilterUnset)
 
 TEST(MPTHoldersSpec, AccountsParsedIntoAccountIdVector)
 {
-    auto const result = parse(
-        request(R"(, "accounts": [")" + std::string{kAccount} + R"(", ")" + kAccount2 + R"("])"));
+    auto const result =
+        parse(request(std::format(R"(, "accounts": ["{}", "{}"])", kAccount, kAccount2)));
     ASSERT_TRUE(result.has_value());
     ASSERT_TRUE(result->accounts.has_value());
     EXPECT_EQ(result->accounts->size(), 2u);
@@ -78,9 +79,9 @@ TEST(MPTHoldersSpec, AccountsRejectsMoreThanTheBound)
 {
     std::string accounts;
     for (auto i = 0uz; i <= kMaxAccounts; ++i)
-        accounts += (i == 0 ? "\"" : ", \"") + std::string{kAccount} + "\"";
+        accounts += std::format("{}\"{}\"", i == 0 ? "" : ", ", kAccount);
 
-    auto const result = parse(request(R"(, "accounts": [)" + accounts + "]"));
+    auto const result = parse(request(std::format(R"(, "accounts": [{}])", accounts)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(
         result.error().message, "Invalid field 'accounts', not an array of 1 to 100 account IDs.");
@@ -90,9 +91,9 @@ TEST(MPTHoldersSpec, AccountsAcceptsExactlyTheBound)
 {
     std::string accounts;
     for (auto i = 0uz; i < kMaxAccounts; ++i)
-        accounts += (i == 0 ? "\"" : ", \"") + std::string{kAccount} + "\"";
+        accounts += std::format("{}\"{}\"", i == 0 ? "" : ", ", kAccount);
 
-    auto const result = parse(request(R"(, "accounts": [)" + accounts + "]"));
+    auto const result = parse(request(std::format(R"(, "accounts": [{}])", accounts)));
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->accounts->size(), kMaxAccounts);
 }
@@ -117,8 +118,8 @@ TEST(MPTHoldersSpec, AccountsRejectsMalformedElement)
 
 TEST(MPTHoldersSpec, MarkerAndAccountsBothParseSoTheHandlerCanRejectThePair)
 {
-    auto const result = parse(request(
-        R"(, "accounts": [")" + std::string{kAccount} + R"("], "marker": ")" + kMarker + R"(")"));
+    auto const result =
+        parse(request(std::format(R"(, "accounts": ["{}"], "marker": "{}")", kAccount, kMarker)));
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result->accounts.has_value());
     EXPECT_TRUE(result->marker.has_value());

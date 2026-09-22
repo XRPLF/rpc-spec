@@ -16,7 +16,7 @@ using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kHash64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
+constexpr auto kHash64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
 
 struct LedgerOnlyInput
 {

@@ -26,7 +26,10 @@ inline constexpr auto kStringIssueValidator =
     CustomValidator{[](auto const& fieldView) -> MaybeError {
         try
         {
-            xrpl::issueFromJson(std::string{fieldView.asString()});
+            // Only the throw/no-throw outcome matters here; the parsed value is
+            // produced later by IssueConverter.
+            [[maybe_unused]] auto const parsed =
+                xrpl::issueFromJson(std::string{fieldView.asString()});
         }
         catch (std::runtime_error const&)
         {
