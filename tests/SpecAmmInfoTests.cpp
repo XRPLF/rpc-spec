@@ -17,6 +17,7 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/amm_info/Spec.hpp>
 #include <rpcspec/handlers/amm_info/Types.hpp>
 

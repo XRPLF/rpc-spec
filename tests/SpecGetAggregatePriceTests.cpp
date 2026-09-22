@@ -11,10 +11,9 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Spec.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Types.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <string>
 

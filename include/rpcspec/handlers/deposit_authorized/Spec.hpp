@@ -56,8 +56,10 @@ struct CredentialsArrayConverter
         std::vector<xrpl::uint256> out;
         out.reserve(size);
         for (auto i = 0uz; i < size; ++i)
+        {
             out.push_back(
                 detail::uint256FromValidated(std::string{fieldView.element(i).asString()}));
+        }
         return out;
     }
 };

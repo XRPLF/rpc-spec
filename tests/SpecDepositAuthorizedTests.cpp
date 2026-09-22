@@ -12,10 +12,9 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/deposit_authorized/Spec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <string>
 

@@ -13,10 +13,9 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <string>
 

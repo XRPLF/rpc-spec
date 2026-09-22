@@ -10,10 +10,9 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/ledger_index/Spec.hpp>
 #include <rpcspec/handlers/ledger_index/Types.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <string>
 

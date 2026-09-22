@@ -11,10 +11,9 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/nft_history/Spec.hpp>
 #include <rpcspec/handlers/nft_history/Types.hpp>
-
-#include <xrpl_mock.hpp>
 
 #include <cstdint>
 #include <limits>
