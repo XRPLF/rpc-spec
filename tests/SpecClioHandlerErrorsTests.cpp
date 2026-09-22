@@ -21,6 +21,7 @@
 
 #include <xrpl_mock.hpp>
 
+#include <format>
 #include <string>
 #include <variant>
 
@@ -51,8 +52,7 @@ parseLedgerData(std::string const& json)
 
 TEST(VaultInfoSpecClio, ValidRequestStillParses)
 {
-    auto const result =
-        parseVault(std::string{R"JSON({"owner": ")JSON"} + kAcct1 + R"JSON(", "seq": 5})JSON");
+    auto const result = parseVault(std::format(R"JSON({{"owner": "{}", "seq": 5}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
@@ -93,8 +93,7 @@ TEST(VaultInfoSpecClio, NonIntegerSeqIsBareMalformedRequest)
 TEST(VaultInfoSpecClio, SeqZeroIsAcceptedBySpec)
 {
     // Matches the xrpld arm: the spec type-checks only.
-    auto const result =
-        parseVault(std::string{R"JSON({"owner": ")JSON"} + kAcct1 + R"JSON(", "seq": 0})JSON");
+    auto const result = parseVault(std::format(R"JSON({{"owner": "{}", "seq": 0}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
@@ -103,8 +102,7 @@ TEST(VaultInfoSpecClio, SeqZeroIsAcceptedBySpec)
 
 TEST(LedgerDataSpecClio, HexStringMarkerStillParses)
 {
-    auto const result =
-        parseLedgerData(std::string{R"JSON({"marker": ")JSON"} + kHex1 + R"JSON("})JSON");
+    auto const result = parseLedgerData(std::format(R"JSON({{"marker": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->marker.has_value());
@@ -116,7 +114,7 @@ TEST(LedgerDataSpecClio, OtherMarkerTypesAreMessageLess)
     // xrpld emits "markerNotString" here; Clio deliberately emits nothing.
     for (auto const* bad : {"true", "{}", "[]", "-1"})
     {
-        auto const result = parseLedgerData(std::string{R"JSON({"marker": )JSON"} + bad + "}");
+        auto const result = parseLedgerData(std::format(R"JSON({{"marker": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
         EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_TRUE(result.error().message.empty())

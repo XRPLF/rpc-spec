@@ -16,6 +16,7 @@
 #include <rpcspec/handlers/gateway_balances/Spec.hpp>
 #include <rpcspec/handlers/gateway_balances/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -43,8 +44,7 @@ parseV2(std::string const& json)
 std::string
 withHotWallet(std::string const& hotWalletJson)
 {
-    return std::string{R"JSON({"account": ")JSON"} + kAcct1 + R"JSON(", "hotwallet": )JSON" +
-        hotWalletJson + "}";
+    return std::format(R"JSON({{"account": "{}", "hotwallet": {}}})JSON", kAcct1, hotWalletJson);
 }
 
 }  // namespace
@@ -57,7 +57,7 @@ TEST(GatewayBalancesSpec, AccountRequired)
 
 TEST(GatewayBalancesSpec, AccountOnlyParsesWithNoHotWallets)
 {
-    auto const result = parseV1(std::string{R"JSON({"account": ")JSON"} + kAcct1 + R"JSON("})JSON");
+    auto const result = parseV1(std::format(R"JSON({{"account": "{}"}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_TRUE(result->hotWallets.empty());
@@ -65,7 +65,7 @@ TEST(GatewayBalancesSpec, AccountOnlyParsesWithNoHotWallets)
 
 TEST(GatewayBalancesSpec, HotWalletSingleStringParses)
 {
-    auto const result = parseV1(withHotWallet(std::string{"\""} + kAcct2 + "\""));
+    auto const result = parseV1(withHotWallet(std::format(R"("{}")", kAcct2)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_EQ(result->hotWallets.size(), 1u);
@@ -73,8 +73,7 @@ TEST(GatewayBalancesSpec, HotWalletSingleStringParses)
 
 TEST(GatewayBalancesSpec, HotWalletArrayParses)
 {
-    auto const result =
-        parseV1(withHotWallet(std::string{"[\""} + kAcct1 + "\", \"" + kAcct2 + "\"]"));
+    auto const result = parseV1(withHotWallet(std::format(R"(["{}", "{}"])", kAcct1, kAcct2)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_EQ(result->hotWallets.size(), 2u);
@@ -83,8 +82,7 @@ TEST(GatewayBalancesSpec, HotWalletArrayParses)
 TEST(GatewayBalancesSpec, HotWalletArrayDeduplicates)
 {
     // ValueType is std::set<AccountID>, so a repeated entry collapses.
-    auto const result =
-        parseV1(withHotWallet(std::string{"[\""} + kAcct1 + "\", \"" + kAcct1 + "\"]"));
+    auto const result = parseV1(withHotWallet(std::format(R"(["{}", "{}"])", kAcct1, kAcct1)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_EQ(result->hotWallets.size(), 1u);
@@ -134,8 +132,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedStringIsInvalidParams)
 
 TEST(GatewayBalancesSpec, V1HotWalletMalformedArrayElementIsInvalidHotwallet)
 {
-    auto const result =
-        parseV1(withHotWallet(std::string{"[\""} + kAcct1 + "\", \"notanaccount\"]"));
+    auto const result = parseV1(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
@@ -143,8 +140,7 @@ TEST(GatewayBalancesSpec, V1HotWalletMalformedArrayElementIsInvalidHotwallet)
 
 TEST(GatewayBalancesSpec, V2HotWalletMalformedArrayElementIsInvalidParams)
 {
-    auto const result =
-        parseV2(withHotWallet(std::string{"[\""} + kAcct1 + "\", \"notanaccount\"]"));
+    auto const result = parseV2(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
@@ -152,7 +148,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedArrayElementIsInvalidParams)
 
 TEST(GatewayBalancesSpec, HotWalletNonStringArrayElementIsRejected)
 {
-    auto const result = parseV1(withHotWallet(std::string{"[\""} + kAcct1 + "\", 42]"));
+    auto const result = parseV1(withHotWallet(std::format(R"(["{}", 42])", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");

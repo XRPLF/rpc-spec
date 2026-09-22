@@ -14,6 +14,7 @@
 #include <rpcspec/handlers/ledger_index/Spec.hpp>
 #include <rpcspec/handlers/ledger_index/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -61,7 +62,7 @@ TEST(LedgerIndexSpec, NonStringDateIsInvalidParams)
 {
     for (auto const* bad : {"123", "true", "{}", "[]"})
     {
-        auto const result = parse(std::string{R"JSON({"date": )JSON"} + bad + "}");
+        auto const result = parse(std::format(R"JSON({{"date": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "date=" << bad << " unexpectedly accepted";
         EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "date=" << bad;
     }
@@ -73,7 +74,7 @@ TEST(LedgerIndexSpec, MisformattedDateIsInvalidParams)
     for (auto const* bad :
          {"2024-01-15 12:30:45Z", "2024-01-15T12:30:45", "2024-01-15", "notadate", ""})
     {
-        auto const result = parse(std::string{R"JSON({"date": ")JSON"} + bad + R"JSON("})JSON");
+        auto const result = parse(std::format(R"JSON({{"date": "{}"}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "date=" << bad << " unexpectedly accepted";
         EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "date=" << bad;
     }

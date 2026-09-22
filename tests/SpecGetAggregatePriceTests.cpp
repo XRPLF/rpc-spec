@@ -15,6 +15,7 @@
 #include <rpcspec/handlers/get_aggregate_price/Spec.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -35,15 +36,14 @@ parse(std::string const& json)
 std::string
 withOracles(std::string const& oraclesJson)
 {
-    return std::string{R"JSON({"base_asset": "USD", "quote_asset": "XRP", "oracles": )JSON"} +
-        oraclesJson + "}";
+    return std::format(
+        R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": {}}})JSON", oraclesJson);
 }
 
 std::string
 oneOracle()
 {
-    return std::string{R"JSON([{"oracle_document_id": 1, "account": ")JSON"} + kAcct1 +
-        R"JSON("}])JSON";
+    return std::format(R"JSON([{{"oracle_document_id": 1, "account": "{}"}}])JSON", kAcct1);
 }
 
 }  // namespace
@@ -60,7 +60,7 @@ TEST(GetAggregatePriceSpec, MinimalValidRequestParses)
 TEST(GetAggregatePriceSpec, BaseAssetRequired)
 {
     auto value = boost::json::parse(
-        std::string{R"JSON({"quote_asset": "XRP", "oracles": )JSON"} + oneOracle() + "}");
+        std::format(R"JSON({{"quote_asset": "XRP", "oracles": {}}})JSON", oneOracle()));
     auto const result = kInputSpec.parse(value);
     ASSERT_FALSE(result.has_value());
 }
@@ -96,8 +96,7 @@ TEST(GetAggregatePriceSpec, OraclesElementNotObjectIsOracleMalformed)
 
 TEST(GetAggregatePriceSpec, OraclesMissingDocumentIdIsOracleMalformed)
 {
-    auto const result =
-        parse(withOracles(std::string{R"JSON([{"account": ")JSON"} + kAcct1 + R"JSON("}])JSON"));
+    auto const result = parse(withOracles(std::format(R"JSON([{{"account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
 }
@@ -113,8 +112,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
 {
     // Neither uint32 nor string — rejected by the Type<uint32_t, std::string> gate.
     auto const result = parse(withOracles(
-        std::string{R"JSON([{"oracle_document_id": {}, "account": ")JSON"} + kAcct1 +
-        R"JSON("}])JSON"));
+        std::format(R"JSON([{{"oracle_document_id": {{}}, "account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
 }
@@ -122,8 +120,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
 TEST(GetAggregatePriceSpec, OraclesDocumentIdNumericStringIsAccepted)
 {
     auto const result = parse(withOracles(
-        std::string{R"JSON([{"oracle_document_id": "123", "account": ")JSON"} + kAcct1 +
-        R"JSON("}])JSON"));
+        std::format(R"JSON([{{"oracle_document_id": "123", "account": "{}"}}])JSON", kAcct1)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_EQ(result->oracles.size(), 1u);
@@ -136,8 +133,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdNonNumericStringIsInvalidParams)
     // ToNumberModifier fails, and its InvalidParams is propagated verbatim
     // rather than being remapped to RpcOracleMalformed.
     auto const result = parse(withOracles(
-        std::string{R"JSON([{"oracle_document_id": "a", "account": ")JSON"} + kAcct1 +
-        R"JSON("}])JSON"));
+        std::format(R"JSON([{{"oracle_document_id": "a", "account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
 }
@@ -164,8 +160,10 @@ TEST(GetAggregatePriceSpec, TrimAtBoundsParses)
     for (auto const* trim : {"1", "25"})
     {
         auto value = boost::json::parse(
-            std::string{R"JSON({"base_asset": "USD", "quote_asset": "XRP", "oracles": )JSON"} +
-            oneOracle() + R"JSON(, "trim": )JSON" + trim + "}");
+            std::format(
+                R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": {}, "trim": {}}})JSON",
+                oneOracle(),
+                trim));
         auto const result = kInputSpec.parse(value);
         ASSERT_TRUE(result.has_value()) << "trim=" << trim << " msg: " << result.error().message;
         ASSERT_TRUE(result->trim.has_value());
@@ -177,8 +175,10 @@ TEST(GetAggregatePriceSpec, TrimOutOfRangeIsRejected)
     for (auto const* trim : {"0", "26"})
     {
         auto value = boost::json::parse(
-            std::string{R"JSON({"base_asset": "USD", "quote_asset": "XRP", "oracles": )JSON"} +
-            oneOracle() + R"JSON(, "trim": )JSON" + trim + "}");
+            std::format(
+                R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": {}, "trim": {}}})JSON",
+                oneOracle(),
+                trim));
         auto const result = kInputSpec.parse(value);
         ASSERT_FALSE(result.has_value()) << "trim=" << trim << " unexpectedly accepted";
     }
@@ -187,8 +187,9 @@ TEST(GetAggregatePriceSpec, TrimOutOfRangeIsRejected)
 TEST(GetAggregatePriceSpec, TimeThresholdParses)
 {
     auto value = boost::json::parse(
-        std::string{R"JSON({"base_asset": "USD", "quote_asset": "XRP", "oracles": )JSON"} +
-        oneOracle() + R"JSON(, "time_threshold": 60})JSON");
+        std::format(
+            R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": {}, "time_threshold": 60}})JSON",
+            oneOracle()));
     auto const result = kInputSpec.parse(value);
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
     ASSERT_TRUE(result->timeThreshold.has_value());

@@ -19,6 +19,7 @@
 #include <xrpl_mock.hpp>
 
 #include <cstdint>
+#include <format>
 #include <string>
 #include <variant>
 
@@ -76,7 +77,7 @@ TEST(LedgerDataSpec, LimitBooleanIsRejected)
 
 TEST(LedgerDataSpec, HexStringMarkerParsesAsUint256)
 {
-    auto const result = parse(std::string{R"JSON({"marker": ")JSON"} + kHex1 + R"JSON("})JSON");
+    auto const result = parse(std::format(R"JSON({{"marker": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->marker.has_value());
@@ -106,7 +107,7 @@ TEST(LedgerDataSpec, OtherMarkerTypesReportMarkerNotString)
     // The xrpld arm carries an explicit token here; Clio's is message-less.
     for (auto const* bad : {"true", "{}", "[]", "-1"})
     {
-        auto const result = parse(std::string{R"JSON({"marker": )JSON"} + bad + "}");
+        auto const result = parse(std::format(R"JSON({{"marker": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
         EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_EQ(result.error().message, "markerNotString") << "marker=" << bad;

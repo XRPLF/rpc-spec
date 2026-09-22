@@ -17,6 +17,7 @@
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -50,7 +51,7 @@ TEST(VaultInfoSpec, EmptyRequestParses)
 
 TEST(VaultInfoSpec, VaultIdParses)
 {
-    auto const result = parse(std::string{R"JSON({"vault_id": ")JSON"} + kHex1 + R"JSON("})JSON");
+    auto const result = parse(std::format(R"JSON({{"vault_id": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->vaultID.has_value());
@@ -58,8 +59,7 @@ TEST(VaultInfoSpec, VaultIdParses)
 
 TEST(VaultInfoSpec, OwnerAndSeqParse)
 {
-    auto const result =
-        parse(std::string{R"JSON({"owner": ")JSON"} + kAcct1 + R"JSON(", "seq": 5})JSON");
+    auto const result = parse(std::format(R"JSON({{"owner": "{}", "seq": 5}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->owner.has_value());
@@ -71,8 +71,7 @@ TEST(VaultInfoSpec, SeqZeroIsAcceptedBySpec)
 {
     // xrpld rejects seq == 0 inside parseVault(), not in the spec; the spec's
     // job is only the type check.
-    auto const result =
-        parse(std::string{R"JSON({"owner": ")JSON"} + kAcct1 + R"JSON(", "seq": 0})JSON");
+    auto const result = parse(std::format(R"JSON({{"owner": "{}", "seq": 0}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->tnxSequence.has_value());

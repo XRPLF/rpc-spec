@@ -16,6 +16,7 @@
 #include <rpcspec/handlers/nft_history/Types.hpp>
 
 #include <cstdint>
+#include <format>
 #include <limits>
 #include <string>
 
@@ -36,7 +37,7 @@ parse(std::string const& json)
 std::string
 req(std::string const& extra = {})
 {
-    return std::string{R"JSON({"nft_id": ")JSON"} + kNftId + R"JSON(")JSON" + extra + "}";
+    return std::format(R"JSON({{"nft_id": "{}"{}}})JSON", kNftId, extra);
 }
 
 }  // namespace
@@ -143,7 +144,7 @@ TEST(NftHistorySpec, NonObjectMarkerReportsInvalidMarker)
 {
     for (auto const* bad : {"5", R"("x")", "true", "[]"})
     {
-        auto const result = parse(req(std::string{R"JSON(, "marker": )JSON"} + bad));
+        auto const result = parse(req(std::format(R"JSON(, "marker": {})JSON", bad)));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
         EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_EQ(result.error().message, "invalidMarker") << "marker=" << bad;

@@ -23,6 +23,7 @@
 
 #include <xrpl_mock.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -44,8 +45,7 @@ parse(std::string const& json)
 std::string
 withAsset(std::string const& assetJson)
 {
-    return std::string{R"JSON({"asset": )JSON"} + assetJson +
-        R"JSON(, "asset2": {"currency": "XRP"}})JSON";
+    return std::format(R"JSON({{"asset": {}, "asset2": {{"currency": "XRP"}}}})JSON", assetJson);
 }
 
 }  // namespace
@@ -61,8 +61,9 @@ TEST(AmmInfoSpec, EmptyRequestParses)
 TEST(AmmInfoSpec, ObjectAssetsParse)
 {
     auto const result = parse(
-        std::string{R"JSON({"asset": {"currency": "USD", "issuer": ")JSON"} + kAcct1 +
-        R"JSON("}, "asset2": {"currency": "XRP"}})JSON");
+        std::format(
+            R"JSON({{"asset": {{"currency": "USD", "issuer": "{}"}}, "asset2": {{"currency": "XRP"}}}})JSON",
+            kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
@@ -70,8 +71,9 @@ TEST(AmmInfoSpec, ObjectAssetsParse)
 TEST(AmmInfoSpec, XrpObjectAssetYieldsXrpIssue)
 {
     auto const result = parse(
-        std::string{R"JSON({"asset": {"currency": "XRP"}, "asset2": {"currency": "USD",)JSON"} +
-        R"JSON( "issuer": ")JSON" + kAcct1 + R"JSON("}})JSON");
+        std::format(
+            R"JSON({{"asset": {{"currency": "XRP"}}, "asset2": {{"currency": "USD", "issuer": "{}"}}}})JSON",
+            kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_EQ(result->issue1, xrpl::xrpIssue());
@@ -115,8 +117,7 @@ TEST(AmmInfoSpec, ObjectAssetBadIssuerIsIssueMalformed)
 
 TEST(AmmInfoSpec, ObjectAssetMissingCurrencyIsIssueMalformed)
 {
-    auto const result =
-        parse(withAsset(std::string{R"JSON({"issuer": ")JSON"} + kAcct1 + R"JSON("})JSON"));
+    auto const result = parse(withAsset(std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
 }
@@ -132,9 +133,8 @@ TEST(AmmInfoSpec, ObjectAssetNonXrpMissingIssuerIsIssueMalformed)
 
 TEST(AmmInfoSpec, AccountAndAmmAccountParse)
 {
-    auto const result = parse(
-        std::string{R"JSON({"account": ")JSON"} + kAcct1 + R"JSON(", "amm_account": ")JSON" +
-        kAcct2 + R"JSON("})JSON");
+    auto const result =
+        parse(std::format(R"JSON({{"account": "{}", "amm_account": "{}"}})JSON", kAcct1, kAcct2));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->accountID.has_value());

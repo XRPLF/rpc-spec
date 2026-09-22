@@ -15,6 +15,7 @@
 #include <rpcspec/handlers/account_lines/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -36,7 +37,7 @@ parse(std::string const& json)
 std::string
 req(std::string const& extra = {})
 {
-    return std::string{R"JSON({"account": ")JSON"} + kAcct1 + R"JSON(")JSON" + extra + "}";
+    return std::format(R"JSON({{"account": "{}"{}}})JSON", kAcct1, extra);
 }
 
 }  // namespace
@@ -78,7 +79,7 @@ TEST(AccountLinesSpec, NonStringAccountIsAlsoActMalformed)
 
 TEST(AccountLinesSpec, PeerParses)
 {
-    auto const result = parse(req(std::string{R"JSON(, "peer": ")JSON"} + kAcct2 + R"JSON(")JSON"));
+    auto const result = parse(req(std::format(R"JSON(, "peer": "{}")JSON", kAcct2)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->peer.has_value());
@@ -105,7 +106,7 @@ TEST(AccountLinesSpec, IgnoreDefaultNonBoolIsRejected)
 {
     for (auto const* bad : {"1", R"("true")", "{}"})
     {
-        auto const result = parse(req(std::string{R"JSON(, "ignore_default": )JSON"} + bad));
+        auto const result = parse(req(std::format(R"JSON(, "ignore_default": {})JSON", bad)));
         ASSERT_FALSE(result.has_value()) << "ignore_default=" << bad << " unexpectedly accepted";
     }
 }
@@ -138,8 +139,7 @@ TEST(AccountLinesSpec, LimitZeroIsRejected)
 
 TEST(AccountLinesSpec, WellFormedMarkerParses)
 {
-    auto const result =
-        parse(req(std::string{R"JSON(, "marker": ")JSON"} + kHex1 + R"JSON(,7")JSON"));
+    auto const result = parse(req(std::format(R"JSON(, "marker": "{},7")JSON", kHex1)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->marker.has_value());
@@ -155,8 +155,7 @@ TEST(AccountLinesSpec, NonStringMarkerNamesTheField)
 
 TEST(AccountLinesSpec, MarkerWithoutCommaIsMalformedCursor)
 {
-    auto const result =
-        parse(req(std::string{R"JSON(, "marker": ")JSON"} + kHex1 + R"JSON(")JSON"));
+    auto const result = parse(req(std::format(R"JSON(, "marker": "{}")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
@@ -172,8 +171,7 @@ TEST(AccountLinesSpec, MarkerWithBadHexIsMalformedCursor)
 
 TEST(AccountLinesSpec, MarkerWithNonNumericHintIsMalformedCursor)
 {
-    auto const result =
-        parse(req(std::string{R"JSON(, "marker": ")JSON"} + kHex1 + R"JSON(,abc")JSON"));
+    auto const result = parse(req(std::format(R"JSON(, "marker": "{},abc")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
@@ -181,8 +179,7 @@ TEST(AccountLinesSpec, MarkerWithNonNumericHintIsMalformedCursor)
 
 TEST(AccountLinesSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 {
-    auto const result =
-        parse(req(std::string{R"JSON(, "marker": ")JSON"} + kHex1 + R"JSON(,7x")JSON"));
+    auto const result = parse(req(std::format(R"JSON(, "marker": "{},7x")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");

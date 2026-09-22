@@ -11,6 +11,7 @@
 #include <rpcspec/handlers/account_tx/Spec.hpp>
 #include <rpcspec/handlers/account_tx/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -24,8 +25,7 @@ constexpr auto kCounterparty = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 auto
 parseAccountTx(std::string const& delegateJson)
 {
-    auto const json =
-        std::string{R"JSON({"account": ")JSON"} + kAccount + R"JSON(")JSON" + delegateJson + "}";
+    auto const json = std::format(R"JSON({{"account": "{}"{}}})JSON", kAccount, delegateJson);
     auto value = boost::json::parse(json);
     return handlers::account_tx::kInputSpecV1.parse(value);
 }
@@ -51,9 +51,9 @@ TEST(AccountTxDelegateSpec, ActorParses)
 TEST(AccountTxDelegateSpec, AuthorizerWithCounterPartyParses)
 {
     auto const result = parseAccountTx(
-        std::string{
-            R"JSON(, "delegate": {"delegate_filter": "authorizer", "counter_party": ")JSON"} +
-        kCounterparty + R"JSON("})JSON");
+        std::format(
+            R"JSON(, "delegate": {{"delegate_filter": "authorizer", "counter_party": "{}"}})JSON",
+            kCounterparty));
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
     ASSERT_TRUE(result->delegateFilter.has_value());
     EXPECT_EQ(result->delegateFilter->delegateType, DelegateFilter::Role::Authorizer);

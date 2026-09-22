@@ -16,6 +16,7 @@
 #include <rpcspec/handlers/deposit_authorized/Spec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -31,8 +32,8 @@ constexpr auto kHex2 = "00000000000000000000000000000000000000000000000000000000
 std::string
 base()
 {
-    return std::string{R"JSON("source_account": ")JSON"} + kAcct1 +
-        R"JSON(", "destination_account": ")JSON" + kAcct2 + R"JSON(")JSON";
+    return std::format(
+        R"JSON("source_account": "{}", "destination_account": "{}")JSON", kAcct1, kAcct2);
 }
 
 auto
@@ -53,11 +54,9 @@ parseWithCredentials(std::string const& credentialsJson)
 TEST(DepositAuthorizedSpec, BothAccountsRequired)
 {
     EXPECT_FALSE(parse(R"JSON({})JSON").has_value());
-    EXPECT_FALSE(parse(std::string{R"JSON({"source_account": ")JSON"} + kAcct1 + R"JSON("})JSON")
-                     .has_value());
+    EXPECT_FALSE(parse(std::format(R"JSON({{"source_account": "{}"}})JSON", kAcct1)).has_value());
     EXPECT_FALSE(
-        parse(std::string{R"JSON({"destination_account": ")JSON"} + kAcct2 + R"JSON("})JSON")
-            .has_value());
+        parse(std::format(R"JSON({{"destination_account": "{}"}})JSON", kAcct2)).has_value());
 }
 
 TEST(DepositAuthorizedSpec, MinimalRequestParses)
@@ -71,8 +70,9 @@ TEST(DepositAuthorizedSpec, MinimalRequestParses)
 TEST(DepositAuthorizedSpec, MalformedSourceAccountIsActMalformed)
 {
     auto const result = parse(
-        std::string{R"JSON({"source_account": "notanaccount", "destination_account": ")JSON"} +
-        kAcct2 + R"JSON("})JSON");
+        std::format(
+            R"JSON({{"source_account": "notanaccount", "destination_account": "{}"}})JSON",
+            kAcct2));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "source_accountMalformed");
@@ -81,8 +81,7 @@ TEST(DepositAuthorizedSpec, MalformedSourceAccountIsActMalformed)
 TEST(DepositAuthorizedSpec, NonStringDestinationAccountIsInvalidParams)
 {
     auto const result = parse(
-        std::string{R"JSON({"source_account": ")JSON"} + kAcct1 +
-        R"JSON(", "destination_account": 5})JSON");
+        std::format(R"JSON({{"source_account": "{}", "destination_account": 5}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "destination_accountNotString");
@@ -92,7 +91,7 @@ TEST(DepositAuthorizedSpec, NonStringDestinationAccountIsInvalidParams)
 
 TEST(DepositAuthorizedSpec, CredentialsArrayParses)
 {
-    auto const result = parseWithCredentials(std::string{"[\""} + kHex1 + "\", \"" + kHex2 + "\"]");
+    auto const result = parseWithCredentials(std::format(R"(["{}", "{}"])", kHex1, kHex2));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->credentials.has_value());
@@ -112,7 +111,7 @@ TEST(DepositAuthorizedSpec, CredentialsEmptyArrayParses)
 TEST(DepositAuthorizedSpec, CredentialsDuplicatesArePreserved)
 {
     // The converter builds a vector, not a set: de-duplication is the handler's job.
-    auto const result = parseWithCredentials(std::string{"[\""} + kHex1 + "\", \"" + kHex1 + "\"]");
+    auto const result = parseWithCredentials(std::format(R"(["{}", "{}"])", kHex1, kHex1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->credentials.has_value());
@@ -130,7 +129,7 @@ TEST(DepositAuthorizedSpec, CredentialsNotArrayIsBareInvalidParams)
 
 TEST(DepositAuthorizedSpec, CredentialsNonStringElementIsRejected)
 {
-    auto const result = parseWithCredentials(std::string{"[\""} + kHex1 + "\", 42]");
+    auto const result = parseWithCredentials(std::format(R"(["{}", 42])", kHex1));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Item is not a valid uint256 type.");

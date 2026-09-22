@@ -15,6 +15,7 @@
 #include <rpcspec/handlers/account_offers/Spec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
@@ -35,13 +36,13 @@ parse(std::string const& json)
 std::string
 req(std::string const& extra = {})
 {
-    return std::string{R"JSON({"account": ")JSON"} + kAcct1 + R"JSON(")JSON" + extra + "}";
+    return std::format(R"JSON({{"account": "{}"{}}})JSON", kAcct1, extra);
 }
 
 std::string
 withMarker(std::string const& marker)
 {
-    return req(std::string{R"JSON(, "marker": ")JSON"} + marker + R"JSON(")JSON");
+    return req(std::format(R"JSON(, "marker": "{}")JSON", marker));
 }
 
 }  // namespace
@@ -103,7 +104,7 @@ TEST(AccountOffersSpec, LimitZeroIsRejected)
 
 TEST(AccountOffersSpec, WellFormedMarkerRoundTripsAsString)
 {
-    auto const marker = std::string{kHex1} + ",7";
+    auto const marker = std::format("{},7", kHex1);
     auto const result = parse(withMarker(marker));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
@@ -113,7 +114,7 @@ TEST(AccountOffersSpec, WellFormedMarkerRoundTripsAsString)
 
 TEST(AccountOffersSpec, MarkerHintZeroIsAccepted)
 {
-    auto const result = parse(withMarker(std::string{kHex1} + ",0"));
+    auto const result = parse(withMarker(std::format("{},0", kHex1)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
@@ -144,7 +145,7 @@ TEST(AccountOffersSpec, MarkerWithBadHexIsMalformedCursor)
 
 TEST(AccountOffersSpec, MarkerWithEmptyHintIsMalformedCursor)
 {
-    auto const result = parse(withMarker(std::string{kHex1} + ","));
+    auto const result = parse(withMarker(std::format("{},", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
@@ -152,7 +153,7 @@ TEST(AccountOffersSpec, MarkerWithEmptyHintIsMalformedCursor)
 
 TEST(AccountOffersSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 {
-    auto const result = parse(withMarker(std::string{kHex1} + ",7x"));
+    auto const result = parse(withMarker(std::format("{},7x", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
@@ -161,7 +162,7 @@ TEST(AccountOffersSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 TEST(AccountOffersSpec, MarkerWithNegativeHintIsMalformedCursor)
 {
     // from_chars into uint64_t rejects a leading '-'.
-    auto const result = parse(withMarker(std::string{kHex1} + ",-1"));
+    auto const result = parse(withMarker(std::format("{},-1", kHex1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
