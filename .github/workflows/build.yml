@@ -1,0 +1,48 @@
+name: Build
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    name: Build and Test
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [heavy]
+        compiler: [gcc]
+        build_type: [Release, Debug]
+        container: ['{ "image": "ghcr.io/xrplf/xrpld/nix-ubuntu:sha-060957e" }']
+
+        include:
+          # macOS/libc++ alongside Linux/libstdc++: the DSL leans on C++23 library
+          # features (std::expected, std::ranges::contains, std::to_array) whose
+          # support differs between the two standard libraries.
+          - os: macos-26-apple-clang-21
+            compiler: apple-clang
+            build_type: Release
+            container: ""
+          - os: macos-26-apple-clang-21
+            compiler: apple-clang
+            build_type: Debug
+            container: ""
+
+    uses: ./.github/workflows/reusable-build-test.yml
+    with:
+      runs_on: ${{ matrix.os }}
+      container: ${{ matrix.container }}
+      compiler: ${{ matrix.compiler }}
+      build_type: ${{ matrix.build_type }}

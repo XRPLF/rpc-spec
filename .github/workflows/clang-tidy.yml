@@ -1,0 +1,122 @@
+name: Run clang-tidy on files
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  # Only cancel in-progress jobs or runs for the current workflow - matches against branch & tags
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Debug # Debug so that ASSERTS and such participate in clang-tidy check
+
+  OUTPUT_FILE: /tmp/clang-tidy-output.txt
+  DIFF_FILE: /tmp/clang-tidy-git-diff.txt
+
+  COMPILER: clang
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  run-clang-tidy:
+    name: Run clang tidy
+    runs-on: heavy
+    container:
+      image: ghcr.io/xrplf/xrpld/nix-ubuntu:sha-060957e
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare runner
+        uses: XRPLF/actions/prepare-runner@b3e255d74d785d053e4903da8ac90983cd7d9e82
+        with:
+          enable_ccache: false
+
+      - name: Print build environment
+        uses: XRPLF/actions/print-build-env@59dec886e4afb05a1724443af08baccbc045b574
+
+      - name: Set compiler environment
+        uses: ./.github/actions/set-compiler-env
+        with:
+          compiler: ${{ env.COMPILER }}
+
+      - name: Setup conan
+        run: ./conan/init.sh
+
+      - name: Run conan
+        uses: ./.github/actions/conan
+        with:
+          build_type: ${{ env.BUILD_TYPE }}
+
+      - name: Run CMake
+        uses: ./.github/actions/cmake
+        with:
+          build_type: ${{ env.BUILD_TYPE }}
+
+      - name: Get number of processors
+        uses: XRPLF/actions/get-nproc@cf0433aa74563aead044a1e395610c96d65a37cf
+        id: nproc
+
+      # The library is header-only, so there is no translation unit to analyse other than the
+      # tests. Running the whole (small) test suite through clang-tidy is what gives the headers
+      # coverage; HeaderFilterRegex in .clang-tidy then restricts reporting to our own headers.
+      - name: Run clang tidy
+        continue-on-error: true
+        id: run_clang_tidy
+        run: |
+          set -o pipefail
+          run-clang-tidy -j ${{ steps.nproc.outputs.nproc }} -p "${RPCSPEC_BUILD_DIR}" \
+              -quiet -fix -allow-no-checks 'tests/.*\.cpp' 2>&1 | tee "${OUTPUT_FILE}"
+
+      - name: Print errors
+        if: ${{ steps.run_clang_tidy.outcome != 'success' }}
+        run: |
+          grep -E '(error:|warning:)' "${OUTPUT_FILE}" || cat "${OUTPUT_FILE}"
+
+      - name: Upload clang-tidy output
+        if: ${{ github.event.repository.visibility == 'public' && steps.run_clang_tidy.outcome != 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ env.OUTPUT_FILE }}
+          archive: false
+          retention-days: 30
+
+      - name: Check for changes
+        id: files_changed
+        continue-on-error: true
+        run: |
+          git diff --exit-code
+
+      - name: Fix style
+        if: ${{ steps.files_changed.outcome != 'success' }}
+        run: |
+          pre-commit run --all-files || true
+
+      - name: Generate git diff
+        if: ${{ steps.files_changed.outcome != 'success' }}
+        run: |
+          git diff | tee "${DIFF_FILE}"
+
+      - name: Upload clang-tidy diff output
+        if: ${{ github.event.repository.visibility == 'public' && steps.files_changed.outcome != 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ env.DIFF_FILE }}
+          archive: false
+          retention-days: 30
+
+      - name: Fail the job
+        if: ${{ steps.run_clang_tidy.outcome != 'success' }}
+        run: |
+          echo "Clang-tidy check failed!"
+          exit 1

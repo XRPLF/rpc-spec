@@ -143,7 +143,7 @@ private:
      * @brief Find @p conn's bucket, creating it (evicting the oldest if at capacity) if absent,
      * and stamp it as seen at @p now. Caller must hold @p buckets' lock.
      */
-    [[nodiscard]] typename std::unordered_map<ConnId, BucketEntry>::iterator
+    [[nodiscard]] std::unordered_map<ConnId, BucketEntry>::iterator
     touchBucket(std::unordered_map<ConnId, BucketEntry>& buckets, ConnId const& conn, TimePoint now)
     {
         auto it = buckets.find(conn);

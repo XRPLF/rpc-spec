@@ -78,7 +78,7 @@ resolveTuple(std::tuple<Tunables...> const& tunables, Config const& config)
  * bucket settings, which are resolved separately and handed to @ref ConnectionLimiter.
  */
 template <typename Spec, typename Config>
-[[nodiscard]] typename Spec::Resolved
+[[nodiscard]] Spec::Resolved
 resolve(Spec const& spec, Config const& config)
 {
     return detail::resolveTuple(spec.tunables(), config);

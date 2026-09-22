@@ -1,0 +1,12 @@
+{% set os = detect_api.detect_os() %}
+include(default)
+
+[conf]
+{% if os == "Linux" %}
+{# Part of the package ID so binaries are not shared across incompatible glibc versions. #}
+{# Must match what Clio and xrpld publish, otherwise every dependency is rebuilt from #}
+{# source - and building Boost from source inside the CI image fails, because the b2 #}
+{# binary Conan fetches needs a newer glibc than the image provides. #}
+user.package:libc_version=2.31
+tools.info.package_id:confs+=["user.package:libc_version"]
+{% endif %}

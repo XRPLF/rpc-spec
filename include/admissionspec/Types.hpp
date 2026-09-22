@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <string_view>
 #include <tuple>
@@ -384,7 +385,7 @@ struct ResolvedTypeOf<SizeCostRamp<N>>
 };
 
 template <typename T>
-using ResolvedTypeOfT = typename ResolvedTypeOf<T>::type;
+using ResolvedTypeOfT = ResolvedTypeOf<T>::type;
 
 /**
  * @brief Convert a tunable default value to its resolved runtime representation.
@@ -491,7 +492,7 @@ struct ResolvedTunablesOf<std::tuple<Tunables...>>
 };
 
 template <typename TunablesTuple>
-using ResolvedTunablesOfT = typename ResolvedTunablesOf<TunablesTuple>::type;
+using ResolvedTunablesOfT = ResolvedTunablesOf<TunablesTuple>::type;
 
 /**
  * @brief Build a @ref ResolvedTunables from a tunable tuple using each tunable's default value.
