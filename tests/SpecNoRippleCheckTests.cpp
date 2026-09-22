@@ -23,7 +23,7 @@ using namespace rpc::spec::handlers::noripple_check;
 
 namespace {
 
-constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parseV1(std::string const& json)

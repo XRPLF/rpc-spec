@@ -25,10 +25,10 @@ using namespace rpc::spec::handlers::ledger_entry;
 
 namespace {
 
-constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
-constexpr char const* kHex64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
-constexpr char const* kHex48 = "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01";
+constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr auto kHex64 = "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789";
+constexpr auto kHex48 = "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01";
 
 auto
 parse(std::string const& json)

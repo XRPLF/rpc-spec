@@ -24,7 +24,7 @@ using namespace rpc::spec::handlers::nft_history;
 
 namespace {
 
-constexpr char const* kNftId = "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000";
+constexpr auto kNftId = "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000";
 
 auto
 parse(std::string const& json)

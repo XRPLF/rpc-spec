@@ -22,7 +22,7 @@ using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr auto kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
 
 auto
 parseBookOffers(std::string const& json)

@@ -18,8 +18,8 @@ using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
-constexpr char const* kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr auto kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parseHistory(std::string const& json)

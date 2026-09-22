@@ -18,8 +18,8 @@ using handlers::account_tx::DelegateFilter;
 
 namespace {
 
-constexpr char const* kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kCounterparty = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr auto kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kCounterparty = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 
 auto
 parseAccountTx(std::string const& delegateJson)

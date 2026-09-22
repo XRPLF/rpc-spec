@@ -27,7 +27,7 @@ using namespace rpc::spec::handlers::ledger_data;
 
 namespace {
 
-constexpr char const* kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
+constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
 
 auto
 parse(std::string const& json)

@@ -22,9 +22,9 @@ using namespace rpc::spec::handlers::account_lines;
 
 namespace {
 
-constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
-constexpr char const* kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
-constexpr char const* kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
+constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
 
 auto
 parse(std::string const& json)
