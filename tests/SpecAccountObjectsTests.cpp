@@ -19,7 +19,7 @@ using namespace rpc::spec::handlers::account_objects;
 
 namespace {
 
-constexpr char const* kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parse(std::string const& json)

@@ -12,14 +12,15 @@
 
 #include <xrpl_mock.hpp>
 
+#include <format>
 #include <string>
 
 using namespace rpc::spec;
 
 namespace {
 
-constexpr char const* kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
-constexpr char const* kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr auto kAccount = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 
 auto
 parseHistory(std::string const& json)
@@ -31,7 +32,7 @@ parseHistory(std::string const& json)
 std::string
 withMptId(std::string const& extra = "")
 {
-    return std::string{R"JSON({"mpt_issuance_id": ")JSON"} + kMptId + R"JSON(")JSON" + extra + "}";
+    return std::format(R"JSON({{"mpt_issuance_id": "{}"{}}})JSON", kMptId, extra);
 }
 
 }  // namespace
@@ -66,7 +67,7 @@ TEST(MPTokenIssuanceHistorySpec, MalformedMptIssuanceIdFails)
 TEST(MPTokenIssuanceHistorySpec, AccountParses)
 {
     auto const result =
-        parseHistory(withMptId(std::string{R"JSON(, "account": ")JSON"} + kAccount + "\""));
+        parseHistory(withMptId(std::format(R"JSON(, "account": "{}")JSON", kAccount)));
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
     EXPECT_TRUE(result->account.has_value());
 }

@@ -10,22 +10,33 @@ add_executable(
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
+    SpecAccountLinesTests.cpp
     SpecAccountObjectsTests.cpp
+    SpecAccountOffersTests.cpp
     SpecAccountTxDelegateTests.cpp
+    SpecAmmInfoTests.cpp
     SpecBookOffersTests.cpp
     SpecCoreTests.cpp
     SpecCoreTypesTests.cpp
     SpecDefaultTests.cpp
+    SpecDepositAuthorizedTests.cpp
     SpecFieldViewTests.cpp
+    SpecGatewayBalancesTests.cpp
+    SpecGetAggregatePriceTests.cpp
     SpecJsonBoolTests.cpp
+    SpecLedgerDataTests.cpp
     SpecLedgerEntryTests.cpp
+    SpecLedgerIndexTests.cpp
     SpecLedgerTests.cpp
     SpecMockBackendTests.cpp
     SpecModifierTests.cpp
     SpecMPTHoldersTests.cpp
     SpecMPTokenIssuanceHistoryTests.cpp
+    SpecNftHistoryTests.cpp
+    SpecNoRippleCheckTests.cpp
     SpecSubscribeTests.cpp
     SpecValidatorTests.cpp
+    SpecVaultInfoTests.cpp
     StatusPrinter.cpp
 )
 
@@ -47,6 +58,7 @@ target_compile_definitions(rpcspec_tests PRIVATE RPCSPEC_IS_XRPLD=1)
 add_executable(
     rpcspec_clio_tests
     SpecClioErrorsTests.cpp
+    SpecClioHandlerErrorsTests.cpp
     SpecServerConditionalTests.cpp
     StatusPrinter.cpp
 )

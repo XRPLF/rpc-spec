@@ -263,6 +263,12 @@ public:
 
     bool
     operator==(AccountID const& other) const noexcept = default;
+
+    // Real libxrpl's AccountID is a base_uint, which orders bytewise. Ordered
+    // containers of AccountID (e.g. gateway_balances' std::set<AccountID>) need
+    // this; defaulted <=> over std::array gives the same lexicographic order.
+    auto
+    operator<=>(AccountID const& other) const noexcept = default;
 };
 
 class Currency
