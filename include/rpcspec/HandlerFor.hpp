@@ -15,7 +15,7 @@
 // does once, as an alias:
 //
 //     template <typename InputT>
-//     using HandlerFor = rpc::spec::HandlerFor<InputT, boost::json::value>;
+//     using HandlerFor = rpc::spec::HandlerFor<InputT, MyJsonValue>;
 //
 // Handlers and call sites then never mention a backend: `Handler::spec(apiVersion)` and
 // `Handler::parseInput(jv, apiVersion)` are ordinary static members.
