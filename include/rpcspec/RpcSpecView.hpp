@@ -1,7 +1,7 @@
 /** @file */
 #pragma once
 
-#include <rpcspec/FieldView.hpp>
+#include <rpcspec/Concepts.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/SpecDump.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
@@ -32,12 +32,16 @@ namespace rpc::spec {
  * @endcode
  *
  * Enables uniform return type for versioned specs.
+ *
+ * @tparam View The backend's object-view type. The spec library names no JSON type, so
+ *         the type erased over the *spec* is still explicit about the *backend*.
  */
+template <SomeObjectView View>
 class RpcSpecView
 {
     void const* self_;
-    MaybeError (*processImpl_)(void const*, ObjectView&);
-    Warnings (*checkImpl_)(void const*, ObjectView const&);
+    MaybeError (*processImpl_)(void const*, View&);
+    Warnings (*checkImpl_)(void const*, View const&);
     void (*dumpImpl_)(void const*, SpecDumpWriter&);
 
 public:
@@ -51,10 +55,10 @@ public:
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr RpcSpecView(RpcSpec<Fields...> const& spec) noexcept
         : self_{&spec}
-        , processImpl_{[](void const* self, ObjectView& root) {
+        , processImpl_{[](void const* self, View& root) {
             return static_cast<RpcSpec<Fields...> const*>(self)->process(root);
         }}
-        , checkImpl_{[](void const* self, ObjectView const& root) {
+        , checkImpl_{[](void const* self, View const& root) {
             return static_cast<RpcSpec<Fields...> const*>(self)->check(root);
         }}
         , dumpImpl_{[](void const* self, SpecDumpWriter& writer) {
@@ -78,8 +82,8 @@ public:
     // NOLINTNEXTLINE(google-explicit-constructor)
     constexpr RpcSpecView(TypedSpec<InputT, Fields...> const& spec) noexcept
         : self_{&spec}
-        , processImpl_{[](void const*, ObjectView&) -> MaybeError { return {}; }}
-        , checkImpl_{[](void const* self, ObjectView const& root) {
+        , processImpl_{[](void const*, View&) -> MaybeError { return {}; }}
+        , checkImpl_{[](void const* self, View const& root) {
             return static_cast<TypedSpec<InputT, Fields...> const*>(self)->check(root);
         }}
         , dumpImpl_{[](void const* self, SpecDumpWriter& writer) {
@@ -96,7 +100,7 @@ public:
      *         empty when wrapping a `TypedSpec`).
      */
     [[nodiscard]] MaybeError
-    process(ObjectView& root) const
+    process(View& root) const
     {
         return processImpl_(self_, root);
     }
@@ -108,7 +112,7 @@ public:
      * @return All warnings produced by check items.
      */
     [[nodiscard]] Warnings
-    check(ObjectView const& root) const
+    check(View const& root) const
     {
         return checkImpl_(self_, root);
     }
@@ -125,34 +129,34 @@ public:
     }
 
     /**
-     * @brief `process()` overload accepting any value constructible into an `ObjectView`.
+     * @brief `process()` overload accepting a raw document from a backend.
      *
-     * @tparam V A mutable value type convertible to `ObjectView`.
+     * @tparam V A mutable value type a backend has bound a view to via `ObjectViewFor`.
      * @param value Mutable value to validate.
      * @return An error on the first failing field; empty on success.
      */
     template <typename V>
-        requires(not std::same_as<V, ObjectView>) and std::constructible_from<ObjectView, V&>
+        requires(not SomeObjectView<V>) and HasObjectView<V>
     [[nodiscard]] MaybeError
     process(V& value) const
     {
-        ObjectView root{value};
+        View root{value};
         return processImpl_(self_, root);
     }
 
     /**
-     * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+     * @brief `check()` overload accepting a raw document from a backend.
      *
-     * @tparam V A value type convertible to `ObjectView const`.
+     * @tparam V A value type a backend has bound a view to via `ObjectViewFor`.
      * @param value Const value to check.
      * @return All warnings produced by check items.
      */
     template <typename V>
-        requires(not std::same_as<V, ObjectView>) and std::constructible_from<ObjectView, V const&>
+        requires(not SomeObjectView<V>) and HasObjectView<V>
     [[nodiscard]] Warnings
     check(V const& value) const
     {
-        ObjectView const root{value};
+        View const root{value};
         return checkImpl_(self_, root);
     }
 };

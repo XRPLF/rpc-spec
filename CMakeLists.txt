@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(xrpl-rpc-spec VERSION 0.1.17 LANGUAGES CXX)
+project(xrpl-rpc-spec VERSION 0.1.18 LANGUAGES CXX)
 
 add_library(rpcspec INTERFACE)
 add_library(rpcspec::rpcspec ALIAS rpcspec)
@@ -17,6 +17,24 @@ target_compile_features(rpcspec INTERFACE cxx_std_23)
 find_package(Boost REQUIRED COMPONENTS json)
 
 target_link_libraries(rpcspec INTERFACE Boost::json)
+
+# The spec proper must not name a JSON library: consumers supply the view types it reads
+# requests through (see include/rpcspec/backends for the one shipped implementation, and
+# the ObjectViewFor customization point in Concepts.hpp). Checked here so the invariant
+# survives review rather than depending on it.
+file(GLOB_RECURSE rpcspec_core_headers "${CMAKE_CURRENT_SOURCE_DIR}/include/rpcspec/*.hpp")
+list(FILTER rpcspec_core_headers EXCLUDE REGEX "/backends/")
+foreach(header IN LISTS rpcspec_core_headers)
+    file(STRINGS "${header}" rpcspec_json_hits REGEX "boost/json|boost::json")
+    if(rpcspec_json_hits)
+        message(
+            FATAL_ERROR
+            "rpcspec: ${header} names boost::json. JSON backends belong in "
+            "include/rpcspec/backends/; the spec itself reads requests through the "
+            "SomeObjectView/SomeFieldView concepts."
+        )
+    endif()
+endforeach()
 
 # Generates the per-handler explicit-instantiation TUs; see the module for the rationale.
 # Conan consumers get this automatically via cmake_build_modules, so it is included here

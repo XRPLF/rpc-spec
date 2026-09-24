@@ -32,9 +32,11 @@ compile error (see `ServerConditional.hpp`).
 
 ```
 include/rpcspec/
-  Concepts.hpp          # SomeFieldView / SomeObjectView / item concepts
+  Concepts.hpp          # SomeFieldView / SomeObjectView / ObjectViewFor / item concepts
   Errors.hpp            # Status, error codes, shared error messages
-  FieldView.hpp         # the boost::json backend behind those concepts
+
+  backends/
+    BoostJson.hpp       # the boost::json backend + its wire-format helpers
 
   RpcSpec.hpp           # validate-only spec container + process()/check()
   FieldSpec.hpp         # per-field declarations for RpcSpec

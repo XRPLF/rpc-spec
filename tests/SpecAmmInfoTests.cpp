@@ -21,6 +21,7 @@
 #include <rpcspec/handlers/amm_info/Spec.hpp>
 #include <rpcspec/handlers/amm_info/Types.hpp>
 
+#include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
 #include <format>

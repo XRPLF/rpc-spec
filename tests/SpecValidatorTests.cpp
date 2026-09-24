@@ -8,6 +8,8 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
 
+#include <Backend.hpp>  // IWYU pragma: keep
+
 #include <cstdint>
 #include <string>
 #include <type_traits>

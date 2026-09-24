@@ -25,7 +25,6 @@
 
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/FieldSpec.hpp>
-#include <rpcspec/FieldView.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/SpecDump.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
@@ -499,34 +498,34 @@ struct TypedSpec
     }
 
     /**
-     * @brief `parse()` overload accepting any value constructible into an `ObjectView`.
+     * @brief `parse()` overload accepting a raw document from a backend.
      *
-     * @tparam V A mutable value type convertible to `ObjectView` (e.g. `boost::json::value`).
+     * @tparam V A mutable value type a backend has bound a view to via `ObjectViewFor`.
      * @param value Mutable value to parse.
      * @return The populated `InputT` on success, or an error on the first failing field.
      */
     template <typename V>
-        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V&>
+        requires(not SomeObjectView<V>) and HasObjectView<V>
     [[nodiscard]] std::expected<InputT, rpc::Status>
     parse(V& value) const
     {
-        ObjectView root{value};
+        ObjectViewForT<V> root{value};
         return parse(root);
     }
 
     /**
-     * @brief `check()` overload accepting any value constructible into a const `ObjectView`.
+     * @brief `check()` overload accepting a raw document from a backend.
      *
-     * @tparam V A value type convertible to `ObjectView const`.
+     * @tparam V A value type a backend has bound a view to via `ObjectViewFor`.
      * @param value Const value to check.
      * @return All warnings produced by check items.
      */
     template <typename V>
-        requires(not SomeObjectView<V>) and std::constructible_from<ObjectView, V const&>
+        requires(not SomeObjectView<V>) and HasObjectView<V>
     [[nodiscard]] Warnings
     check(V const& value) const
     {
-        ObjectView const root{value};
+        ObjectViewForT<V> const root{value};
         return check(root);
     }
 
