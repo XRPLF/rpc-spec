@@ -11,8 +11,10 @@
 #include <rpcspec/Section.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
-#include <rpcspec/WarningsToJson.hpp>
 #include <rpcspec/WithCustomError.hpp>
+#include <rpcspec/backends/BoostJson.hpp>
+
+#include <Backend.hpp>
 
 #include <cstdint>
 #include <string>
@@ -135,8 +137,8 @@ TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
     };
     static constexpr auto kSpecV2 = kSpecV1 + field("signer_lists", type<bool>);
 
-    auto const spec = [](uint32_t version) -> RpcSpecView {
-        return version == 1 ? RpcSpecView{kSpecV1} : RpcSpecView{kSpecV2};
+    auto const spec = [](uint32_t version) -> RpcSpecView<ObjectView> {
+        return version == 1 ? RpcSpecView<ObjectView>{kSpecV1} : RpcSpecView<ObjectView>{kSpecV2};
     };
 
     auto request = boost::json::parse(R"JSON({

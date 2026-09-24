@@ -14,9 +14,34 @@
 namespace rpc::spec {
 
 /**
+ * @brief Customization point mapping a backend's JSON value type to its object view.
+ *
+ * The spec library names no JSON type. A backend specialises this for its value type
+ * (see `rpcspec/backends/BoostJson.hpp`), which is what lets the convenience overloads
+ * accept a raw document — `spec.parse(jsonValue)` — instead of making every caller wrap
+ * it in a view by hand.
+ *
+ * @tparam Value The backend's JSON value type.
+ */
+template <typename Value>
+struct ObjectViewFor;
+
+/**
+ * @brief True when @p Value has a view bound to it by a backend.
+ */
+template <typename Value>
+concept HasObjectView = requires { typename ObjectViewFor<std::remove_const_t<Value>>::Type; };
+
+/**
+ * @brief The object view bound to @p Value.
+ */
+template <typename Value>
+using ObjectViewForT = ObjectViewFor<std::remove_const_t<Value>>::Type;
+
+/**
  * @brief Non-owning view of a single resolved field within a JSON document.
  *
- * Implemented by a backend type (e.g. the boost::json adapter). Validators and
+ * Implemented by a backend type (see include/rpcspec/backends). Validators and
  * modifiers receive instances of any such type through a template parameter,
  * so they never depend on a concrete JSON library.
  */

@@ -10,6 +10,8 @@
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Typed.hpp>
 
+#include <Backend.hpp>  // IWYU pragma: keep
+
 using namespace rpc::spec;
 
 namespace {

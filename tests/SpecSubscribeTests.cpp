@@ -15,6 +15,8 @@
 #include <rpcspec/handlers/unsubscribe/Spec.hpp>
 #include <rpcspec/handlers/unsubscribe/Types.hpp>
 
+#include <Backend.hpp>  // IWYU pragma: keep
+
 #include <sstream>
 #include <string>
 

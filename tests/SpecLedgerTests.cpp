@@ -8,6 +8,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
+#include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
 #include <cstdint>
