@@ -16,7 +16,7 @@
 #include <rpcspec/handlers/deposit_authorized/Spec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
 #include <string>

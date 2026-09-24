@@ -16,7 +16,7 @@
 #include <rpcspec/handlers/gateway_balances/Spec.hpp>
 #include <rpcspec/handlers/gateway_balances/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
 #include <string>

@@ -6,7 +6,7 @@
 #include <rpcspec/handlers/mpt_holders/Spec.hpp>
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <expected>
 #include <format>

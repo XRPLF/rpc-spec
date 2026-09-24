@@ -15,7 +15,7 @@
 #include <rpcspec/handlers/nft_history/Spec.hpp>
 #include <rpcspec/handlers/nft_history/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <cstdint>
 #include <format>

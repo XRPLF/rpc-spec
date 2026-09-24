@@ -36,7 +36,7 @@ concept HasObjectView = requires { typename ObjectViewFor<std::remove_const_t<Va
  * @brief The object view bound to @p Value.
  */
 template <typename Value>
-using ObjectViewForT = typename ObjectViewFor<std::remove_const_t<Value>>::Type;
+using ObjectViewForT = ObjectViewFor<std::remove_const_t<Value>>::Type;
 
 /**
  * @brief Non-owning view of a single resolved field within a JSON document.

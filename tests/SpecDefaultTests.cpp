@@ -7,7 +7,7 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <cstdint>
 #include <optional>

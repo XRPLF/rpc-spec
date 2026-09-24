@@ -17,7 +17,7 @@
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 #include <rpcspec/handlers/vault_info/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
 #include <string>

@@ -15,7 +15,7 @@
 #include <rpcspec/handlers/get_aggregate_price/Spec.hpp>
 #include <rpcspec/handlers/get_aggregate_price/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
 #include <string>

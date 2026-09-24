@@ -10,7 +10,7 @@
 #include <rpcspec/handlers/mptoken_issuance_history/Spec.hpp>
 #include <rpcspec/handlers/mptoken_issuance_history/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
 #include <format>

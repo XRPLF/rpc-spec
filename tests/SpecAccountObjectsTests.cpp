@@ -10,7 +10,7 @@
 #include <rpcspec/handlers/account_objects/Spec.hpp>
 #include <rpcspec/handlers/account_objects/Types.hpp>
 
-#include <Backend.hpp>
+#include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
 #include <string>

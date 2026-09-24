@@ -12,6 +12,7 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
 #include <rpcspec/WithCustomError.hpp>
+#include <rpcspec/backends/BoostJson.hpp>
 
 #include <Backend.hpp>
 
