@@ -16,6 +16,8 @@
 #include <rpcspec/handlers/deposit_authorized/Spec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

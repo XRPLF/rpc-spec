@@ -19,6 +19,7 @@
 #include <rpcspec/handlers/ledger_data/Types.hpp>
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 
+#include <Backend.hpp>
 #include <xrpl_mock.hpp>
 
 #include <format>

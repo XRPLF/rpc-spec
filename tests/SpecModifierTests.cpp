@@ -10,6 +10,8 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/Validators.hpp>
 
+#include <Backend.hpp>
+
 #include <cstdint>
 #include <expected>
 #include <limits>

@@ -22,6 +22,8 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
+#include <Backend.hpp>
+
 #include <string_view>
 
 using namespace rpc::spec;

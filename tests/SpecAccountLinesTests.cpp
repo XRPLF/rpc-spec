@@ -15,6 +15,8 @@
 #include <rpcspec/handlers/account_lines/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

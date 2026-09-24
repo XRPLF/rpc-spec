@@ -16,6 +16,8 @@
 #include <rpcspec/handlers/gateway_balances/Spec.hpp>
 #include <rpcspec/handlers/gateway_balances/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

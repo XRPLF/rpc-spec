@@ -15,6 +15,8 @@
 #include <rpcspec/handlers/nft_history/Spec.hpp>
 #include <rpcspec/handlers/nft_history/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <cstdint>
 #include <format>
 #include <limits>

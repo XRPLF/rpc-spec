@@ -49,7 +49,11 @@ target_link_libraries(
 
 # tests/stubs is searched first, so #include <xrpl/...> resolves to the mock
 # headers instead of a real libxrpl.
-target_include_directories(rpcspec_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs)
+target_include_directories(
+    rpcspec_tests
+    BEFORE
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 # Select the xrpld backend even for a plain `cmake -Drpcspec_tests=ON` build
 # without the Conan toolchain.
@@ -63,7 +67,11 @@ add_executable(
     StatusPrinter.cpp
 )
 target_link_libraries(rpcspec_clio_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)
-target_include_directories(rpcspec_clio_tests BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs)
+target_include_directories(
+    rpcspec_clio_tests
+    BEFORE
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/stubs ${CMAKE_CURRENT_SOURCE_DIR}
+)
 target_compile_definitions(rpcspec_clio_tests PRIVATE RPCSPEC_IS_CLIO=1)
 
 include(GoogleTest)

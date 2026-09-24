@@ -3,9 +3,8 @@
 
 #include <xrpl/protocol/ErrorCodes.h>
 
-#include <boost/json/object.hpp>
-
 #include <algorithm>
+#include <cstdint>
 #include <optional>
 #include <ostream>
 #include <stdexcept>
@@ -13,6 +12,7 @@
 #include <string_view>
 #include <utility>
 #include <variant>
+#include <vector>
 
 namespace rpc {
 
@@ -268,6 +268,19 @@ malformedCursorMessage([[maybe_unused]] std::string_view field)
 }
 
 /**
+ * @brief A scalar carried beside an error and merged into the response by the consumer.
+ *
+ * Deliberately not a JSON value: the spec library names no JSON type, and these are only
+ * ever scalars. The consumer renders them with its own backend.
+ */
+using ExtraValue = std::variant<bool, std::int64_t, std::uint64_t, double, std::string>;
+
+/**
+ * @brief Named values merged into an error response, in insertion order.
+ */
+using ExtraInfo = std::vector<std::pair<std::string, ExtraValue>>;
+
+/**
  * @brief A status returned from any RPC handler.
  */
 struct Status
@@ -288,9 +301,9 @@ struct Status
     std::string message;
 
     /**
-     * @brief Extra JSON merged into the error response, when present.
+     * @brief Extra values merged into the error response, when present.
      */
-    std::optional<boost::json::object> extraInfo;
+    std::optional<ExtraInfo> extraInfo;
 
     Status() = default;
 
@@ -302,12 +315,12 @@ struct Status
     /* implicit */ Status(CombinedError code) : code(code) {};
 
     /**
-     * @brief Construct a new Status object
+     * @brief Construct a new Status object carrying extra response values
      *
      * @param code The error code
-     * @param extraInfo The extra info
+     * @param extraInfo The extra values
      */
-    Status(CombinedError code, boost::json::object&& extraInfo)
+    Status(CombinedError code, ExtraInfo extraInfo)
         : code(code), extraInfo(std::move(extraInfo)) {};
 
     /**
@@ -475,19 +488,6 @@ getWarningInfo(WarningCode code)
         return *it;
 
     throw std::out_of_range("Invalid WarningCode");
-}
-
-/**
- * @brief Generate JSON from a @ref rpc::WarningCode.
- *
- * @param code The warning code
- * @return The JSON output
- */
-[[nodiscard]] inline boost::json::object
-makeWarning(WarningCode code)
-{
-    auto const& info = getWarningInfo(code);
-    return boost::json::object{{"id", static_cast<int>(code)}, {"message", info.message}};
 }
 
 }  // namespace rpc

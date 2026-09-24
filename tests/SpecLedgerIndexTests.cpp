@@ -14,6 +14,8 @@
 #include <rpcspec/handlers/ledger_index/Spec.hpp>
 #include <rpcspec/handlers/ledger_index/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

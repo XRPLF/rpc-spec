@@ -1,15 +1,8 @@
 /** @file */
 #pragma once
 // A JSON-value-to-bool wrapper that accepts any JSON scalar as a truthy/falsy
-// bool (V1 API compatibility).  Boost.Json tag_invoke overload lives here so
-// ADL can find it wherever the type is used.
-
-#include <boost/json/conversion.hpp>
-#include <boost/json/kind.hpp>
-#include <boost/json/value.hpp>
-#include <boost/json/value_to.hpp>
-
-#include <stdexcept>
+// bool (V1 API compatibility). The coercion itself lives in the `jsonBool`
+// converter, which reads through the field-view concept.
 
 namespace rpc::spec {
 
@@ -33,39 +26,5 @@ struct JsonBool
     }
     /** @endcond */
 };
-
-/**
- * @brief Convert a JSON value to a JsonBool
- *
- * @param jsonValue The JSON value to convert
- * @return The converted JsonBool
- */
-inline JsonBool
-// NOLINTNEXTLINE(readability-identifier-naming)
-tag_invoke(boost::json::value_to_tag<JsonBool> const&, boost::json::value const& jsonValue)
-{
-    switch (jsonValue.kind())
-    {
-        case boost::json::kind::null:
-            return JsonBool{false};
-        case boost::json::kind::bool_:
-            return JsonBool{jsonValue.as_bool()};
-        case boost::json::kind::uint64:
-            [[fallthrough]];
-        case boost::json::kind::int64:
-            return JsonBool{jsonValue.as_int64() != 0};
-        case boost::json::kind::double_:
-            return JsonBool{jsonValue.as_double() != 0.0};
-        case boost::json::kind::string:
-            // Also should be `jsonValue.as_string() != "false"` but xrpld doesn't do
-            // that. Anyway for v2 api we have bool validation
-            return JsonBool{not jsonValue.as_string().empty() and jsonValue.as_string()[0] != 0};
-        case boost::json::kind::array:
-            return JsonBool{not jsonValue.as_array().empty()};
-        case boost::json::kind::object:
-            return JsonBool{not jsonValue.as_object().empty()};
-    }
-    throw std::runtime_error("Invalid json value");
-}
 
 }  // namespace rpc::spec

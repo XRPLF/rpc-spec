@@ -18,10 +18,15 @@
 # handlers the consumer has not adopted yet.
 #
 #     rpcspec_generate_instantiations(
-#         OUT_VAR   <var>          # out: list of generated .cpp paths
+#         OUT_VAR    <var>         # out: list of generated .cpp paths
+#         VALUE_TYPE <type>        # the project's JSON value type, e.g. boost::json::value
+#         VIEW_HEADER <header>     # backend header binding it, included as <header>
 #         [INCLUDE_DIR <dir>]      # override the rpcspec include root (autodetected)
 #         [HANDLERS <name>...]     # restrict to these handlers (default: all of them)
 #     )
+#
+# The spec library names no JSON type, so the backend has to be named here: these two
+# arguments are what bind each handler's entry points to the project's own view.
 
 # Captured at include time: CMAKE_CURRENT_LIST_DIR is rebound to the caller inside a function.
 set(RPCSPEC_CMAKE_DIR
@@ -58,11 +63,22 @@ function(_rpcspec_include_root out_var)
 endfunction()
 
 function(rpcspec_generate_instantiations)
-  cmake_parse_arguments(arg "" "OUT_VAR;INCLUDE_DIR" "HANDLERS" ${ARGN})
+  cmake_parse_arguments(
+      arg
+      ""
+      "OUT_VAR;VALUE_TYPE;VIEW_HEADER;INCLUDE_DIR"
+      "HANDLERS"
+      ${ARGN}
+  )
 
   if(NOT arg_OUT_VAR)
     message(FATAL_ERROR "rpcspec_generate_instantiations: OUT_VAR is required")
   endif()
+  foreach(required VALUE_TYPE VIEW_HEADER)
+    if(NOT arg_${required})
+      message(FATAL_ERROR "rpcspec_generate_instantiations: ${required} is required")
+    endif()
+  endforeach()
   if(arg_UNPARSED_ARGUMENTS)
     message(
             FATAL_ERROR
@@ -102,6 +118,8 @@ function(rpcspec_generate_instantiations)
 
     set(out "${outdir}/${handler}.cpp")
     set(RPCSPEC_HANDLER "${handler}")
+    set(RPCSPEC_VALUE_TYPE "${arg_VALUE_TYPE}")
+    set(RPCSPEC_VIEW_HEADER "${arg_VIEW_HEADER}")
     configure_file("${RPCSPEC_CMAKE_DIR}/Instantiate.cpp.in" "${out}" @ONLY)
     list(APPEND generated "${out}")
   endforeach()

@@ -16,6 +16,8 @@
 #include <rpcspec/handlers/noripple_check/Spec.hpp>
 #include <rpcspec/handlers/noripple_check/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

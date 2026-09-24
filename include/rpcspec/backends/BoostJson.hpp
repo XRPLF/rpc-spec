@@ -1,18 +1,39 @@
 /** @file */
 #pragma once
 
+#include <boost/json/array.hpp>
+#include <boost/json/object.hpp>
 #include <boost/json/string.hpp>
 #include <boost/json/value.hpp>
 
 #include <rpcspec/Concepts.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/Types.hpp>
 
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <string>
 #include <string_view>
 #include <type_traits>
+
+namespace rpc {
+
+/**
+ * @brief Render a warning code as the wire-format JSON object.
+ *
+ * @param code The warning code.
+ * @return An object carrying the code and its standard message.
+ */
+[[nodiscard]] inline boost::json::object
+makeWarning(WarningCode code)
+{
+    auto const& info = getWarningInfo(code);
+    return boost::json::object{{"id", static_cast<int>(code)}, {"message", info.message}};
+}
+
+}  // namespace rpc
 
 namespace rpc::spec {
 
@@ -541,18 +562,49 @@ public:
 
 static_assert(SomeObjectView<BoostJsonObjectView>);
 
-// Backend-selection aliases. Change these to swap JSON libraries — the spec
-// system (RpcSpec, FieldSpec, Validators, Section) is templated on the concepts
-// above and is otherwise independent of any concrete JSON type.
+/**
+ * @brief Binds `boost::json::value` to this backend's object view.
+ *
+ * Specialising @ref ObjectViewFor is what lets `spec.parse(jsonValue)` work without the
+ * spec library naming a JSON type: the convenience overloads look the view up through
+ * this trait. Include this header wherever a `boost::json::value` is handed to a spec.
+ */
+template <>
+struct ObjectViewFor<boost::json::value>
+{
+    /**
+     * @brief The object view wrapping a `boost::json::value`.
+     */
+    using Type = BoostJsonObjectView;
+};
 
 /**
- * @brief Active FieldView backend. Swap the alias here to change the JSON library.
+ * @brief Convert a flat list of spec warnings into the wire-format JSON array.
+ *
+ * Warnings are grouped by their @ref rpc::WarningCode: for each code the object from
+ * @ref makeWarning is used as the base and every warning's extra message is appended to
+ * `"message"` with a leading space. `std::map` gives deterministic, code-ordered output.
+ *
+ * @param warnings The warnings to convert.
+ * @return The grouped warning objects.
  */
-using FieldView = BoostJsonFieldView;
+[[nodiscard]] inline boost::json::array
+toJsonArray(Warnings const& warnings)
+{
+    std::map<rpc::WarningCode, std::vector<std::string>> grouped;
+    for (auto const& warning : warnings)
+        grouped[warning.code].push_back(warning.message);
 
-/**
- * @brief Active ObjectView backend. Swap the alias here to change the JSON library.
- */
-using ObjectView = BoostJsonObjectView;
+    boost::json::array out;
+    for (auto const& [code, messages] : grouped)
+    {
+        auto obj = rpc::makeWarning(code);
+        auto& msg = obj["message"].as_string();
+        for (auto const& extra : messages)
+            msg.append(" ").append(extra);
+        out.push_back(std::move(obj));
+    }
+    return out;
+}
 
 }  // namespace rpc::spec

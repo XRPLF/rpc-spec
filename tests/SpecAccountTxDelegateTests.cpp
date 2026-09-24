@@ -11,6 +11,8 @@
 #include <rpcspec/handlers/account_tx/Spec.hpp>
 #include <rpcspec/handlers/account_tx/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <format>
 #include <string>
 

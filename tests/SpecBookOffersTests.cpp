@@ -14,6 +14,7 @@
 #include <rpcspec/handlers/book_offers/Spec.hpp>
 #include <rpcspec/handlers/book_offers/Types.hpp>
 
+#include <Backend.hpp>
 #include <xrpl_mock.hpp>
 
 #include <format>

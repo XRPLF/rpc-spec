@@ -7,6 +7,8 @@
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/Validators.hpp>
 
+#include <Backend.hpp>
+
 #include <cstdint>
 #include <optional>
 #include <sstream>

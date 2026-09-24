@@ -42,7 +42,7 @@ struct Warning
  */
 using Warnings = std::vector<Warning>;
 
-// Marker types for use with Type<T> and is<T>() — keeps validators decoupled from boost::json.
+// Marker types for use with Type<T> and is<T>() — keeps validators decoupled from any JSON type.
 /**
  * @brief Tag type representing a JSON object value; used with Type<T> and is<T>().
  */

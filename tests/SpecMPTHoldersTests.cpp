@@ -6,6 +6,8 @@
 #include <rpcspec/handlers/mpt_holders/Spec.hpp>
 #include <rpcspec/handlers/mpt_holders/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <expected>
 #include <format>
 #include <string>

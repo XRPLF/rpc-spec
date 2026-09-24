@@ -16,6 +16,7 @@
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
 
+#include <Backend.hpp>
 #include <xrpl_mock.hpp>
 
 #include <cstdint>

@@ -21,6 +21,8 @@
 #include <rpcspec/handlers/unsubscribe/Spec.hpp>
 #include <rpcspec/handlers/unsubscribe/Types.hpp>
 
+#include <Backend.hpp>
+
 #include <sstream>
 #include <string>
 #include <type_traits>

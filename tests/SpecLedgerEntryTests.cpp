@@ -14,6 +14,7 @@
 #include <rpcspec/handlers/ledger_entry/Spec.hpp>
 #include <rpcspec/handlers/ledger_entry/Types.hpp>
 
+#include <Backend.hpp>
 #include <xrpl_mock.hpp>
 
 #include <sstream>

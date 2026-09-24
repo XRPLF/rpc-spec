@@ -10,6 +10,8 @@
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Typed.hpp>
 
+#include <Backend.hpp>
+
 using namespace rpc::spec;
 
 namespace {
