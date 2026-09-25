@@ -102,7 +102,7 @@ struct AdmissionDecision
      * @return The comparison result.
      */
     bool
-    operator<=>(AdmissionDecision const&) const = default;
+    operator==(AdmissionDecision const&) const = default;
 };
 
 /**
@@ -210,7 +210,7 @@ struct FixedString
      * @return The comparison result.
      */
     bool
-    operator<=>(FixedString const&) const = default;
+    operator==(FixedString const&) const = default;
 };
 
 template <size_t N>
@@ -230,7 +230,7 @@ struct SizeTier
      * @return The comparison result.
      */
     bool
-    operator<=>(SizeTier const&) const = default;
+    operator==(SizeTier const&) const = default;
 };
 
 /**
@@ -265,7 +265,7 @@ struct SizeCostRamp
      * @return The comparison result.
      */
     bool
-    operator<=>(SizeCostRamp const&) const = default;
+    operator==(SizeCostRamp const&) const = default;
 };
 
 template <size_t N>
@@ -343,7 +343,7 @@ struct Tunable
      * @return The comparison result.
      */
     bool
-    operator<=>(Tunable const&) const = default;
+    operator==(Tunable const&) const = default;
 };
 
 /**

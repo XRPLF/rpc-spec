@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       runs_on:
-        description: Runner to run the job on
+        description: Runner label or list of labels to run the job on, as JSON
         required: true
         type: string
 
@@ -14,7 +14,7 @@ on:
         type: string
 
       compiler:
-        description: 'Compiler to build with ("gcc", "clang" or "apple-clang")'
+        description: 'Compiler to build with ("gcc", "clang", "apple-clang" or "msvc")'
         required: true
         type: string
 
@@ -30,12 +30,12 @@ defaults:
 jobs:
   build-and-test:
     name: Build and test
-    runs-on: ${{ inputs.runs_on }}
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
     container: ${{ inputs.container != '' && fromJson(inputs.container) || null }}
 
     steps:
       - name: Cleanup workspace
-        if: ${{ runner.os == 'macOS' }}
+        if: ${{ runner.os == 'macOS' || runner.os == 'Windows' }}
         uses: XRPLF/actions/cleanup-workspace@c7d9ce5ebb03c752a354889ecd870cadfc2b1cd4
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

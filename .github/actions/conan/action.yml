@@ -20,11 +20,17 @@ runs:
         BUILD_TYPE: "${{ inputs.build_type }}"
         CONAN_BUILD_OPTION: "${{ inputs.force_conan_source_build == 'true' && '*' || 'missing' }}"
       run: |
-        # `cmake_layout` puts the generators under build/<build_type>/generators, which is
-        # what the conan-<build_type> CMake presets below point at, so no -of is passed here.
+        # `cmake_layout` puts the generators where the conan-* CMake presets point, so no -of
+        # is passed here: build/<build_type>/generators for single-config generators, and
+        # build/generators for the multi-config Visual Studio one on Windows.
+        EXTRA_CONF=()
+        if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            EXTRA_CONF=(-c "tools.cmake.cmaketoolchain:generator=Visual Studio 18 2026")
+        fi
         conan \
             install . \
             -b "${CONAN_BUILD_OPTION}" \
             -o '&:tests=True' \
             -s "build_type=${BUILD_TYPE}" \
+            "${EXTRA_CONF[@]}" \
             --profile:all ci

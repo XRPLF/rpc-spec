@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(xrpl-rpc-spec VERSION 0.1.18 LANGUAGES CXX)
+project(xrpl-rpc-spec VERSION 0.1.19 LANGUAGES CXX)
 
 add_library(rpcspec INTERFACE)
 add_library(rpcspec::rpcspec ALIAS rpcspec)
@@ -17,6 +17,12 @@ target_compile_features(rpcspec INTERFACE cxx_std_23)
 find_package(Boost REQUIRED COMPONENTS json)
 
 target_link_libraries(rpcspec INTERFACE Boost::json)
+
+# Boost's headers ask MSVC to auto-link version-mangled library names that Conan's packages
+# don't use. Link the real targets only, as xrpld does.
+if(TARGET Boost::disable_autolinking)
+    target_link_libraries(rpcspec INTERFACE Boost::disable_autolinking)
+endif()
 
 # The spec proper must not name a JSON library: consumers supply the view types it reads
 # requests through (see include/rpcspec/backends for the one shipped implementation, and

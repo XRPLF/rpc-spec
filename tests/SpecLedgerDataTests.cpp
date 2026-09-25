@@ -99,7 +99,7 @@ TEST(LedgerDataSpec, NonHexStringMarkerIsMalformedField)
 {
     auto const result = parse(R"JSON({"marker": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -110,7 +110,7 @@ TEST(LedgerDataSpec, OtherMarkerTypesReportMarkerNotString)
     {
         auto const result = parse(std::format(R"JSON({{"marker": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_EQ(result.error().message, "markerNotString") << "marker=" << bad;
     }
 }
@@ -129,7 +129,7 @@ TEST(LedgerDataSpec, UnknownTypeIsInvalidField)
 {
     auto const result = parse(R"JSON({"type": "bogus"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'type'.");
 }
 
@@ -137,7 +137,7 @@ TEST(LedgerDataSpec, NonStringTypeIsExpectedFieldError)
 {
     auto const result = parse(R"JSON({"type": 5})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'type', not string.");
 }
 

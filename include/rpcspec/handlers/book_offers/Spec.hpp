@@ -22,7 +22,7 @@ namespace rpc::spec::handlers::book_offers {
 /**
  * @brief Converts the taker asset field into its strongly-typed value.
  */
-template <rpc::RippledError IsrErr>
+template <rpc::XrpldError IsrErr>
 struct TakerAssetConverter
 {
     /**
@@ -110,7 +110,7 @@ struct TakerConverter
     {
         auto const err = [] {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "Invalid field 'taker'."}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "Invalid field 'taker'."}};
         };
         if (not fieldView.isString())
             return err();
@@ -136,14 +136,14 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
     if (not hasCurrency and not hasMptId)
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Missing field '" + std::string{fieldView.key()} + ".currency'."}};
     }
 
     if (hasMptId and (hasCurrency or fieldView.child("issuer").present()))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
 
@@ -155,14 +155,14 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
     if (hasCurrency and not currencyView.isString())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Invalid field '" + std::string{fieldView.key()} + ".currency', not string."}};
     }
 
     if (hasMptId and not mptView.isString())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Invalid field '" + std::string{fieldView.key()} + ".mpt_issuance_id', not string."}};
     }
 
@@ -173,12 +173,12 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
 /**
  * @brief Converter instance: taker asset.
  */
-inline constexpr auto takerPaysConv = TakerAssetConverter<RippledError::RpcSrcIsrMalformed>{};
+inline constexpr auto takerPaysConv = TakerAssetConverter<XrpldError::RpcSrcIsrMalformed>{};
 
 /**
  * @brief Converter instance: taker asset.
  */
-inline constexpr auto takerGetsConv = TakerAssetConverter<RippledError::RpcDstIsrMalformed>{};
+inline constexpr auto takerGetsConv = TakerAssetConverter<XrpldError::RpcDstIsrMalformed>{};
 
 /**
  * @brief Converter instance: taker.
@@ -197,9 +197,9 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<JsonObject>,
         kTakerValidator,
         section(
-            field("currency", withCustomError(currency, RippledError::RpcDstAmtMalformed)),
-            field("mpt_issuance_id", withCustomError(uint192Hex, RippledError::RpcDstAmtMalformed)),
-            field("issuer", withCustomError(issuer, RippledError::RpcDstIsrMalformed))),
+            field("currency", withCustomError(currency, XrpldError::RpcDstAmtMalformed)),
+            field("mpt_issuance_id", withCustomError(uint192Hex, XrpldError::RpcDstAmtMalformed)),
+            field("issuer", withCustomError(issuer, XrpldError::RpcDstIsrMalformed))),
         takerGetsConv),
     field(
         "taker_pays",
@@ -208,23 +208,23 @@ inline constexpr auto kInputSpec = spec<Input>(
         type<JsonObject>,
         kTakerValidator,
         section(
-            field("currency", withCustomError(currency, RippledError::RpcSrcCurMalformed)),
-            field("mpt_issuance_id", withCustomError(uint192Hex, RippledError::RpcSrcCurMalformed)),
-            field("issuer", withCustomError(issuer, RippledError::RpcSrcIsrMalformed))),
+            field("currency", withCustomError(currency, XrpldError::RpcSrcCurMalformed)),
+            field("mpt_issuance_id", withCustomError(uint192Hex, XrpldError::RpcSrcCurMalformed)),
+            field("issuer", withCustomError(issuer, XrpldError::RpcSrcIsrMalformed))),
         takerPaysConv),
     field(
         "taker",
         &Input::taker,
-        withCustomError(account, RippledError::RpcInvalidParams, "Invalid field 'taker'."),
+        withCustomError(account, XrpldError::RpcInvalidParams, "Invalid field 'taker'."),
         takerConv),
     field(
         "domain",
         &Input::domain,
         withCustomError(
             type<std::string>,
-            RippledError::RpcDomainMalformed,
+            XrpldError::RpcDomainMalformed,
             "Unable to parse domain."),
-        withCustomError(uint256Hex, RippledError::RpcDomainMalformed, "Unable to parse domain."),
+        withCustomError(uint256Hex, XrpldError::RpcDomainMalformed, "Unable to parse domain."),
         asString),
     field(
         "limit",

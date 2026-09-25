@@ -62,7 +62,7 @@ TEST(MPTokenIssuanceHistorySpec, MalformedMptIssuanceIdFails)
 {
     auto const result = parseHistory(R"JSON({"mpt_issuance_id": "NOTAHEX"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(MPTokenIssuanceHistorySpec, AccountParses)
@@ -91,7 +91,7 @@ TEST(MPTokenIssuanceHistorySpec, UnknownTxTypeFails)
 {
     auto const result = parseHistory(withMptId(R"JSON(, "tx_type": "NotARealType")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'tx_type'.");
 }
 
@@ -122,7 +122,7 @@ TEST(MPTokenIssuanceHistorySpec, NonObjectMarkerIsInvalidMarker)
 {
     auto const result = parseHistory(withMptId(R"JSON(, "marker": "nope")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "invalidMarker");
 }
 

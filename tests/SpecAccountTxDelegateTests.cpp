@@ -67,7 +67,7 @@ TEST(AccountTxDelegateSpec, NotAnObjectFails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": "actor")JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "delegateNotObject");
 }
 
@@ -75,7 +75,7 @@ TEST(AccountTxDelegateSpec, MissingDelegateFilterFails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Field 'delegate_filter' is required but missing.");
 }
 
@@ -83,7 +83,7 @@ TEST(AccountTxDelegateSpec, UnknownDelegateFilterValueFails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "bogus"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(
         result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
@@ -92,7 +92,7 @@ TEST(AccountTxDelegateSpec, NonStringDelegateFilterFails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": 1})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(
         result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
@@ -102,6 +102,6 @@ TEST(AccountTxDelegateSpec, MalformedCounterPartyFails)
     auto const result = parseAccountTx(
         R"JSON(, "delegate": {"delegate_filter": "actor", "counter_party": "not-an-account"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "Field 'counter_party' value must be a valid account.");
 }

@@ -148,7 +148,7 @@ TEST(NftHistorySpec, NonObjectMarkerReportsInvalidMarker)
     {
         auto const result = parse(req(std::format(R"JSON(, "marker": {})JSON", bad)));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_EQ(result.error().message, "invalidMarker") << "marker=" << bad;
     }
 }

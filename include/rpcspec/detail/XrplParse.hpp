@@ -16,7 +16,10 @@
 #include <chrono>
 #include <cstddef>
 #include <ctime>
+#include <iomanip>
+#include <locale>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -174,10 +177,24 @@ issuerFromValidated(std::string const& issuer)
 [[nodiscard]] inline std::optional<std::chrono::system_clock::time_point>
 systemTpFromUtcStr(std::string const& dateStr, std::string const& format)
 {
+    // std::get_time rather than strptime, and calendar arithmetic rather than timegm: neither
+    // POSIX function exists on MSVC.
+    //
+    // The sentinel makes input that ends before the format does fail, as strptime does:
+    // std::get_time only sets eofbit there, which would accept a timestamp missing its suffix.
     std::tm ts{};
-    if (strptime(dateStr.c_str(), format.c_str(), &ts) == nullptr)
+    std::istringstream in{dateStr + '\x01'};
+    in.imbue(std::locale::classic());
+    in >> std::get_time(&ts, format.c_str());
+    if (in.fail())
         return std::nullopt;
-    return std::chrono::system_clock::from_time_t(timegm(&ts));
+
+    using namespace std::chrono;
+    // Not checked with ok(): an out-of-range day such as Feb 30 converts to the equivalent later
+    // date, which is how timegm normalised it.
+    auto const date = year{ts.tm_year + 1900} / month{static_cast<unsigned>(ts.tm_mon + 1)} /
+        day{static_cast<unsigned>(ts.tm_mday)};
+    return sys_days{date} + hours{ts.tm_hour} + minutes{ts.tm_min} + seconds{ts.tm_sec};
 }
 
 }  // namespace rpc::spec::detail

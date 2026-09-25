@@ -66,13 +66,13 @@ struct AccountIdConverter
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
         if (not id.has_value())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
+                rpc::XrpldError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
         }
         return *id;
     }
@@ -204,7 +204,7 @@ struct JsonBoolConverterT
         if constexpr (Strict)
         {
             if (not fieldView.isBool())
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
             return JsonBool{fieldView.asBool()};
         }
         else
@@ -261,7 +261,7 @@ struct Uint32Converter
     parse(View const& fieldView) const
     {
         if (not fieldView.isUint32())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return fieldView.asUint32();
     }
 };
@@ -293,7 +293,7 @@ struct StringConverter
     parse(View const& fieldView) const
     {
         if (not fieldView.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return std::string{fieldView.asString()};
     }
 };
@@ -335,7 +335,7 @@ struct AccountIdActMalformedConverter
                 id.has_value())
                 return *id;
         }
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
     }
 };
 
