@@ -39,10 +39,18 @@ jobs:
             compiler: apple-clang
             build_type: Debug
             container: ""
+          - os: [self-hosted, Windows, dev-box-windows-2026]
+            compiler: msvc
+            build_type: Release
+            container: ""
+          - os: [self-hosted, Windows, dev-box-windows-2026]
+            compiler: msvc
+            build_type: Debug
+            container: ""
 
     uses: ./.github/workflows/reusable-build-test.yml
     with:
-      runs_on: ${{ matrix.os }}
+      runs_on: ${{ toJSON(matrix.os) }}
       container: ${{ matrix.container }}
       compiler: ${{ matrix.compiler }}
       build_type: ${{ matrix.build_type }}
