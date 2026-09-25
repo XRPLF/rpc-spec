@@ -147,11 +147,11 @@ TEST(LedgerEntrySpec, RippleStateObjectLocator)
 
     auto const expectedAcct1 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedAcct1.has_value());
-    EXPECT_EQ(result->rippleStateAccount->accounts[0], *expectedAcct1);
+    EXPECT_EQ(std::get<RippleStateEntry>(*result->rippleStateAccount).accounts[0], *expectedAcct1);
 
     auto const expectedAcct2 = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expectedAcct2.has_value());
-    EXPECT_EQ(result->rippleStateAccount->accounts[1], *expectedAcct2);
+    EXPECT_EQ(std::get<RippleStateEntry>(*result->rippleStateAccount).accounts[1], *expectedAcct2);
 }
 
 TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
@@ -385,6 +385,8 @@ TEST(LedgerEntryDump, AllFieldsVisible)
     rpc::spec::SpecDumpWriter writer{oss};
     rpc::spec::handlers::ledger_entry::kInputSpec.dump(writer);
     auto const text = oss.str();
+    EXPECT_NE(text.find("- account:"), std::string::npos);
+    EXPECT_NE(text.find("- state:"), std::string::npos);
     for (auto const* key : {
              "ledger_hash",
              "ledger_index",
