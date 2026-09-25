@@ -44,10 +44,10 @@ struct AccountIdActMalformedConverter
     parse(View const& fieldView) const
     {
         if (not fieldView.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
         auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
         if (not id.has_value())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcActMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
         return *id;
     }
 };
@@ -79,7 +79,7 @@ struct AsBoolConverter
     parse(View const& fieldView) const
     {
         if (not fieldView.isBool())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return fieldView.asBool();
     }
 };

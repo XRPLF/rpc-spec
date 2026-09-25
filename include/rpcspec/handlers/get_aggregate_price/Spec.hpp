@@ -30,22 +30,22 @@ inline constexpr auto kOraclesMax = 200;
 inline constexpr auto kOraclesValidator = CustomModifier{[](auto& fieldView) -> MaybeError {
     if (not fieldView.isArray() or fieldView.arraySize() == 0 or
         fieldView.arraySize() > kOraclesMax)
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
 
     for (auto i = 0uz; i < fieldView.arraySize(); ++i)
     {
         auto elem = fieldView.element(i);
         if (not elem.isObject())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
 
         auto docIdView = elem.child("oracle_document_id");
         auto accountView = elem.child("account");
 
         if (not docIdView.present() or not accountView.present())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
 
         if (auto err = Type<uint32_t, std::string>::verify(docIdView); not err.has_value())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcOracleMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
 
         // Mirrors the old behaviour: RpcInvalidParams when the string is not a valid
         // integer, e.g. "a".
@@ -53,7 +53,7 @@ inline constexpr auto kOraclesValidator = CustomModifier{[](auto& fieldView) -> 
             return err;
 
         if (auto err = AccountBase58Validator::verify(accountView); not err.has_value())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
     }
 
     return {};
@@ -95,7 +95,7 @@ struct OraclesConverter
             // Both are guaranteed valid by kOraclesValidator; extract directly.
             auto id = detail::accountFromStringStrict(std::string{account.asString()});
             if (not id.has_value())
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
             result.push_back(
                 Oracle{
                     .documentId = docId.asUint32(),
@@ -133,7 +133,7 @@ struct Uint8Converter
     parse(View const& fieldView) const
     {
         if (not fieldView.isUint32())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return static_cast<uint8_t>(fieldView.asUint32());
     }
 };
@@ -168,7 +168,7 @@ struct CurrencyConverter
         xrpl::Currency currency;
         if (not fieldView.isString() or
             not xrpl::toCurrency(currency, std::string{fieldView.asString()}))
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return currency;
     }
 };
@@ -199,13 +199,13 @@ inline constexpr auto kInputSpec = spec<Input>(
         "base_asset",
         &Input::baseAsset,
         required,
-        withCustomError(currency, RippledError::RpcInvalidParams),
+        withCustomError(currency, XrpldError::RpcInvalidParams),
         currencyConv),
     field(
         "quote_asset",
         &Input::quoteAsset,
         required,
-        withCustomError(currency, RippledError::RpcInvalidParams),
+        withCustomError(currency, XrpldError::RpcInvalidParams),
         currencyConv),
     field("oracles", &Input::oracles, required, kOraclesValidator, oraclesConv),
     field("time_threshold", &Input::timeThreshold, type<uint32_t>, asUint32),

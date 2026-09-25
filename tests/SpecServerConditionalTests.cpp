@@ -32,7 +32,7 @@ using namespace rpc::spec;
 
 static_assert(
     std::variant_size_v<rpc::CombinedError> == 2,
-    "Clio build: CombinedError must be variant<RippledError, ClioError>");
+    "Clio build: CombinedError must be variant<XrpldError, ClioError>");
 static_assert(std::is_same_v<std::variant_alternative_t<1, rpc::CombinedError>, rpc::ClioError>);
 
 namespace {
@@ -50,7 +50,7 @@ TEST(ServerConditionalClio, IfServerClioValidatorIsApplied)
     auto bad = boost::json::parse(R"JSON({ "clio_only": true })JSON");
     auto const result = kSpec.process(bad);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcNotSupported);
 }
 
 TEST(ServerConditionalClio, IfServerClioValidatorAllowsNonTriggeringValue)
@@ -70,7 +70,7 @@ TEST(SubscribeSpecClio, ServerStreamRejectedWithNotSupported)
     auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
     auto const result = handlers::subscribe::kInputSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, ConsensusStreamRejectedWithNotSupported)
@@ -78,7 +78,7 @@ TEST(SubscribeSpecClio, ConsensusStreamRejectedWithNotSupported)
     auto value = boost::json::parse(R"JSON({"streams": ["consensus"]})JSON");
     auto const result = handlers::subscribe::kInputSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, PeerStatusStreamRejectedWithNotSupported)
@@ -86,7 +86,7 @@ TEST(SubscribeSpecClio, PeerStatusStreamRejectedWithNotSupported)
     auto value = boost::json::parse(R"JSON({"streams": ["peer_status"]})JSON");
     auto const result = handlers::subscribe::kInputSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcNotSupported);
 }
 
 TEST(SubscribeSpecClio, LedgerStreamAccepted)
@@ -116,7 +116,7 @@ TEST(UnsubscribeSpecClio, ServerStreamRejectedWithNotSupported)
     auto value = boost::json::parse(R"JSON({"streams": ["server"]})JSON");
     auto const result = handlers::unsubscribe::kInputSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcNotSupported);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcNotSupported);
 }
 
 TEST(UnsubscribeSpecClio, LedgerStreamAccepted)

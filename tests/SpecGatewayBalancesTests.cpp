@@ -104,7 +104,7 @@ TEST(GatewayBalancesSpec, V1HotWalletWrongTypeIsInvalidHotwallet)
 {
     auto const result = parseV1(withHotWallet("123"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletNotStringOrArray");
 }
 
@@ -112,7 +112,7 @@ TEST(GatewayBalancesSpec, V2HotWalletWrongTypeIsInvalidParams)
 {
     auto const result = parseV2(withHotWallet("123"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "hotwalletNotStringOrArray");
 }
 
@@ -120,7 +120,7 @@ TEST(GatewayBalancesSpec, V1HotWalletMalformedStringIsInvalidHotwallet)
 {
     auto const result = parseV1(withHotWallet(R"JSON("notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
@@ -128,7 +128,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedStringIsInvalidParams)
 {
     auto const result = parseV2(withHotWallet(R"JSON("notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
@@ -136,7 +136,7 @@ TEST(GatewayBalancesSpec, V1HotWalletMalformedArrayElementIsInvalidHotwallet)
 {
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
@@ -144,7 +144,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedArrayElementIsInvalidParams)
 {
     auto const result = parseV2(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
@@ -152,6 +152,6 @@ TEST(GatewayBalancesSpec, HotWalletNonStringArrayElementIsRejected)
 {
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", 42])", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidHotwallet);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidHotwallet);
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }

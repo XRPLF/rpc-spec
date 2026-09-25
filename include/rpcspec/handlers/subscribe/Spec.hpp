@@ -38,12 +38,12 @@ inline constexpr auto kSubscribeAccountsValidator =
         if (not fieldView.isArray())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
         }
         if (fieldView.arraySize() == 0)
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{fieldView.key()} + " malformed."}};
+                rpc::XrpldError::RpcActMalformed, std::string{fieldView.key()} + " malformed."}};
         }
         for (auto i = 0uz; i < fieldView.arraySize(); ++i)
         {
@@ -51,13 +51,13 @@ inline constexpr auto kSubscribeAccountsValidator =
             if (not elem.isString())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams,
+                    rpc::XrpldError::RpcInvalidParams,
                     std::string{fieldView.key()} + "'sItemNotString"}};
             }
             if (not rpc::spec::detail::accountFromStringStrict(std::string{elem.asString()}))
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcActMalformed,
+                    rpc::XrpldError::RpcActMalformed,
                     std::string{fieldView.key()} + "'sItemMalformed"}};
             }
         }
@@ -166,7 +166,7 @@ struct StreamsValidator
         if (not fieldView.isArray())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
         }
         for (auto i = 0uz; i < fieldView.arraySize(); ++i)
         {
@@ -174,17 +174,17 @@ struct StreamsValidator
             if (not elem.isString())
             {
                 return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcInvalidParams, "streamNotString"}};
+                    rpc::Status{rpc::XrpldError::RpcInvalidParams, "streamNotString"}};
             }
             auto const str = elem.asString();
 #if RPCSPEC_IS_CLIO
             if (contains(kNotSupported, str))
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcNotSupported}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcNotSupported}};
             if (not contains(kCommon, str))
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcStreamMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcStreamMalformed}};
 #else
             if (not contains(kCommon, str) and not contains(kRippledExtra, str))
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcStreamMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcStreamMalformed}};
 #endif
         }
         return {};
@@ -205,7 +205,7 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
     if (not fieldView.isArray())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
+            rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotArray"}};
     }
     for (auto i = 0uz; i < fieldView.arraySize(); ++i)
     {
@@ -213,21 +213,20 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
         if (not book.isObject())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
-                std::string{fieldView.key()} + "ItemNotObject"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "ItemNotObject"}};
         }
 
         auto const bothView = book.child("both");
         if (bothView.present() and not bothView.isBool())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams, "bothNotBool"}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams, "bothNotBool"}};
         }
 
         auto const snapshotView = book.child("snapshot");
         if (snapshotView.present() and not snapshotView.isBool())
         {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "snapshotNotBool"}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "snapshotNotBool"}};
         }
 
         auto const takerView = book.child("taker");
@@ -239,7 +238,7 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
                 not rpc::spec::detail::accountFromStringStrict(std::string{takerView.asString()}))
             {
                 return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcBadIssuer, "Issuer account malformed."}};
+                    rpc::Status{rpc::XrpldError::RpcBadIssuer, "Issuer account malformed."}};
             }
         }
 
@@ -247,53 +246,53 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
         if (not takerPaysView.present())
         {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "Missing field 'taker_pays'"}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "Missing field 'taker_pays'"}};
         }
         if (not takerPaysView.isObject())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, "Field 'taker_pays' is not an object"}};
+                rpc::XrpldError::RpcInvalidParams, "Field 'taker_pays' is not an object"}};
         }
 
         auto const takerGetsView = book.child("taker_gets");
         if (not takerGetsView.present())
         {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "Missing field 'taker_gets'"}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "Missing field 'taker_gets'"}};
         }
         if (not takerGetsView.isObject())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, "Field 'taker_gets' is not an object"}};
+                rpc::XrpldError::RpcInvalidParams, "Field 'taker_gets' is not an object"}};
         }
 
         auto const paysCurView = takerPaysView.child("currency");
         if (not paysCurView.present() or not paysCurView.isString())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcSrcCurMalformed}};
         }
         xrpl::Currency payCurrency;
         if (not xrpl::toCurrency(payCurrency, std::string{paysCurView.asString()}))
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcCurMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcSrcCurMalformed}};
         }
 
         auto const getsCurView = takerGetsView.child("currency");
         if (not getsCurView.present() or not getsCurView.isString())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcDstAmtMalformed}};
         }
         xrpl::Currency getCurrency;
         if (not xrpl::toCurrency(getCurrency, std::string{getsCurView.asString()}))
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcDstAmtMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcDstAmtMalformed}};
         }
 
         // book-level domain (mirrors parseBook): must be string if present
         auto const domainView = book.child("domain");
         if (domainView.present() and not domainView.isString())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcDomainMalformed}};
         }
 
         xrpl::AccountID payIssuer;
@@ -303,15 +302,15 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
             if (not paysIssuerView.isString())
             {
                 return std::unexpected{
-                    rpc::Status{rpc::RippledError::RpcInvalidParams, "takerPaysIssuerNotString"}};
+                    rpc::Status{rpc::XrpldError::RpcInvalidParams, "takerPaysIssuerNotString"}};
             }
             if (not xrpl::toIssuer(payIssuer, std::string{paysIssuerView.asString()}))
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcSrcIsrMalformed}};
             }
             if (payIssuer == xrpl::noAccount())
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcSrcIsrMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcSrcIsrMalformed}};
             }
         }
         else
@@ -322,13 +321,13 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
         if (xrpl::isXRP(payCurrency) and not xrpl::isXRP(payIssuer))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcSrcIsrMalformed,
+                rpc::XrpldError::RpcSrcIsrMalformed,
                 "Unneeded field 'taker_pays.issuer' for XRP currency specification."}};
         }
         if (not xrpl::isXRP(payCurrency) and xrpl::isXRP(payIssuer))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcSrcIsrMalformed,
+                rpc::XrpldError::RpcSrcIsrMalformed,
                 "Invalid field 'taker_pays.issuer', expected non-XRP issuer."}};
         }
 
@@ -339,18 +338,18 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
             if (not getsIssuerView.isString())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "taker_gets.issuer should be string"}};
+                    rpc::XrpldError::RpcInvalidParams, "taker_gets.issuer should be string"}};
             }
             if (not xrpl::toIssuer(getIssuer, std::string{getsIssuerView.asString()}))
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcDstIsrMalformed,
+                    rpc::XrpldError::RpcDstIsrMalformed,
                     "Invalid field 'taker_gets.issuer', bad issuer."}};
             }
             if (getIssuer == xrpl::noAccount())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcDstIsrMalformed,
+                    rpc::XrpldError::RpcDstIsrMalformed,
                     "Invalid field 'taker_gets.issuer', bad issuer account one."}};
             }
         }
@@ -362,19 +361,19 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
         if (xrpl::isXRP(getCurrency) and not xrpl::isXRP(getIssuer))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcDstIsrMalformed,
+                rpc::XrpldError::RpcDstIsrMalformed,
                 "Unneeded field 'taker_gets.issuer' for XRP currency specification."}};
         }
         if (not xrpl::isXRP(getCurrency) and xrpl::isXRP(getIssuer))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcDstIsrMalformed,
+                rpc::XrpldError::RpcDstIsrMalformed,
                 "Invalid field 'taker_gets.issuer', expected non-XRP issuer."}};
         }
 
         if (payCurrency == getCurrency and payIssuer == getIssuer)
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcBadMarket}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcBadMarket}};
         }
 
         // book-level domain (mirrors inner parseBook overload): must parse as hex
@@ -383,7 +382,7 @@ inline constexpr auto kBooksValidator = CustomValidator{[](auto const& fieldView
             xrpl::uint256 dom;
             if (not dom.parseHex(std::string{domainView.asString()}))
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcDomainMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcDomainMalformed}};
             }
         }
     }

@@ -79,35 +79,35 @@ TEST(GetAggregatePriceSpec, OraclesNotArrayIsOracleMalformed)
 {
     auto const result = parse(withOracles(R"JSON("nope")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesEmptyArrayIsOracleMalformed)
 {
     auto const result = parse(withOracles("[]"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesElementNotObjectIsOracleMalformed)
 {
     auto const result = parse(withOracles(R"JSON([1])JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesMissingDocumentIdIsOracleMalformed)
 {
     auto const result = parse(withOracles(std::format(R"JSON([{{"account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesMissingAccountIsOracleMalformed)
 {
     auto const result = parse(withOracles(R"JSON([{"oracle_document_id": 1}])JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
@@ -116,7 +116,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
     auto const result = parse(withOracles(
         std::format(R"JSON([{{"oracle_document_id": {{}}, "account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcOracleMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
 TEST(GetAggregatePriceSpec, OraclesDocumentIdNumericStringIsAccepted)
@@ -137,7 +137,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdNonNumericStringIsInvalidParams)
     auto const result = parse(withOracles(
         std::format(R"JSON([{{"oracle_document_id": "a", "account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(GetAggregatePriceSpec, OraclesMalformedAccountIsInvalidParams)
@@ -145,14 +145,14 @@ TEST(GetAggregatePriceSpec, OraclesMalformedAccountIsInvalidParams)
     auto const result =
         parse(withOracles(R"JSON([{"oracle_document_id": 1, "account": "notanaccount"}])JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(GetAggregatePriceSpec, OraclesNonStringAccountIsInvalidParams)
 {
     auto const result = parse(withOracles(R"JSON([{"oracle_document_id": 1, "account": 5}])JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 // --- trim / time_threshold --------------------------------------------------

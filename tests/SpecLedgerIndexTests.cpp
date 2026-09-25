@@ -82,7 +82,7 @@ TEST(LedgerIndexSpec, NonStringDateIsInvalidParams)
     {
         auto const result = parse(std::format(R"JSON({{"date": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "date=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "date=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "date=" << bad;
     }
 }
 
@@ -94,6 +94,6 @@ TEST(LedgerIndexSpec, MisformattedDateIsInvalidParams)
     {
         auto const result = parse(std::format(R"JSON({{"date": "{}"}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "date=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "date=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "date=" << bad;
     }
 }

@@ -77,7 +77,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithCurrencyFails)
     }})JSON",
             kMptId));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets'.");
 }
 
@@ -91,7 +91,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithIssuerFails)
     }})JSON",
             kMptId));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_pays'.");
 }
 
@@ -102,7 +102,7 @@ TEST(BookOffersSpec, NeitherCurrencyNorMptIssuanceIdFails)
         "taker_pays": {"currency": "XRP"}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets.currency'.");
 }
 
@@ -113,7 +113,7 @@ TEST(BookOffersSpec, NonStringCurrencyIsInvalidParams)
         "taker_pays": {"currency": "XRP"}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.currency', not string.");
 }
 
@@ -124,7 +124,7 @@ TEST(BookOffersSpec, MalformedTakerGetsMptIdIsDstAmtMalformed)
         "taker_pays": {"currency": "XRP"}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcDstAmtMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcDstAmtMalformed);
 }
 
 TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
@@ -134,7 +134,7 @@ TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
         "taker_pays": {"mpt_issuance_id": "NOTAHEX"}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcCurMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcCurMalformed);
 }
 
 TEST(BookOffersSpec, NonStringMptIssuanceIdNamesMptIssuanceIdField)
@@ -145,7 +145,7 @@ TEST(BookOffersSpec, NonStringMptIssuanceIdNamesMptIssuanceIdField)
         "taker_pays": {"currency": "XRP"}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.mpt_issuance_id', not string.");
 }
 
@@ -156,6 +156,6 @@ TEST(BookOffersSpec, NonStringTakerPaysMptIssuanceIdNamesMptIssuanceIdField)
         "taker_pays": {"mpt_issuance_id": true}
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_pays.mpt_issuance_id', not string.");
 }

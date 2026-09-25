@@ -117,7 +117,7 @@ TEST(LedgerDataSpecClio, OtherMarkerTypesAreMessageLess)
     {
         auto const result = parseLedgerData(std::format(R"JSON({{"marker": {}}})JSON", bad));
         ASSERT_FALSE(result.has_value()) << "marker=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << "marker=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "marker=" << bad;
         EXPECT_TRUE(result.error().message.empty())
             << "marker=" << bad << " unexpected: " << result.error().message;
     }
@@ -128,6 +128,6 @@ TEST(LedgerDataSpecClio, NonHexStringMarkerNamesTheField)
     // This arm is shared: malformedFieldMessage() gives "markerMalformed" on Clio.
     auto const result = parseLedgerData(R"JSON({"marker": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "markerMalformed");
 }

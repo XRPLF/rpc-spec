@@ -22,7 +22,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         "vetoed",
         withCustomError(
             notSupported,
-            RippledError::RpcNoPermission,
+            XrpldError::RpcNoPermission,
             "The admin portion of feature API is not available through Clio.")));
 
 /**

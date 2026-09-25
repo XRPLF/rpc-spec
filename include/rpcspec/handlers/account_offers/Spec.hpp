@@ -48,7 +48,7 @@ struct AccountMarkerStrConverter
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         auto const sv = fieldView.asString();
         auto const malformed = [&] {
