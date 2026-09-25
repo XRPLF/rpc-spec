@@ -87,7 +87,7 @@ TEST(RpcSpecDSL_IfType, RunsSubValidatorsOnTypeMatch)
     auto bad = boost::json::parse(R"JSON({ "value": 0 })JSON");
     auto const result = kSpec.process(bad);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_TRUE(result.error().message.empty());
 
     auto good = boost::json::parse(R"JSON({ "value": 5 })JSON");
@@ -153,7 +153,7 @@ TEST(RpcSpecDSL_IfType, StopsAtFirstSubValidatorError)
     auto request = boost::json::parse(R"JSON({ "value": 3 })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_TRUE(result.error().message.empty());
 }
 
@@ -213,7 +213,7 @@ TEST(RpcSpecDSL_IfType, CombinedWithOtherValidators)
         boost::json::parse(R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" })JSON");
     auto const result = kSpec.process(noLimit);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Required field 'limit' missing");
 
     auto strLimit = boost::json::parse(
@@ -268,7 +268,7 @@ TEST(RpcSpecDSL_Section, MissingRequiredSubFieldFails)
     auto request = boost::json::parse(R"JSON({ "taker_pays": {} })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Required field 'currency' missing");
 }
 
@@ -281,7 +281,7 @@ TEST(RpcSpecDSL_Section, WrongSubFieldTypeFails)
     auto request = boost::json::parse(R"JSON({ "taker_pays": { "currency": 42 } })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Section, AbsentParentFieldSkipsSection)
@@ -303,7 +303,7 @@ TEST(RpcSpecDSL_Section, NonObjectParentFieldFails)
     auto request = boost::json::parse(R"JSON({ "taker_pays": "XRP" })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_Section, ModifierMutatesSubField)
@@ -355,7 +355,7 @@ TEST(RpcSpecDSL_IfObject, RunsSectionWhenFieldIsObject)
     auto bad = boost::json::parse(R"JSON({ "entry": {} })JSON");
     auto const result = kSpec.process(bad);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Required field 'a' missing");
 }
 
@@ -402,20 +402,20 @@ TEST(RpcSpecDSL_IfArray, AbsentFieldSkipped)
 TEST(RpcSpecDSL_WithCustomError, OverridesCodeOnRequirementFailure)
 {
     static constexpr auto kSpec = RpcSpec{
-        field("account", withCustomError(required, rpc::RippledError::RpcActMalformed)),
+        field("account", withCustomError(required, rpc::XrpldError::RpcActMalformed)),
     };
 
     auto request = boost::json::parse(R"JSON({})JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_TRUE(result.error().message.empty());
 }
 
 TEST(RpcSpecDSL_WithCustomError, PassesThroughWhenWrappedSucceeds)
 {
     static constexpr auto kSpec = RpcSpec{
-        field("account", withCustomError(required, rpc::RippledError::RpcActMalformed)),
+        field("account", withCustomError(required, rpc::XrpldError::RpcActMalformed)),
     };
 
     auto request =
@@ -428,13 +428,13 @@ TEST(RpcSpecDSL_WithCustomError, AppendsCustomMessageOnFailure)
     static constexpr auto kSpec = RpcSpec{
         field(
             "marker",
-            withCustomError(required, rpc::RippledError::RpcInvalidParams, "invalidMarker")),
+            withCustomError(required, rpc::XrpldError::RpcInvalidParams, "invalidMarker")),
     };
 
     auto request = boost::json::parse(R"JSON({})JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "invalidMarker");
 }
 
@@ -445,13 +445,13 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
         field(
             "limit",
             withCustomError(
-                ifType<int64_t>(min(int64_t{1})), rpc::RippledError::RpcInvalidParams, "tooLow")),
+                ifType<int64_t>(min(int64_t{1})), rpc::XrpldError::RpcInvalidParams, "tooLow")),
     };
 
     auto bad = boost::json::parse(R"JSON({ "limit": 0 })JSON");
     auto const result = kSpec.process(bad);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "tooLow");
 
     auto skipped = boost::json::parse(R"JSON({ "limit": "default" })JSON");
@@ -487,13 +487,13 @@ TEST(RpcSpecDSL_CustomModifier, LambdaCanReturnError)
 {
     static constexpr auto kSpec = RpcSpec{
         field("val", customModifier([](auto& /*f*/) -> rpc::spec::MaybeError {
-                  return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                  return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
               })),
     };
     auto request = boost::json::parse(R"JSON({ "val": 1 })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(RpcSpecDSL_ToLower, ConvertsToLowercase)
@@ -636,5 +636,5 @@ TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
     auto wrongType = boost::json::parse(R"JSON({ "limit": "not a number" })JSON");
     auto const result = kSpec.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }

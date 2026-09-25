@@ -86,7 +86,7 @@ TEST(VaultInfoSpec, NonHexVaultIdIsInvalidParamsWithFieldMessage)
 {
     auto const result = parse(R"JSON({"vault_id": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'vault_id', not hex string.");
 }
 
@@ -94,7 +94,7 @@ TEST(VaultInfoSpec, NonStringVaultIdIsInvalidParamsWithFieldMessage)
 {
     auto const result = parse(R"JSON({"vault_id": 5})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'vault_id', not hex string.");
 }
 
@@ -102,7 +102,7 @@ TEST(VaultInfoSpec, MalformedOwnerIsActMalformedWithFieldMessage)
 {
     auto const result = parse(R"JSON({"owner": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "Invalid field 'owner', not AccountID.");
 }
 
@@ -110,7 +110,7 @@ TEST(VaultInfoSpec, NonStringOwnerIsActMalformedWithFieldMessage)
 {
     auto const result = parse(R"JSON({"owner": 5})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "Invalid field 'owner', not AccountID.");
 }
 
@@ -118,7 +118,7 @@ TEST(VaultInfoSpec, NonIntegerSeqIsInvalidParamsWithFieldMessage)
 {
     auto const result = parse(R"JSON({"seq": "5"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'seq', not a positive 32-bit integer.");
 }
 
@@ -126,6 +126,6 @@ TEST(VaultInfoSpec, NegativeSeqIsInvalidParamsWithFieldMessage)
 {
     auto const result = parse(R"JSON({"seq": -1})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'seq', not a positive 32-bit integer.");
 }

@@ -69,14 +69,14 @@ TEST(AccountLinesSpec, MalformedAccountIsActMalformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
 TEST(AccountLinesSpec, NonStringAccountIsAlsoActMalformed)
 {
     auto const result = parse(R"JSON({"account": 5})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
 TEST(AccountLinesSpec, PeerParses)
@@ -91,7 +91,7 @@ TEST(AccountLinesSpec, MalformedPeerIsActMalformed)
 {
     auto const result = parse(req(R"JSON(, "peer": "notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
 // --- AsBoolConverter --------------------------------------------------------
@@ -151,7 +151,7 @@ TEST(AccountLinesSpec, NonStringMarkerNamesTheField)
 {
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "markerNotString");
 }
 
@@ -159,7 +159,7 @@ TEST(AccountLinesSpec, MarkerWithoutCommaIsMalformedCursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{}")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -167,7 +167,7 @@ TEST(AccountLinesSpec, MarkerWithBadHexIsMalformedCursor)
 {
     auto const result = parse(req(R"JSON(, "marker": "NOTHEX,7")JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -175,7 +175,7 @@ TEST(AccountLinesSpec, MarkerWithNonNumericHintIsMalformedCursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{},abc")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -183,7 +183,7 @@ TEST(AccountLinesSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{},7x")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 

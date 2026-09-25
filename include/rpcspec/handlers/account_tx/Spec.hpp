@@ -29,14 +29,14 @@ namespace rpc::spec::handlers::account_tx {
 inline constexpr auto kTxTypeValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
     if (not fieldView.isString())
     {
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
     }
     auto const& validTypes = txTypesInLowercase();
     auto const sv = fieldView.asString();
     if (not validTypes.contains(std::string{sv}))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Invalid field '" + std::string{fieldView.key()} + "'."}};
     }
     return {};
@@ -114,22 +114,21 @@ inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& fieldV
     if (not fieldView.isObject())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
+            rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
     }
 
     auto const filterView = fieldView.child("delegate_filter");
     if (not filterView.present())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
-            "Field 'delegate_filter' is required but missing."}};
+            rpc::XrpldError::RpcInvalidParams, "Field 'delegate_filter' is required but missing."}};
     }
 
     if (not filterView.isString() or
         (filterView.asString() != "actor" and filterView.asString() != "authorizer"))
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "Field 'delegate_filter' value must be 'actor' or 'authorizer'."}};
     }
 
@@ -139,7 +138,7 @@ inline constexpr auto kDelegateValidator = CustomValidator{[](auto const& fieldV
         if (auto const err = AccountFormat::verify(counterPartyView); not err.has_value())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed,
+                rpc::XrpldError::RpcActMalformed,
                 "Field 'counter_party' value must be a valid account."}};
         }
     }
@@ -223,7 +222,7 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field(
         "marker",
         &Input::marker,
-        withCustomError(type<JsonObject>, rpc::RippledError::RpcInvalidParams, "invalidMarker"),
+        withCustomError(type<JsonObject>, rpc::XrpldError::RpcInvalidParams, "invalidMarker"),
         ifType<JsonObject>(section(
             field("ledger", required, type<uint32_t>),
             field("seq", required, type<uint32_t>))),

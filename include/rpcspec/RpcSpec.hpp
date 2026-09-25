@@ -282,12 +282,22 @@ RpcSpec(Fs...) -> RpcSpec<Fs...>;
  * @param extra Additional fields appended after the base fields.
  * @return A new `RpcSpec` combining base and extra fields.
  */
+namespace detail {
+
+template <typename... Existing, std::size_t... Is, typename... Extra>
+[[nodiscard]] consteval auto
+extendUntyped(RpcSpec<Existing...> const& base, std::index_sequence<Is...>, Extra... extra)
+{
+    return RpcSpec{std::get<Is>(base.fields)..., extra...};
+}
+
+}  // namespace detail
+
 template <typename... Existing, typename... Extra>
 [[nodiscard]] consteval auto
 extend(RpcSpec<Existing...> const& base, Extra... extra)
 {
-    return std::apply(
-        [&](auto const&... existing) { return RpcSpec{existing..., extra...}; }, base.fields);
+    return detail::extendUntyped(base, std::index_sequence_for<Existing...>{}, extra...);
 }
 
 /**

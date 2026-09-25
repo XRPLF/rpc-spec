@@ -59,7 +59,7 @@ struct Required
         if (not fieldView.present())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 "Required field '" + std::string{fieldView.key()} + "' missing"}};
         }
         return {};
@@ -128,7 +128,7 @@ struct Type<T>
     {
         if (not fieldView.present() or fieldView.template is<T>())
             return {};
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
     }
 };
 
@@ -175,7 +175,7 @@ struct Type<T1, T2, Rest...>
         if (fieldView.template is<T1>() or fieldView.template is<T2>() or
             (fieldView.template is<Rest>() or ...))
             return {};
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
     }
 };
 
@@ -276,7 +276,7 @@ struct Min
     {
         auto const value = detail::numericValue<T>(fieldView);
         if (value.has_value() and *value < bound)
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return {};
     }
 };
@@ -507,12 +507,12 @@ struct AccountFormat
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         if (not detail::accountFromStringStrict(std::string{fieldView.asString()}))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
+                rpc::XrpldError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
         }
         return {};
     }
@@ -570,9 +570,9 @@ public:
         if (not fieldView.present())
             return {};
         if (not fieldView.isString())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         if (not detail::systemTpFromUtcStr(std::string{fieldView.asString()}, std::string{format_}))
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return {};
     }
 };
@@ -699,8 +699,8 @@ struct LedgerIndexValidator
             return {};
 
         auto const unrecognised = [] {
-            return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
+            return std::unexpected{
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, rpc::malformedLedgerIndexMessage()}};
         };
 
         if (not fieldView.isString())
@@ -713,7 +713,7 @@ struct LedgerIndexValidator
             }
             else
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
             }
         }
 
@@ -759,7 +759,7 @@ struct AccountBase58Validator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         auto const account =
             detail::parseBase58Wrapper<xrpl::AccountID>(std::string{fieldView.asString()});
@@ -800,13 +800,13 @@ struct CurrencyValidator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         auto const str = std::string{fieldView.asString()};
         if (str.empty())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "IsEmpty"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "IsEmpty"}};
         }
         xrpl::Currency currency;
         if (not xrpl::toCurrency(currency, str))
@@ -846,19 +846,19 @@ struct IssuerValidator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         xrpl::AccountID issuer;
         if (not xrpl::toIssuer(issuer, std::string{fieldView.asString()}))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}', bad issuer.", fieldView.key())}};
         }
         if (issuer == xrpl::noAccount())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}', bad issuer account one.", fieldView.key())}};
         }
         return {};
@@ -895,7 +895,7 @@ struct CurrencyIssueValidator
         if (not fieldView.isObject())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotObject"}};
         }
         auto const currView = fieldView.child("currency");
         if (not currView.present() or not currView.isString())
@@ -960,19 +960,19 @@ struct ToNumberModifier
         auto const sv = fieldView.asString();
         if (sv.find('.') != std::string_view::npos)
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         int64_t val = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
         if (ec != std::errc() or ptr != sv.data() + sv.size())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         // Every consumer reads the result back through FieldView::asUint32(), which casts
         // without checking. Reject anything that would silently become a different number.
         if (val < 0 or val > int64_t{std::numeric_limits<uint32_t>::max()})
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         fieldView.set(val);
         return {};
@@ -1244,7 +1244,7 @@ struct NotSupported
         if (fieldView.present())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcNotSupported,
+                rpc::XrpldError::RpcNotSupported,
                 "Not supported field '" + std::string{fieldView.key()} + "'"}};
         }
         return {};
@@ -1309,7 +1309,7 @@ struct NotSupportedIfEqual
         if (not fieldView.present() or not fieldView.isBool() or fieldView.asBool() != value)
             return {};
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcNotSupported,
+            rpc::XrpldError::RpcNotSupported,
             std::format("Not supported field '{}'s value '{}'", fieldView.key(), value)}};
     }
 };
@@ -1369,11 +1369,11 @@ struct OneOfValidator
             return {};
         if (not fieldView.isString())
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         if (std::ranges::contains(values, fieldView.asString()))
             return {};
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
     }
 };
 
@@ -1474,7 +1474,7 @@ struct Between
     {
         auto const value = detail::numericValue<T>(fieldView);
         if (value.has_value() and (*value < lo or *value > hi))
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         return {};
     }
 };
@@ -1578,7 +1578,7 @@ struct Hex256ArrayValidator
         {
             // Mirrors old behaviour: a non-array credentials field is rejected by the leading
             // Type<array> check which produces a plain RpcInvalidParams ("Invalid parameters.").
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         auto const size = fieldView.arraySize();
         for (auto i = 0uz; i < size; ++i)
@@ -1587,13 +1587,13 @@ struct Hex256ArrayValidator
             if (not elem.isString())
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
+                    rpc::XrpldError::RpcInvalidParams, "Item is not a valid uint256 type."}};
             }
             xrpl::uint256 parsed;
             if (not parsed.parseHex(std::string{elem.asString()}.c_str()))
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams, "Item is not a valid uint256 type."}};
+                    rpc::XrpldError::RpcInvalidParams, "Item is not a valid uint256 type."}};
             }
         }
         return {};
@@ -1629,7 +1629,7 @@ struct AccountMarkerValidator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
         }
         auto const sv = fieldView.asString();
         auto const commaPos = sv.find(',');
@@ -1682,14 +1682,14 @@ struct AccountTypeValidator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", fieldView.key())}};
         }
         auto const type = accountOwnedLedgerTypeFromStr(std::string{fieldView.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}'.", fieldView.key())}};
         }
         return {};
@@ -1788,14 +1788,14 @@ struct LedgerEntryTypeValidator
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}', not string.", fieldView.key())}};
         }
         auto const type = ledgerEntryTypeFromStr(std::string{fieldView.asString()});
         if (type == xrpl::ltANY)
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams,
+                rpc::XrpldError::RpcInvalidParams,
                 std::format("Invalid field '{}'.", fieldView.key())}};
         }
         return {};

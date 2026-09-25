@@ -76,7 +76,7 @@ TEST(DepositAuthorizedSpec, MalformedSourceAccountIsActMalformed)
             R"JSON({{"source_account": "notanaccount", "destination_account": "{}"}})JSON",
             kAcct2));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "source_accountMalformed");
 }
 
@@ -85,7 +85,7 @@ TEST(DepositAuthorizedSpec, NonStringDestinationAccountIsInvalidParams)
     auto const result = parse(
         std::format(R"JSON({{"source_account": "{}", "destination_account": 5}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "destination_accountNotString");
 }
 
@@ -124,7 +124,7 @@ TEST(DepositAuthorizedSpec, CredentialsNotArrayIsBareInvalidParams)
 {
     auto const result = parseWithCredentials(R"JSON("notanarray")JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     // Deliberately message-less, mirroring the old leading Type<array> check.
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
@@ -133,7 +133,7 @@ TEST(DepositAuthorizedSpec, CredentialsNonStringElementIsRejected)
 {
     auto const result = parseWithCredentials(std::format(R"(["{}", 42])", kHex1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Item is not a valid uint256 type.");
 }
 
@@ -141,7 +141,7 @@ TEST(DepositAuthorizedSpec, CredentialsNonHexElementIsRejected)
 {
     auto const result = parseWithCredentials(R"JSON(["NOTHEX"])JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Item is not a valid uint256 type.");
 }
 
@@ -151,6 +151,6 @@ TEST(DepositAuthorizedSpec, CredentialsWrongLengthHexIsRejected)
     auto const result = parseWithCredentials(
         R"JSON(["1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515B"])JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Item is not a valid uint256 type.");
 }

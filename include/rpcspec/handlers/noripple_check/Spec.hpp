@@ -66,7 +66,7 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
         required,
         withCustomError(
             oneOf("gateway", "user"),
-            rpc::RippledError::RpcInvalidParams,
+            rpc::XrpldError::RpcInvalidParams,
             "role field is invalid"),
         roleGateway),
     field(

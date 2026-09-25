@@ -73,7 +73,7 @@ TEST(LedgerSelector, EmptyIndexStringFails)
     auto value = boost::json::parse(R"JSON({ "ledger_index": "" })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, TrailingGarbageIndexStringFails)
@@ -81,7 +81,7 @@ TEST(LedgerSelector, TrailingGarbageIndexStringFails)
     auto value = boost::json::parse(R"JSON({ "ledger_index": "30abc" })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, ShortcutValidated)
@@ -131,7 +131,7 @@ TEST(LedgerSelector, UnknownIndexStringFails)
     auto value = boost::json::parse(R"JSON({ "ledger_index": "latest" })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, OutOfRangeNumericIndexFails)
@@ -139,7 +139,7 @@ TEST(LedgerSelector, OutOfRangeNumericIndexFails)
     auto value = boost::json::parse(R"JSON({ "ledger_index": 9999999999 })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, NonStringNonNumberIndexFails)
@@ -147,7 +147,7 @@ TEST(LedgerSelector, NonStringNonNumberIndexFails)
     auto value = boost::json::parse(R"JSON({ "ledger_index": true })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, ValidHashYieldsHash)
@@ -165,7 +165,7 @@ TEST(LedgerSelector, MalformedHashFails)
     auto value = boost::json::parse(R"JSON({ "ledger_hash": "DEADBEEF" })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerSelector, NonStringHashFails)
@@ -173,7 +173,7 @@ TEST(LedgerSelector, NonStringHashFails)
     auto value = boost::json::parse(R"JSON({ "ledger_hash": 123 })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 // Not mutually exclusive: when both are present, ledger_hash wins (mirrors the
@@ -196,7 +196,7 @@ TEST(LedgerSelector, BothHashAndMalformedIndexFails)
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "nonsense" })JSON");
     auto const result = kLedgerSpec.parse(value);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 namespace {

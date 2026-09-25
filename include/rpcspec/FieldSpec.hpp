@@ -4,8 +4,10 @@
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Types.hpp>
 
+#include <cstddef>
 #include <string_view>
 #include <tuple>
+#include <utility>
 
 namespace rpc::spec {
 
@@ -148,11 +150,7 @@ struct FieldSpec
     [[nodiscard]] consteval auto
     operator|(Item item) const
     {
-        return std::apply(
-            [&](auto const&... existing) {
-                return FieldSpec<Items..., Item>{key, existing..., item};
-            },
-            items);
+        return appendItem(item, std::index_sequence_for<Items...>{});
     }
 
     /**
@@ -224,6 +222,17 @@ struct FieldSpec
         Warnings out;
         runChecks(items, childView, out);
         return out;
+    }
+
+private:
+    // Expanded with an index sequence rather than std::apply and a lambda: the lambda is not an
+    // immediate function, so calling a consteval constructor from it relies on P2564, which
+    // MSVC does not implement.
+    template <typename Item, std::size_t... Is>
+    [[nodiscard]] consteval auto
+    appendItem(Item item, std::index_sequence<Is...>) const
+    {
+        return FieldSpec<Items..., Item>{key, std::get<Is>(items)..., item};
     }
 };
 

@@ -10,3 +10,13 @@ include(default)
 user.package:libc_version=2.31
 tools.info.package_id:confs+=["user.package:libc_version"]
 {% endif %}
+
+{% if os == "Windows" %}
+{# rippled is the only project publishing Windows binaries; any Boost option that differs from #}
+{# its build is a different package ID, and Boost then builds from source here. #}
+[options]
+boost/*:without_cobalt=True
+boost/*:without_context=False
+boost/*:without_coroutine=True
+boost/*:without_coroutine2=False
+{% endif %}

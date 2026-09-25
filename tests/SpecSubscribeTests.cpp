@@ -177,7 +177,7 @@ TEST(SubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcBadMarket);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcBadMarket);
     // No override: the consumer renders "No such market." from the error table.
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
@@ -199,7 +199,7 @@ TEST(SubscribeSpec, BooksIdenticalIouAndIssuerIsBadMarket)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcBadMarket);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcBadMarket);
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
@@ -207,7 +207,7 @@ TEST(SubscribeSpec, BooksMissingTakerPays)
 {
     auto const result = parseSub(R"JSON({"books": [{"taker_gets": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'taker_pays'");
 }
 
@@ -217,7 +217,7 @@ TEST(SubscribeSpec, BooksTakerPaysNotObject)
         "books": [{"taker_pays": "XRP", "taker_gets": {"currency": "XRP"}}]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Field 'taker_pays' is not an object");
 }
 
@@ -225,7 +225,7 @@ TEST(SubscribeSpec, BooksMissingTakerGets)
 {
     auto const result = parseSub(R"JSON({"books": [{"taker_pays": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets'");
 }
 
@@ -235,7 +235,7 @@ TEST(SubscribeSpec, BooksPaysCurrencyMissingIsSrcCurMalformed)
         "books": [{"taker_pays": {}, "taker_gets": {"currency": "XRP"}}]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcCurMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcCurMalformed);
 }
 
 TEST(SubscribeSpec, BooksGetsCurrencyMissingIsDstAmtMalformed)
@@ -244,7 +244,7 @@ TEST(SubscribeSpec, BooksGetsCurrencyMissingIsDstAmtMalformed)
         "books": [{"taker_pays": {"currency": "XRP"}, "taker_gets": {}}]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcDstAmtMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcDstAmtMalformed);
 }
 
 TEST(SubscribeSpec, BooksUnneededPaysIssuerForXrp)
@@ -261,7 +261,7 @@ TEST(SubscribeSpec, BooksUnneededPaysIssuerForXrp)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcIsrMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcIsrMalformed);
     EXPECT_EQ(
         result.error().message,
         "Unneeded field 'taker_pays.issuer' for XRP currency specification.");
@@ -278,7 +278,7 @@ TEST(SubscribeSpec, BooksNonXrpPaysWithoutIssuerIsSrcIsrMalformed)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcSrcIsrMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcIsrMalformed);
     EXPECT_EQ(
         result.error().message, "Invalid field 'taker_pays.issuer', expected non-XRP issuer.");
 }
@@ -297,7 +297,7 @@ TEST(SubscribeSpec, BooksGetsIssuerAccountOneIsRejected)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcDstIsrMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcDstIsrMalformed);
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.issuer', bad issuer account one.");
 }
 
@@ -316,7 +316,7 @@ TEST(SubscribeSpec, BooksDomainNotStringIsDomainMalformed)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcDomainMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcDomainMalformed);
 }
 
 TEST(SubscribeSpec, BooksDomainNotHexIsDomainMalformed)
@@ -334,7 +334,7 @@ TEST(SubscribeSpec, BooksDomainNotHexIsDomainMalformed)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcDomainMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcDomainMalformed);
 }
 
 TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
@@ -418,7 +418,7 @@ TEST(UnsubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
         ]
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcBadMarket);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcBadMarket);
     // No override: the consumer renders "No such market." from the error table.
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
@@ -427,7 +427,7 @@ TEST(UnsubscribeSpec, BooksMissingTakerGets)
 {
     auto const result = parseUnsub(R"JSON({"books": [{"taker_pays": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets'");
 }
 

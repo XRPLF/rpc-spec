@@ -116,7 +116,7 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field(
         "marker",
         &Input::marker,
-        withCustomError(type<JsonObject>, rpc::RippledError::RpcInvalidParams, "invalidMarker"),
+        withCustomError(type<JsonObject>, rpc::XrpldError::RpcInvalidParams, "invalidMarker"),
         ifType<JsonObject>(section(
             field("ledger", required, type<uint32_t>),
             field("seq", required, type<uint32_t>))),

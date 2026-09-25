@@ -88,7 +88,7 @@ TEST(AmmInfoSpec, AssetNeitherStringNorObjectIsIssueMalformed)
     {
         auto const result = parse(withAsset(bad));
         ASSERT_FALSE(result.has_value()) << "asset=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed) << "asset=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed) << "asset=" << bad;
     }
 }
 
@@ -96,7 +96,7 @@ TEST(AmmInfoSpec, Asset2NeitherStringNorObjectIsIssueMalformed)
 {
     auto const result = parse(R"JSON({"asset": {"currency": "XRP"}, "asset2": 123})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
 // --- the object arm ---------------------------------------------------------
@@ -105,7 +105,7 @@ TEST(AmmInfoSpec, ObjectAssetBadCurrencyIsIssueMalformed)
 {
     auto const result = parse(withAsset(R"JSON({"currency": "TOOLONGCURRENCY"})JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
 TEST(AmmInfoSpec, ObjectAssetBadIssuerIsIssueMalformed)
@@ -113,21 +113,21 @@ TEST(AmmInfoSpec, ObjectAssetBadIssuerIsIssueMalformed)
     auto const result =
         parse(withAsset(R"JSON({"currency": "USD", "issuer": "notanaccount"})JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
 TEST(AmmInfoSpec, ObjectAssetMissingCurrencyIsIssueMalformed)
 {
     auto const result = parse(withAsset(std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
 TEST(AmmInfoSpec, ObjectAssetNonXrpMissingIssuerIsIssueMalformed)
 {
     auto const result = parse(withAsset(R"JSON({"currency": "USD"})JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcIssueMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
 // --- account fields ---------------------------------------------------------
@@ -146,12 +146,12 @@ TEST(AmmInfoSpec, MalformedAccountIsActMalformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
 TEST(AmmInfoSpec, MalformedAmmAccountIsActMalformed)
 {
     auto const result = parse(R"JSON({"amm_account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }

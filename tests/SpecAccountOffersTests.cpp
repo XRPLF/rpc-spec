@@ -67,7 +67,7 @@ TEST(AccountOffersSpec, MalformedAccountIsActMalformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcActMalformed);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
     EXPECT_EQ(result.error().message, "accountMalformed");
 }
 
@@ -76,7 +76,7 @@ TEST(AccountOffersSpec, NonStringAccountIsInvalidParams)
     // The shared accountId converter distinguishes wrong-type from unparseable.
     auto const result = parse(R"JSON({"account": 5})JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "accountNotString");
 }
 
@@ -125,7 +125,7 @@ TEST(AccountOffersSpec, NonStringMarkerNamesTheField)
 {
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "markerNotString");
 }
 
@@ -133,7 +133,7 @@ TEST(AccountOffersSpec, MarkerWithoutCommaIsMalformedCursor)
 {
     auto const result = parse(withMarker(kHex1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -141,7 +141,7 @@ TEST(AccountOffersSpec, MarkerWithBadHexIsMalformedCursor)
 {
     auto const result = parse(withMarker("NOTHEX,7"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -149,7 +149,7 @@ TEST(AccountOffersSpec, MarkerWithEmptyHintIsMalformedCursor)
 {
     auto const result = parse(withMarker(std::format("{},", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -157,7 +157,7 @@ TEST(AccountOffersSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 {
     auto const result = parse(withMarker(std::format("{},7x", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
@@ -166,7 +166,7 @@ TEST(AccountOffersSpec, MarkerWithNegativeHintIsMalformedCursor)
     // from_chars into uint64_t rejects a leading '-'.
     auto const result = parse(withMarker(std::format("{},-1", kHex1)));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 

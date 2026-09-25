@@ -211,7 +211,7 @@ TEST(LedgerEntrySpec, AuthorizedCredentialsIssuerRejectsZeroAccount)
         }
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 TEST(LedgerEntrySpec, CredentialObjectTypeAcceptsHex)
@@ -236,7 +236,7 @@ TEST(LedgerEntrySpec, CredentialObjectTypeRejectsNonHex)
         }
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "credential_type NotHexString");
 }
 
@@ -250,7 +250,7 @@ TEST(LedgerEntrySpec, CredentialObjectTypeRejectsEmpty)
         }
     })JSON");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "credential_type is empty");
 }
 

@@ -65,7 +65,7 @@ TEST(MPTHoldersSpec, AccountsRejectsNonArray)
 {
     auto const result = parse(request(R"(, "accounts": "notanarray")"));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Invalid field 'accounts', not array.");
 }
 

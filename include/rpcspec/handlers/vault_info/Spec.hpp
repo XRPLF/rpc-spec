@@ -30,7 +30,7 @@ inline constexpr std::string_view kSeqMessage = {};
 /**
  * @brief Vault field error.
  */
-inline constexpr auto kVaultFieldError = rpc::CombinedError{rpc::RippledError::RpcInvalidParams};
+inline constexpr auto kVaultFieldError = rpc::CombinedError{rpc::XrpldError::RpcInvalidParams};
 
 /**
  * @brief Vault id message.
@@ -40,7 +40,7 @@ inline constexpr std::string_view kVaultIdMessage = "Invalid field 'vault_id', n
 /**
  * @brief Owner error.
  */
-inline constexpr auto kOwnerError = rpc::CombinedError{rpc::RippledError::RpcActMalformed};
+inline constexpr auto kOwnerError = rpc::CombinedError{rpc::XrpldError::RpcActMalformed};
 
 /**
  * @brief Owner message.

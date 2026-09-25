@@ -51,24 +51,24 @@ enum class ClioError {
 #endif
 
 /**
- * @brief Clio uses compatible Rippled error codes for most RPC errors.
+ * @brief xrpld's RPC error codes, which Clio also uses for most of its errors.
  */
-using RippledError = xrpl::ErrorCodeI;
+using XrpldError = xrpl::ErrorCodeI;
 
 #if defined(RPCSPEC_IS_CLIO)
 /**
- * @brief Clio operates on a combination of Rippled and custom Clio error codes.
+ * @brief Clio operates on a combination of xrpld and custom Clio error codes.
  *
- * @see RippledError For xrpld error codes
+ * @see XrpldError For xrpld error codes
  * @see ClioError For custom clio error codes
  */
-using CombinedError = std::variant<RippledError, ClioError>;
+using CombinedError = std::variant<XrpldError, ClioError>;
 #else
 /**
  * @brief In xrpld builds the only error surface is xrpld's own; there are no Clio codes.
- * @see RippledError For xrpld error codes
+ * @see XrpldError For xrpld error codes
  */
-using CombinedError = std::variant<RippledError>;
+using CombinedError = std::variant<XrpldError>;
 #endif
 
 // TODO: these are possibly worth unifying at some point instead of trying to keep separated and
@@ -373,7 +373,7 @@ struct Status
      */
     operator bool() const
     {
-        if (auto err = std::get_if<RippledError>(&code))
+        if (auto err = std::get_if<XrpldError>(&code))
             return *err != xrpl::RpcSuccess;
 
         return true;
@@ -381,15 +381,15 @@ struct Status
 
     /**
      * @brief Returns true if the @ref rpc::Status contains the desired @ref
-     * rpc::RippledError
+     * rpc::XrpldError
      *
-     * @param other The @ref rpc::RippledError to match
+     * @param other The @ref rpc::XrpldError to match
      * @return true if status matches given error; false otherwise
      */
     bool
-    operator==(RippledError other) const
+    operator==(XrpldError other) const
     {
-        if (auto err = std::get_if<RippledError>(&code))
+        if (auto err = std::get_if<XrpldError>(&code))
             return *err == other;
 
         return false;

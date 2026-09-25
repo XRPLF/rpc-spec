@@ -33,7 +33,7 @@ inline constexpr auto kStringIssueValidator =
         }
         catch (std::runtime_error const&)
         {
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
         }
         return {};
     }};
@@ -72,7 +72,7 @@ struct IssueConverter
             }
             catch (std::runtime_error const&)
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
             }
         }
         if (fieldView.isObject())
@@ -82,21 +82,21 @@ struct IssueConverter
                 auto const currSv = fieldView.child("currency").asString();
                 xrpl::Currency currency{};
                 if (not xrpl::toCurrency(currency, std::string{currSv}))
-                    return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+                    return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
                 if (xrpl::isXRP(currency))
                     return xrpl::xrpIssue();
                 auto const issuerSv = fieldView.child("issuer").asString();
                 xrpl::AccountID issuer{};
                 if (not xrpl::toIssuer(issuer, std::string{issuerSv}))
-                    return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+                    return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
                 return xrpl::Issue{currency, issuer};
             }
             catch (...)
             {
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
             }
         }
-        return std::unexpected{rpc::Status{rpc::RippledError::RpcIssueMalformed}};
+        return std::unexpected{rpc::Status{rpc::XrpldError::RpcIssueMalformed}};
     }
 };
 
@@ -114,16 +114,16 @@ inline constexpr auto kInputSpec = spec<Input>(
     field(
         "asset",
         &Input::issue1,
-        withCustomError(type<std::string, JsonObject>, rpc::RippledError::RpcIssueMalformed),
+        withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed),
         ifType<std::string>(kStringIssueValidator),
-        ifType<JsonObject>(withCustomError(currencyIssue, rpc::RippledError::RpcIssueMalformed)),
+        ifType<JsonObject>(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed)),
         issueConv),
     field(
         "asset2",
         &Input::issue2,
-        withCustomError(type<std::string, JsonObject>, rpc::RippledError::RpcIssueMalformed),
+        withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed),
         ifType<std::string>(kStringIssueValidator),
-        ifType<JsonObject>(withCustomError(currencyIssue, rpc::RippledError::RpcIssueMalformed)),
+        ifType<JsonObject>(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed)),
         issueConv),
     field("amm_account", &Input::ammAccount, accountIdActMalformed),
     field("account", &Input::accountID, accountIdActMalformed));

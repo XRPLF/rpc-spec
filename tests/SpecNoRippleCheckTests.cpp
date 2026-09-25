@@ -79,7 +79,7 @@ TEST(NoRippleCheckSpec, UnknownRoleIsRejectedWithCustomMessage)
     auto const result =
         parseV1(std::format(R"JSON({{"account": "{}", "role": "bogus"}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "role field is invalid");
 }
 
@@ -88,7 +88,7 @@ TEST(NoRippleCheckSpec, NonStringRoleIsRejectedWithCustomMessage)
     // The withCustomError wraps the whole oneOf, so a type failure reads the same.
     auto const result = parseV1(std::format(R"JSON({{"account": "{}", "role": 5}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "role field is invalid");
 }
 
@@ -97,7 +97,7 @@ TEST(NoRippleCheckSpec, RoleIsCaseSensitive)
     auto const result =
         parseV1(std::format(R"JSON({{"account": "{}", "role": "Gateway"}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
 // --- limit ------------------------------------------------------------------

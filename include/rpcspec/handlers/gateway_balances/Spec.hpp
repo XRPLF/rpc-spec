@@ -33,7 +33,7 @@ inline constexpr auto kHotWalletV1 = CustomValidator{[](auto const& fieldView) -
     if (not fieldView.isString() and not fieldView.isArray())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidHotwallet,
+            rpc::XrpldError::RpcInvalidHotwallet,
             std::string{fieldView.key()} + "NotStringOrArray"}};
     }
     auto const getAccountID = [](auto const& elem) -> bool {
@@ -53,7 +53,7 @@ inline constexpr auto kHotWalletV1 = CustomValidator{[](auto const& fieldView) -
             if (not getAccountID(fieldView.element(i)))
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidHotwallet,
+                    rpc::XrpldError::RpcInvalidHotwallet,
                     std::string{fieldView.key()} + "Malformed"}};
             }
         }
@@ -63,8 +63,7 @@ inline constexpr auto kHotWalletV1 = CustomValidator{[](auto const& fieldView) -
         if (not getAccountID(fieldView))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidHotwallet,
-                std::string{fieldView.key()} + "Malformed"}};
+                rpc::XrpldError::RpcInvalidHotwallet, std::string{fieldView.key()} + "Malformed"}};
         }
     }
     return {};
@@ -77,8 +76,7 @@ inline constexpr auto kHotWalletV2 = CustomValidator{[](auto const& fieldView) -
     if (not fieldView.isString() and not fieldView.isArray())
     {
         return std::unexpected{rpc::Status{
-            rpc::RippledError::RpcInvalidParams,
-            std::string{fieldView.key()} + "NotStringOrArray"}};
+            rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotStringOrArray"}};
     }
     auto const getAccountID = [](auto const& elem) -> bool {
         if (not elem.isString())
@@ -97,8 +95,7 @@ inline constexpr auto kHotWalletV2 = CustomValidator{[](auto const& fieldView) -
             if (not getAccountID(fieldView.element(i)))
             {
                 return std::unexpected{rpc::Status{
-                    rpc::RippledError::RpcInvalidParams,
-                    std::string{fieldView.key()} + "Malformed"}};
+                    rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "Malformed"}};
             }
         }
     }
@@ -107,7 +104,7 @@ inline constexpr auto kHotWalletV2 = CustomValidator{[](auto const& fieldView) -
         if (not getAccountID(fieldView))
         {
             return std::unexpected{rpc::Status{
-                rpc::RippledError::RpcInvalidParams, std::string{fieldView.key()} + "Malformed"}};
+                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "Malformed"}};
         }
     }
     return {};
@@ -153,14 +150,14 @@ struct HotWalletConverter
         if (fieldView.isString())
         {
             if (not parseOne(fieldView))
-                return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         else
         {
             for (auto i = 0uz; i < fieldView.arraySize(); ++i)
             {
                 if (not parseOne(fieldView.element(i)))
-                    return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+                    return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
             }
         }
         return result;

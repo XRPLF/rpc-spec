@@ -61,7 +61,7 @@ struct Section
         if (not fieldView.present())
             return {};
         if (not fieldView.isObject())
-            return std::unexpected{rpc::Status{rpc::RippledError::RpcInvalidParams}};
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
 
         MaybeError result{};
         std::apply(

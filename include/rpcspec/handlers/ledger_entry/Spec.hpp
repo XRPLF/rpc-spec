@@ -30,14 +30,14 @@ inline constexpr auto kRippleStateAccountsValidator =
         if (not fieldView.isArray() or fieldView.arraySize() != 2)
         {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "malformedAccounts"}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "malformedAccounts"}};
         }
         auto const elem0 = fieldView.element(0);
         auto const elem1 = fieldView.element(1);
         if (not elem0.isString() or not elem1.isString() or elem0.asString() == elem1.asString())
         {
             return std::unexpected{
-                rpc::Status{rpc::RippledError::RpcInvalidParams, "malformedAccounts"}};
+                rpc::Status{rpc::XrpldError::RpcInvalidParams, "malformedAccounts"}};
         }
         auto const id1 =
             rpc::spec::detail::parseBase58Wrapper<xrpl::AccountID>(std::string{elem0.asString()});

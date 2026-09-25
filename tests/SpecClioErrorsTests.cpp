@@ -61,11 +61,11 @@ TEST(ClioErrors, Uint256ValidatorReportsNotStringThenMalformed)
     static constexpr auto kSpec = RpcSpec{field("nft_id", uint256Hex)};
 
     auto const notString = statusOf(kSpec, R"JSON({"nft_id": 1})JSON");
-    EXPECT_EQ(notString, rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(notString, rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(notString.message, "nft_idNotString");
 
     auto const malformed = statusOf(kSpec, R"JSON({"nft_id": "xxx"})JSON");
-    EXPECT_EQ(malformed, rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(malformed, rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(malformed.message, "nft_idMalformed");
 }
 
@@ -101,7 +101,7 @@ TEST(ClioErrors, LedgerHashReportsNotStringThenMalformed)
     auto notString = boost::json::parse(R"JSON({"ledger_hash": 1})JSON");
     auto const r1 = kLedgerSpec.parse(notString);
     ASSERT_FALSE(r1.has_value());
-    EXPECT_EQ(r1.error(), rpc::RippledError::RpcInvalidParams);
+    EXPECT_EQ(r1.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(r1.error().message, "ledger_hashNotString");
 
     auto malformed = boost::json::parse(R"JSON({"ledger_hash": "xxx"})JSON");
@@ -120,7 +120,7 @@ TEST(ClioErrors, LedgerIndexUsesOneTokenForEveryFailure)
         auto req = boost::json::parse(json);
         auto const result = kLedgerSpec.parse(req);
         ASSERT_FALSE(result.has_value()) << json;
-        EXPECT_EQ(result.error(), rpc::RippledError::RpcInvalidParams) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
         EXPECT_EQ(result.error().message, "ledgerIndexMalformed") << json;
     }
 }

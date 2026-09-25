@@ -15,11 +15,19 @@ runs:
       env:
         BUILD_TYPE: "${{ inputs.build_type }}"
       run: |
-        # Conan names its single-config presets after the lowercased build type.
+        # Conan names its build and test presets after the lowercased build type. With a
+        # single-config generator the configure preset shares that name; with the multi-config
+        # Visual Studio one on Windows there is a single `conan-default` configure preset.
         PRESET="conan-$(echo "${BUILD_TYPE}" | tr '[:upper:]' '[:lower:]')"
-        cmake --preset "${PRESET}" \
+        CONFIGURE_PRESET="${PRESET}"
+        BUILD_DIR="build/${BUILD_TYPE}"
+        if [[ "${RUNNER_OS}" == "Windows" ]]; then
+            CONFIGURE_PRESET="conan-default"
+            BUILD_DIR="build"
+        fi
+        cmake --preset "${CONFIGURE_PRESET}" \
             -Drpcspec_tests=ON \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
         # Export both for later steps: ctest needs the preset, clang-tidy the build dir.
         echo "RPCSPEC_PRESET=${PRESET}" >>"${GITHUB_ENV}"
-        echo "RPCSPEC_BUILD_DIR=build/${BUILD_TYPE}" >>"${GITHUB_ENV}"
+        echo "RPCSPEC_BUILD_DIR=${BUILD_DIR}" >>"${GITHUB_ENV}"
