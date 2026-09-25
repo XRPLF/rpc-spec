@@ -18,6 +18,12 @@ find_package(Boost REQUIRED COMPONENTS json)
 
 target_link_libraries(rpcspec INTERFACE Boost::json)
 
+# Boost's headers ask MSVC to auto-link version-mangled library names that Conan's packages
+# don't use. Link the real targets only, as xrpld does.
+if(TARGET Boost::disable_autolinking)
+    target_link_libraries(rpcspec INTERFACE Boost::disable_autolinking)
+endif()
+
 # The spec proper must not name a JSON library: consumers supply the view types it reads
 # requests through (see include/rpcspec/backends for the one shipped implementation, and
 # the ObjectViewFor customization point in Concepts.hpp). Checked here so the invariant
