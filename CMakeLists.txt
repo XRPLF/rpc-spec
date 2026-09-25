@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(xrpl-rpc-spec VERSION 0.1.18 LANGUAGES CXX)
+project(xrpl-rpc-spec VERSION 0.1.19 LANGUAGES CXX)
 
 add_library(rpcspec INTERFACE)
 add_library(rpcspec::rpcspec ALIAS rpcspec)

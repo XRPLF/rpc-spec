@@ -16,6 +16,7 @@
 
 #include <Backend.hpp>  // IWYU pragma: keep
 
+#include <chrono>
 #include <format>
 #include <string>
 
@@ -47,6 +48,21 @@ TEST(LedgerIndexSpec, WellFormedDateParses)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->date.has_value());
+}
+
+TEST(LedgerIndexSpec, DateMapsToExactUtcInstant)
+{
+    auto const seconds = [](char const* date) {
+        auto const result = parse(std::format(R"JSON({{"date": "{}"}})JSON", date));
+        EXPECT_TRUE(result.has_value() and result->date.has_value()) << "date=" << date;
+        return std::chrono::duration_cast<std::chrono::seconds>(result->date->time_since_epoch())
+            .count();
+    };
+
+    EXPECT_EQ(seconds("1970-01-01T00:00:00Z"), 0);
+    EXPECT_EQ(seconds("2024-01-15T12:30:45Z"), 1705321845);
+    // An out-of-range day rolls forward, as timegm normalised it: Feb 30 is Mar 1.
+    EXPECT_EQ(seconds("2024-02-30T00:00:00Z"), seconds("2024-03-01T00:00:00Z"));
 }
 
 TEST(LedgerIndexSpec, DistinctDatesProduceDistinctTimePoints)

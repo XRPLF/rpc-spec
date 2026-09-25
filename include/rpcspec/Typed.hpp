@@ -250,12 +250,7 @@ struct PartialBoundField
     [[nodiscard]] consteval auto
     operator|(Item item) const
     {
-        return std::apply(
-            [&](auto const&... existing) {
-                return PartialBoundField<InputT, Member, Items..., Item>{
-                    key, member, existing..., item};
-            },
-            items);
+        return appendItem(item, std::index_sequence_for<Items...>{});
     }
 
     /**
@@ -269,11 +264,27 @@ struct PartialBoundField
     [[nodiscard]] consteval auto
     operator|(Conv conv) const
     {
-        return std::apply(
-            [&](auto const&... existing) {
-                return BoundField<InputT, Member, Conv, Items...>{key, member, conv, existing...};
-            },
-            items);
+        return complete(conv, std::index_sequence_for<Items...>{});
+    }
+
+private:
+    // Expanded with an index sequence rather than std::apply and a lambda: the lambda is not an
+    // immediate function, so calling a consteval constructor from it relies on P2564, which
+    // MSVC does not implement.
+    template <typename Item, std::size_t... Is>
+    [[nodiscard]] consteval auto
+    appendItem(Item item, std::index_sequence<Is...>) const
+    {
+        return PartialBoundField<InputT, Member, Items..., Item>{
+            key, member, std::get<Is>(items)..., item};
+    }
+
+    template <typename Conv, std::size_t... Is>
+    [[nodiscard]] consteval auto
+    complete(Conv conv, std::index_sequence<Is...>) const
+    {
+        return BoundField<InputT, Member, Conv, Items...>{
+            key, member, conv, std::get<Is>(items)...};
     }
 };
 
@@ -632,15 +643,22 @@ spec(Fields... fields)
  * @param extra Fields appended after the base fields.
  * @return A new spec combining base and extra fields.
  */
+namespace detail {
+
+template <typename InputT, typename... Existing, std::size_t... Is, typename... Extra>
+[[nodiscard]] consteval auto
+extendTyped(TypedSpec<InputT, Existing...> const& base, std::index_sequence<Is...>, Extra... extra)
+{
+    return TypedSpec<InputT, Existing..., Extra...>{std::get<Is>(base.fields)..., extra...};
+}
+
+}  // namespace detail
+
 template <typename InputT, typename... Existing, typename... Extra>
 [[nodiscard]] consteval auto
 extend(TypedSpec<InputT, Existing...> const& base, Extra... extra)
 {
-    return std::apply(
-        [&](auto const&... existing) {
-            return TypedSpec<InputT, Existing..., Extra...>{existing..., extra...};
-        },
-        base.fields);
+    return detail::extendTyped(base, std::index_sequence_for<Existing...>{}, extra...);
 }
 
 }  // namespace rpc::spec
