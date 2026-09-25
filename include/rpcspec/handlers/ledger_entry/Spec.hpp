@@ -17,6 +17,7 @@
 #include <array>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -746,9 +747,9 @@ struct RippleStateConverter
     static constexpr std::string_view kName = "ripple_state";
 
     /**
-     * @brief The value this converter produces (`RippleStateEntry`).
+     * @brief The value this converter produces (a hex key or `RippleStateEntry`).
      */
-    using ValueType = RippleStateEntry;
+    using ValueType = std::variant<xrpl::uint256, RippleStateEntry>;
 
     /**
      * @brief Validate the field and produce its strongly-typed value.
@@ -761,6 +762,10 @@ struct RippleStateConverter
     [[nodiscard]] Parsed<ValueType>
     parse(View const& fieldView) const
     {
+        if (fieldView.isString())
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+
         RippleStateEntry entry;
         auto const accountsView = fieldView.child("accounts");
         entry.accounts[0] = rpc::spec::detail::accountFromValidated(
@@ -977,13 +982,77 @@ inline constexpr auto xChainCreateAccountClaimIdConv = XChainCreateAccountClaimI
 // NOLINTEND(readability-identifier-naming)
 
 /**
+ * @brief A locator with two accepted spellings and a single Input member.
+ *
+ * Reuses the field's validators and converter for either spelling. Supplying both
+ * names is ambiguous and rejected, matching xrpld's locator selection.
+ *
+ * @tparam Field The bound locator field.
+ */
+template <typename Field>
+struct AliasedLocator : Field
+{
+    /** @brief The additional request field name. */
+    std::string_view alias;
+
+    /**
+     * @brief Parse either spelling, rejecting requests containing both.
+     * @param root Request object view.
+     * @param out Input to populate.
+     * @return An error for conflicting names or an invalid field value.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] MaybeError
+    parseInto(Root& root, Input& out) const
+    {
+        auto selected = static_cast<Field const&>(*this);
+        if (root.child(alias).present())
+        {
+            if (root.child(this->key).present())
+                return std::unexpected{
+                    rpc::Status{rpc::XrpldError::RpcInvalidParams, "Too many fields provided."}};
+            selected.key = alias;
+        }
+        return selected.parseInto(root, out);
+    }
+
+    /**
+     * @brief Collect warnings using the spelling present in the request.
+     * @param root Request object view.
+     * @return Warnings from the selected field.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] Warnings
+    check(Root const& root) const
+    {
+        auto selected = static_cast<Field const&>(*this);
+        if (root.child(alias).present())
+            selected.key = alias;
+        return selected.check(root);
+    }
+
+    /**
+     * @brief Include both spellings in the schema.
+     * @param writer Schema output writer.
+     */
+    void
+    dump(SpecDumpWriter& writer) const
+    {
+        Field::dump(writer);
+        auto alternate = static_cast<Field const&>(*this);
+        alternate.key = alias;
+        alternate.dump(writer);
+    }
+};
+
+/**
  * @brief The spec that validates a request and parses it into `Input`.
  */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, type<bool>, jsonBool),
     field("index", &Input::index, kMalformedRequestHexStringValidator, asUint256),
-    field("account_root", &Input::accountRoot, accountBase58, accountId),
+    AliasedLocator{field("account_root", &Input::accountRoot, accountBase58, accountId), "account"},
     field("did", &Input::did, accountBase58, accountId),
     field("check", &Input::check, kMalformedRequestHexStringValidator, asUint256),
     field(
@@ -1029,14 +1098,17 @@ inline constexpr auto kInputSpec = spec<Input>(
         &Input::paymentChannel,
         kMalformedRequestHexStringValidator,
         asUint256),
-    field(
-        "ripple_state",
-        &Input::rippleStateAccount,
-        type<JsonObject>,
-        section(
-            field("accounts", required, kRippleStateAccountsValidator),
-            field("currency", required, currency)),
-        rippleStateConv),
+    AliasedLocator{
+        field(
+            "ripple_state",
+            &Input::rippleStateAccount,
+            type<std::string, JsonObject>,
+            ifType<std::string>(kMalformedRequestHexStringValidator),
+            ifType<JsonObject>(section(
+                field("accounts", required, kRippleStateAccountsValidator),
+                field("currency", required, currency))),
+            rippleStateConv),
+        "state"},
     field(
         "ticket",
         &Input::ticket,

@@ -25,6 +25,7 @@ add_executable(
     SpecGetAggregatePriceTests.cpp
     SpecJsonBoolTests.cpp
     SpecLedgerDataTests.cpp
+    SpecLedgerEntryAliasTests.cpp
     SpecLedgerEntryTests.cpp
     SpecLedgerIndexTests.cpp
     SpecLedgerTests.cpp
@@ -63,6 +64,7 @@ add_executable(
     rpcspec_clio_tests
     SpecClioErrorsTests.cpp
     SpecClioHandlerErrorsTests.cpp
+    SpecLedgerEntryAliasTests.cpp
     SpecServerConditionalTests.cpp
     StatusPrinter.cpp
 )
@@ -76,4 +78,4 @@ target_compile_definitions(rpcspec_clio_tests PRIVATE RPCSPEC_IS_CLIO=1)
 
 include(GoogleTest)
 gtest_discover_tests(rpcspec_tests)
-gtest_discover_tests(rpcspec_clio_tests)
+gtest_discover_tests(rpcspec_clio_tests TEST_PREFIX "Clio.")
