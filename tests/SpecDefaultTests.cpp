@@ -48,7 +48,16 @@ parse(char const* json)
     return *result;
 }
 
+template <typename V>
+concept CanParse = requires(V& value) { kSpec.parse(value); };
+
 }  // namespace
+
+TEST(RpcSpecDSL_Default, ParseRejectsAConstDocument)
+{
+    static_assert(CanParse<boost::json::value>);
+    static_assert(not CanParse<boost::json::value const>);
+}
 
 TEST(RpcSpecDSL_Default, AbsentFieldReceivesSpecDefault)
 {

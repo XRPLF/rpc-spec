@@ -24,6 +24,9 @@ using namespace rpc::spec;
 
 namespace {
 
+template <typename Spec, typename V>
+concept CanProcess = requires(Spec const& spec, V& value) { spec.process(value); };
+
 TEST(RpcSpecDSL, ValidRequestPasses)
 {
     static constexpr auto kSpec = RpcSpec{
@@ -151,6 +154,16 @@ TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
     auto valid = boost::json::parse(
         R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "signer_lists": true })JSON");
     EXPECT_TRUE(spec(2).process(valid).has_value());
+}
+
+TEST(RpcSpecDSL, ProcessRejectsAConstDocument)
+{
+    static constexpr auto kSpec = RpcSpec{field("account", required, account)};
+
+    static_assert(CanProcess<decltype(kSpec), boost::json::value>);
+    static_assert(not CanProcess<decltype(kSpec), boost::json::value const>);
+    static_assert(CanProcess<RpcSpecView<ObjectView>, boost::json::value>);
+    static_assert(not CanProcess<RpcSpecView<ObjectView>, boost::json::value const>);
 }
 
 TEST(RpcSpecDSL_Override, ExtendingASpecCanOverrideAnExistingField)
