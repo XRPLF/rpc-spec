@@ -1,4 +1,5 @@
 #include <boost/json/parse.hpp>
+#include <boost/json/value.hpp>
 
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
@@ -48,7 +49,16 @@ parse(char const* json)
     return *result;
 }
 
+template <typename V>
+concept CanParse = requires(V& value) { kSpec.parse(value); };
+
 }  // namespace
+
+TEST(RpcSpecDSLDefault, parse_rejects_a_const_document)
+{
+    static_assert(CanParse<boost::json::value>);
+    static_assert(not CanParse<boost::json::value const>);
+}
 
 TEST(RpcSpecDSLDefault, absent_field_receives_spec_default)
 {

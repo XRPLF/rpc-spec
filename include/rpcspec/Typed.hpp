@@ -516,7 +516,7 @@ struct TypedSpec
      * @return The populated `InputT` on success, or an error on the first failing field.
      */
     template <typename V>
-        requires(not SomeObjectView<V>) and HasObjectView<V>
+        requires(not SomeObjectView<V>) and HasObjectView<V> and (not std::is_const_v<V>)
     [[nodiscard]] std::expected<InputT, rpc::Status>
     parse(V& value) const
     {

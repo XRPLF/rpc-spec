@@ -9,6 +9,7 @@
 #include <rpcspec/Types.hpp>
 
 #include <concepts>
+#include <type_traits>
 
 namespace rpc::spec {
 
@@ -136,7 +137,7 @@ public:
      * @return An error on the first failing field; empty on success.
      */
     template <typename V>
-        requires(not SomeObjectView<V>) and HasObjectView<V>
+        requires(not SomeObjectView<V>) and HasObjectView<V> and (not std::is_const_v<V>)
     [[nodiscard]] MaybeError
     process(V& value) const
     {

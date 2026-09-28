@@ -1,4 +1,5 @@
 #include <boost/json/parse.hpp>
+#include <boost/json/value.hpp>
 
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
@@ -23,6 +24,9 @@
 using namespace rpc::spec;
 
 namespace {
+
+template <typename Spec, typename V>
+concept CanProcess = requires(Spec const& spec, V& value) { spec.process(value); };
 
 TEST(RpcSpecDSL, valid_request_passes)
 {
@@ -151,6 +155,16 @@ TEST(RpcSpecDSL, versioned_spec_via_rpc_spec_view)
     auto valid = boost::json::parse(
         R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "signer_lists": true })JSON");
     EXPECT_TRUE(spec(2).process(valid).has_value());
+}
+
+TEST(RpcSpecDSL, process_rejects_a_const_document)
+{
+    static constexpr auto kSpec = RpcSpec{field("account", required, account)};
+
+    static_assert(CanProcess<decltype(kSpec), boost::json::value>);
+    static_assert(not CanProcess<decltype(kSpec), boost::json::value const>);
+    static_assert(CanProcess<RpcSpecView<ObjectView>, boost::json::value>);
+    static_assert(not CanProcess<RpcSpecView<ObjectView>, boost::json::value const>);
 }
 
 TEST(RpcSpecDSLOverride, extending_a_spec_can_override_an_existing_field)
