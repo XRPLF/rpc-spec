@@ -43,7 +43,7 @@ parseUnsub(std::string const& json)
 
 }  // namespace
 
-TEST(SubscribeSpec, AccountsTwoElements)
+TEST(SubscribeSpec, accounts_two_elements)
 {
     auto const result = parseSub(R"JSON({
         "streams": ["ledger"],
@@ -62,7 +62,7 @@ TEST(SubscribeSpec, AccountsTwoElements)
     EXPECT_EQ((*result->accounts)[1], *expected1);
 }
 
-TEST(SubscribeSpec, AccountsProposedTwoElements)
+TEST(SubscribeSpec, accounts_proposed_two_elements)
 {
     auto const result = parseSub(R"JSON({
         "streams": ["ledger"],
@@ -77,7 +77,7 @@ TEST(SubscribeSpec, AccountsProposedTwoElements)
     EXPECT_EQ((*result->accountsProposed)[0], *expected0);
 }
 
-TEST(SubscribeSpec, StreamsThreeCommon)
+TEST(SubscribeSpec, streams_three_common)
 {
     auto const result =
         parseSub(R"JSON({"streams": ["ledger", "validations", "book_changes"]})JSON");
@@ -91,7 +91,7 @@ TEST(SubscribeSpec, StreamsThreeCommon)
     EXPECT_EQ((*result->streams)[2], ST::BookChanges);
 }
 
-TEST(SubscribeSpec, StreamsDeprecatedRtTransactionsAlias)
+TEST(SubscribeSpec, streams_deprecated_rt_transactions_alias)
 {
     auto const result = parseSub(R"JSON({"streams": ["rt_transactions"]})JSON");
     ASSERT_TRUE(result.has_value());
@@ -102,7 +102,7 @@ TEST(SubscribeSpec, StreamsDeprecatedRtTransactionsAlias)
     EXPECT_EQ((*result->streams)[0], ST::TransactionsProposed);
 }
 
-TEST(SubscribeSpec, StreamsServerAcceptedInRippledBuild)
+TEST(SubscribeSpec, streams_server_accepted_in_rippled_build)
 {
     auto const result = parseSub(R"JSON({"streams": ["server"]})JSON");
     ASSERT_TRUE(result.has_value());
@@ -113,7 +113,7 @@ TEST(SubscribeSpec, StreamsServerAcceptedInRippledBuild)
     EXPECT_EQ((*result->streams)[0], ST::Server);
 }
 
-TEST(SubscribeSpec, StreamsConsensusAcceptedInRippledBuild)
+TEST(SubscribeSpec, streams_consensus_accepted_in_rippled_build)
 {
     auto const result = parseSub(R"JSON({"streams": ["consensus"]})JSON");
     ASSERT_TRUE(result.has_value());
@@ -124,13 +124,13 @@ TEST(SubscribeSpec, StreamsConsensusAcceptedInRippledBuild)
     EXPECT_EQ((*result->streams)[0], ST::Consensus);
 }
 
-TEST(SubscribeSpec, StreamsBogusValueFails)
+TEST(SubscribeSpec, streams_bogus_value_fails)
 {
     auto const result = parseSub(R"JSON({"streams": ["bogus"]})JSON");
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(SubscribeSpec, StreamsNotArrayFails)
+TEST(SubscribeSpec, streams_not_array_fails)
 {
     auto const result = parseSub(R"JSON({"streams": "ledger"})JSON");
     EXPECT_FALSE(result.has_value());
@@ -147,7 +147,7 @@ TEST(SubscribeSpec, StreamsNotArrayFails)
 // reintroduced.
 // ---------------------------------------------------------------------------
 
-TEST(SubscribeSpec, BooksValidPairParses)
+TEST(SubscribeSpec, books_valid_pair_parses)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -166,7 +166,7 @@ TEST(SubscribeSpec, BooksValidPairParses)
     EXPECT_EQ(result->books->size(), 1u);
 }
 
-TEST(SubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
+TEST(SubscribeSpec, books_identical_assets_is_bad_market_with_no_message_override)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -182,7 +182,7 @@ TEST(SubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
-TEST(SubscribeSpec, BooksIdenticalIouAndIssuerIsBadMarket)
+TEST(SubscribeSpec, books_identical_iou_and_issuer_is_bad_market)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -203,7 +203,7 @@ TEST(SubscribeSpec, BooksIdenticalIouAndIssuerIsBadMarket)
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
-TEST(SubscribeSpec, BooksMissingTakerPays)
+TEST(SubscribeSpec, books_missing_taker_pays)
 {
     auto const result = parseSub(R"JSON({"books": [{"taker_gets": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
@@ -211,7 +211,7 @@ TEST(SubscribeSpec, BooksMissingTakerPays)
     EXPECT_EQ(result.error().message, "Missing field 'taker_pays'");
 }
 
-TEST(SubscribeSpec, BooksTakerPaysNotObject)
+TEST(SubscribeSpec, books_taker_pays_not_object)
 {
     auto const result = parseSub(R"JSON({
         "books": [{"taker_pays": "XRP", "taker_gets": {"currency": "XRP"}}]
@@ -221,7 +221,7 @@ TEST(SubscribeSpec, BooksTakerPaysNotObject)
     EXPECT_EQ(result.error().message, "Field 'taker_pays' is not an object");
 }
 
-TEST(SubscribeSpec, BooksMissingTakerGets)
+TEST(SubscribeSpec, books_missing_taker_gets)
 {
     auto const result = parseSub(R"JSON({"books": [{"taker_pays": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
@@ -229,7 +229,7 @@ TEST(SubscribeSpec, BooksMissingTakerGets)
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets'");
 }
 
-TEST(SubscribeSpec, BooksPaysCurrencyMissingIsSrcCurMalformed)
+TEST(SubscribeSpec, books_pays_currency_missing_is_src_cur_malformed)
 {
     auto const result = parseSub(R"JSON({
         "books": [{"taker_pays": {}, "taker_gets": {"currency": "XRP"}}]
@@ -238,7 +238,7 @@ TEST(SubscribeSpec, BooksPaysCurrencyMissingIsSrcCurMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcCurMalformed);
 }
 
-TEST(SubscribeSpec, BooksGetsCurrencyMissingIsDstAmtMalformed)
+TEST(SubscribeSpec, books_gets_currency_missing_is_dst_amt_malformed)
 {
     auto const result = parseSub(R"JSON({
         "books": [{"taker_pays": {"currency": "XRP"}, "taker_gets": {}}]
@@ -247,7 +247,7 @@ TEST(SubscribeSpec, BooksGetsCurrencyMissingIsDstAmtMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcDstAmtMalformed);
 }
 
-TEST(SubscribeSpec, BooksUnneededPaysIssuerForXrp)
+TEST(SubscribeSpec, books_unneeded_pays_issuer_for_xrp)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -267,7 +267,7 @@ TEST(SubscribeSpec, BooksUnneededPaysIssuerForXrp)
         "Unneeded field 'taker_pays.issuer' for XRP currency specification.");
 }
 
-TEST(SubscribeSpec, BooksNonXrpPaysWithoutIssuerIsSrcIsrMalformed)
+TEST(SubscribeSpec, books_non_xrp_pays_without_issuer_is_src_isr_malformed)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -283,7 +283,7 @@ TEST(SubscribeSpec, BooksNonXrpPaysWithoutIssuerIsSrcIsrMalformed)
         result.error().message, "Invalid field 'taker_pays.issuer', expected non-XRP issuer.");
 }
 
-TEST(SubscribeSpec, BooksGetsIssuerAccountOneIsRejected)
+TEST(SubscribeSpec, books_gets_issuer_account_one_is_rejected)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -301,7 +301,7 @@ TEST(SubscribeSpec, BooksGetsIssuerAccountOneIsRejected)
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.issuer', bad issuer account one.");
 }
 
-TEST(SubscribeSpec, BooksDomainNotStringIsDomainMalformed)
+TEST(SubscribeSpec, books_domain_not_string_is_domain_malformed)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -319,7 +319,7 @@ TEST(SubscribeSpec, BooksDomainNotStringIsDomainMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcDomainMalformed);
 }
 
-TEST(SubscribeSpec, BooksDomainNotHexIsDomainMalformed)
+TEST(SubscribeSpec, books_domain_not_hex_is_domain_malformed)
 {
     auto const result = parseSub(R"JSON({
         "books": [
@@ -337,7 +337,7 @@ TEST(SubscribeSpec, BooksDomainNotHexIsDomainMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcDomainMalformed);
 }
 
-TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
+TEST(SubscribeDump, field_keys_and_stream_values_present)
 {
     std::ostringstream oss;
     rpc::spec::SpecDumpWriter writer{oss};
@@ -358,7 +358,7 @@ TEST(SubscribeDump, FieldKeysAndStreamValuesPresent)
     EXPECT_NE(text.find("oneOf"), npos) << "missing: oneOf";
 }
 
-TEST(UnsubscribeSpec, AccountsTwoElements)
+TEST(UnsubscribeSpec, accounts_two_elements)
 {
     auto const result = parseUnsub(R"JSON({
         "streams": ["ledger"],
@@ -374,7 +374,7 @@ TEST(UnsubscribeSpec, AccountsTwoElements)
     EXPECT_EQ((*result->accounts)[0], *expected0);
 }
 
-TEST(UnsubscribeSpec, StreamsEnumMapping)
+TEST(UnsubscribeSpec, streams_enum_mapping)
 {
     auto const result =
         parseUnsub(R"JSON({"streams": ["ledger", "transactions", "manifests"]})JSON");
@@ -388,7 +388,7 @@ TEST(UnsubscribeSpec, StreamsEnumMapping)
     EXPECT_EQ((*result->streams)[2], ST::Manifests);
 }
 
-TEST(UnsubscribeSpec, BooksValidPairParses)
+TEST(UnsubscribeSpec, books_valid_pair_parses)
 {
     auto const result = parseUnsub(R"JSON({
         "books": [
@@ -407,7 +407,7 @@ TEST(UnsubscribeSpec, BooksValidPairParses)
     EXPECT_EQ(result->books->size(), 1u);
 }
 
-TEST(UnsubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
+TEST(UnsubscribeSpec, books_identical_assets_is_bad_market_with_no_message_override)
 {
     auto const result = parseUnsub(R"JSON({
         "books": [
@@ -423,7 +423,7 @@ TEST(UnsubscribeSpec, BooksIdenticalAssetsIsBadMarketWithNoMessageOverride)
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
-TEST(UnsubscribeSpec, BooksMissingTakerGets)
+TEST(UnsubscribeSpec, books_missing_taker_gets)
 {
     auto const result = parseUnsub(R"JSON({"books": [{"taker_pays": {"currency": "XRP"}}]})JSON");
     ASSERT_FALSE(result.has_value());
@@ -431,7 +431,7 @@ TEST(UnsubscribeSpec, BooksMissingTakerGets)
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets'");
 }
 
-TEST(UnsubscribeDump, StreamValuesPresent)
+TEST(UnsubscribeDump, stream_values_present)
 {
     std::ostringstream oss;
     rpc::spec::SpecDumpWriter writer{oss};

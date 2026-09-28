@@ -51,13 +51,13 @@ withHotWallet(std::string const& hotWalletJson)
 
 }  // namespace
 
-TEST(GatewayBalancesSpec, AccountRequired)
+TEST(GatewayBalancesSpec, account_required)
 {
     auto const result = parseV1(R"JSON({})JSON");
     ASSERT_FALSE(result.has_value());
 }
 
-TEST(GatewayBalancesSpec, AccountOnlyParsesWithNoHotWallets)
+TEST(GatewayBalancesSpec, account_only_parses_with_no_hot_wallets)
 {
     auto const result = parseV1(std::format(R"JSON({{"account": "{}"}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
@@ -65,7 +65,7 @@ TEST(GatewayBalancesSpec, AccountOnlyParsesWithNoHotWallets)
     EXPECT_TRUE(result->hotWallets.empty());
 }
 
-TEST(GatewayBalancesSpec, HotWalletSingleStringParses)
+TEST(GatewayBalancesSpec, hot_wallet_single_string_parses)
 {
     auto const result = parseV1(withHotWallet(std::format(R"("{}")", kAcct2)));
     ASSERT_TRUE(result.has_value())
@@ -73,7 +73,7 @@ TEST(GatewayBalancesSpec, HotWalletSingleStringParses)
     EXPECT_EQ(result->hotWallets.size(), 1u);
 }
 
-TEST(GatewayBalancesSpec, HotWalletArrayParses)
+TEST(GatewayBalancesSpec, hot_wallet_array_parses)
 {
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", "{}"])", kAcct1, kAcct2)));
     ASSERT_TRUE(result.has_value())
@@ -81,7 +81,7 @@ TEST(GatewayBalancesSpec, HotWalletArrayParses)
     EXPECT_EQ(result->hotWallets.size(), 2u);
 }
 
-TEST(GatewayBalancesSpec, HotWalletArrayDeduplicates)
+TEST(GatewayBalancesSpec, hot_wallet_array_deduplicates)
 {
     // ValueType is std::set<AccountID>, so a repeated entry collapses.
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", "{}"])", kAcct1, kAcct1)));
@@ -90,7 +90,7 @@ TEST(GatewayBalancesSpec, HotWalletArrayDeduplicates)
     EXPECT_EQ(result->hotWallets.size(), 1u);
 }
 
-TEST(GatewayBalancesSpec, HotWalletEmptyArrayParses)
+TEST(GatewayBalancesSpec, hot_wallet_empty_array_parses)
 {
     auto const result = parseV1(withHotWallet("[]"));
     ASSERT_TRUE(result.has_value())
@@ -100,7 +100,7 @@ TEST(GatewayBalancesSpec, HotWalletEmptyArrayParses)
 
 // --- the v1/v2 error-code split -------------------------------------------
 
-TEST(GatewayBalancesSpec, V1HotWalletWrongTypeIsInvalidHotwallet)
+TEST(GatewayBalancesSpec, v1_hot_wallet_wrong_type_is_invalid_hotwallet)
 {
     auto const result = parseV1(withHotWallet("123"));
     ASSERT_FALSE(result.has_value());
@@ -108,7 +108,7 @@ TEST(GatewayBalancesSpec, V1HotWalletWrongTypeIsInvalidHotwallet)
     EXPECT_EQ(result.error().message, "hotwalletNotStringOrArray");
 }
 
-TEST(GatewayBalancesSpec, V2HotWalletWrongTypeIsInvalidParams)
+TEST(GatewayBalancesSpec, v2_hot_wallet_wrong_type_is_invalid_params)
 {
     auto const result = parseV2(withHotWallet("123"));
     ASSERT_FALSE(result.has_value());
@@ -116,7 +116,7 @@ TEST(GatewayBalancesSpec, V2HotWalletWrongTypeIsInvalidParams)
     EXPECT_EQ(result.error().message, "hotwalletNotStringOrArray");
 }
 
-TEST(GatewayBalancesSpec, V1HotWalletMalformedStringIsInvalidHotwallet)
+TEST(GatewayBalancesSpec, v1_hot_wallet_malformed_string_is_invalid_hotwallet)
 {
     auto const result = parseV1(withHotWallet(R"JSON("notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
@@ -124,7 +124,7 @@ TEST(GatewayBalancesSpec, V1HotWalletMalformedStringIsInvalidHotwallet)
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
-TEST(GatewayBalancesSpec, V2HotWalletMalformedStringIsInvalidParams)
+TEST(GatewayBalancesSpec, v2_hot_wallet_malformed_string_is_invalid_params)
 {
     auto const result = parseV2(withHotWallet(R"JSON("notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
@@ -132,7 +132,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedStringIsInvalidParams)
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
-TEST(GatewayBalancesSpec, V1HotWalletMalformedArrayElementIsInvalidHotwallet)
+TEST(GatewayBalancesSpec, v1_hot_wallet_malformed_array_element_is_invalid_hotwallet)
 {
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
@@ -140,7 +140,7 @@ TEST(GatewayBalancesSpec, V1HotWalletMalformedArrayElementIsInvalidHotwallet)
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
-TEST(GatewayBalancesSpec, V2HotWalletMalformedArrayElementIsInvalidParams)
+TEST(GatewayBalancesSpec, v2_hot_wallet_malformed_array_element_is_invalid_params)
 {
     auto const result = parseV2(withHotWallet(std::format(R"(["{}", "notanaccount"])", kAcct1)));
     ASSERT_FALSE(result.has_value());
@@ -148,7 +148,7 @@ TEST(GatewayBalancesSpec, V2HotWalletMalformedArrayElementIsInvalidParams)
     EXPECT_EQ(result.error().message, "hotwalletMalformed");
 }
 
-TEST(GatewayBalancesSpec, HotWalletNonStringArrayElementIsRejected)
+TEST(GatewayBalancesSpec, hot_wallet_non_string_array_element_is_rejected)
 {
     auto const result = parseV1(withHotWallet(std::format(R"(["{}", 42])", kAcct1)));
     ASSERT_FALSE(result.has_value());

@@ -246,7 +246,7 @@ static_assert(SomeObjectView<MockObjectView>);
 
 }  // namespace rpc::spec
 
-TEST(RpcSpecDSL_MockBackend, ValidRequestPasses)
+TEST(RpcSpecDSLMockBackend, valid_request_passes)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("account", required, account),
@@ -261,7 +261,7 @@ TEST(RpcSpecDSL_MockBackend, ValidRequestPasses)
     EXPECT_TRUE(kSPEC.process(root).has_value());
 }
 
-TEST(RpcSpecDSL_MockBackend, MissingRequiredFieldFails)
+TEST(RpcSpecDSLMockBackend, missing_required_field_fails)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("account", required),
@@ -275,7 +275,7 @@ TEST(RpcSpecDSL_MockBackend, MissingRequiredFieldFails)
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
-TEST(RpcSpecDSL_MockBackend, WrongTypeFails)
+TEST(RpcSpecDSLMockBackend, wrong_type_fails)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("limit", type<int64_t>),
@@ -289,7 +289,7 @@ TEST(RpcSpecDSL_MockBackend, WrongTypeFails)
     EXPECT_TRUE(result.error().message.empty());
 }
 
-TEST(RpcSpecDSL_MockBackend, ClampMutatesValueInPlace)
+TEST(RpcSpecDSLMockBackend, clamp_mutates_value_in_place)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("limit", type<int64_t>, clamp(int64_t{10}, int64_t{400})),
@@ -306,7 +306,7 @@ TEST(RpcSpecDSL_MockBackend, ClampMutatesValueInPlace)
     EXPECT_EQ(std::get<int64_t>(tooHigh.fields.at("limit")), 400);
 }
 
-TEST(RpcSpecDSL_MockBackend, IfTypeSkipsOnMismatch)
+TEST(RpcSpecDSLMockBackend, if_type_skips_on_mismatch)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{1}))),
@@ -318,7 +318,7 @@ TEST(RpcSpecDSL_MockBackend, IfTypeSkipsOnMismatch)
     EXPECT_TRUE(kSPEC.process(root).has_value());
 }
 
-TEST(RpcSpecDSL_MockBackend, IfTypeRunsOnMatch)
+TEST(RpcSpecDSLMockBackend, if_type_runs_on_match)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{1}))),
@@ -336,7 +336,7 @@ TEST(RpcSpecDSL_MockBackend, IfTypeRunsOnMatch)
     EXPECT_TRUE(kSPEC.process(goodRoot).has_value());
 }
 
-TEST(RpcSpecDSL_MockBackend, DeprecatedFieldProducesWarning)
+TEST(RpcSpecDSLMockBackend, deprecated_field_produces_warning)
 {
     static constexpr auto kSPEC = RpcSpec{
         field("account", required),

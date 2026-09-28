@@ -31,14 +31,14 @@ parse(std::string const& json)
 
 }  // namespace
 
-TEST(AccountObjectsSpec, SponsoredAbsentLeavesFilterUnset)
+TEST(AccountObjectsSpec, sponsored_absent_leaves_filter_unset)
 {
     auto const result = parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result->sponsored.has_value());
 }
 
-TEST(AccountObjectsSpec, SponsoredTrue)
+TEST(AccountObjectsSpec, sponsored_true)
 {
     auto const result =
         parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsored": true})JSON");
@@ -47,7 +47,7 @@ TEST(AccountObjectsSpec, SponsoredTrue)
     EXPECT_TRUE(static_cast<bool>(*result->sponsored));
 }
 
-TEST(AccountObjectsSpec, SponsoredFalseIsDistinctFromAbsent)
+TEST(AccountObjectsSpec, sponsored_false_is_distinct_from_absent)
 {
     auto const result =
         parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsored": false})JSON");
@@ -56,7 +56,7 @@ TEST(AccountObjectsSpec, SponsoredFalseIsDistinctFromAbsent)
     EXPECT_FALSE(static_cast<bool>(*result->sponsored));
 }
 
-TEST(AccountObjectsSpec, SponsoredRejectsNonBool)
+TEST(AccountObjectsSpec, sponsored_rejects_non_bool)
 {
     // xrpld requires a strict JSON bool here.
     for (auto const* body : {
@@ -69,7 +69,7 @@ TEST(AccountObjectsSpec, SponsoredRejectsNonBool)
         EXPECT_FALSE(parse(body).has_value()) << "should have been rejected: " << body;
 }
 
-TEST(AccountObjectsSpec, TypeAcceptsSponsorship)
+TEST(AccountObjectsSpec, type_accepts_sponsorship)
 {
     auto const result = parse(
         R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "type": "sponsorship"})JSON");
@@ -78,7 +78,7 @@ TEST(AccountObjectsSpec, TypeAcceptsSponsorship)
     EXPECT_EQ(*result->type, xrpl::ltSPONSORSHIP);
 }
 
-TEST(AccountObjectsSpec, TypeRejectsUnknownAndChainScopedTypes)
+TEST(AccountObjectsSpec, type_rejects_unknown_and_chain_scoped_types)
 {
     // `amendments` is chain-scoped, not account-owned, so it is not a valid filter.
     for (auto const* body : {

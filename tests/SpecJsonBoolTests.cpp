@@ -32,69 +32,69 @@ parseFlag(char const* json)
 }
 }  // namespace
 
-TEST(JsonBoolConverter, NullIsFalse)
+TEST(JsonBoolConverter, null_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": null })JSON")));
 }
 
-TEST(JsonBoolConverter, BoolTrueIsTrue)
+TEST(JsonBoolConverter, bool_true_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": true })JSON")));
 }
 
-TEST(JsonBoolConverter, BoolFalseIsFalse)
+TEST(JsonBoolConverter, bool_false_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": false })JSON")));
 }
 
-TEST(JsonBoolConverter, NonZeroIntIsTrue)
+TEST(JsonBoolConverter, non_zero_int_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": 1 })JSON")));
 }
 
-TEST(JsonBoolConverter, ZeroIntIsFalse)
+TEST(JsonBoolConverter, zero_int_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": 0 })JSON")));
 }
 
-TEST(JsonBoolConverter, NonZeroDoubleIsTrue)
+TEST(JsonBoolConverter, non_zero_double_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": 0.1 })JSON")));
 }
 
-TEST(JsonBoolConverter, ZeroDoubleIsFalse)
+TEST(JsonBoolConverter, zero_double_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": 0.0 })JSON")));
 }
 
-TEST(JsonBoolConverter, NonEmptyStringIsTrue)
+TEST(JsonBoolConverter, non_empty_string_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": "true" })JSON")));
 }
 
 // Deliberate: any non-empty string is truthy, so "false" is true. xrpld does not special-case
 // the literal, and API v2 rejects non-bools outright via `jsonBoolStrict`.
-TEST(JsonBoolConverter, StringFalseIsAlsoTrue)
+TEST(JsonBoolConverter, string_false_is_also_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": "false" })JSON")));
 }
 
-TEST(JsonBoolConverter, NonEmptyObjectIsTrue)
+TEST(JsonBoolConverter, non_empty_object_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": {"a": 1} })JSON")));
 }
 
-TEST(JsonBoolConverter, EmptyObjectIsFalse)
+TEST(JsonBoolConverter, empty_object_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": {} })JSON")));
 }
 
-TEST(JsonBoolConverter, NonEmptyArrayIsTrue)
+TEST(JsonBoolConverter, non_empty_array_is_true)
 {
     EXPECT_TRUE(static_cast<bool>(parseFlag(R"JSON({ "flag": [1] })JSON")));
 }
 
-TEST(JsonBoolConverter, EmptyArrayIsFalse)
+TEST(JsonBoolConverter, empty_array_is_false)
 {
     EXPECT_FALSE(static_cast<bool>(parseFlag(R"JSON({ "flag": [] })JSON")));
 }

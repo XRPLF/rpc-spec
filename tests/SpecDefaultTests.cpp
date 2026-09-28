@@ -50,26 +50,26 @@ parse(char const* json)
 
 }  // namespace
 
-TEST(RpcSpecDSL_Default, AbsentFieldReceivesSpecDefault)
+TEST(RpcSpecDSLDefault, absent_field_receives_spec_default)
 {
     auto const in = parse(R"JSON({})JSON");
     EXPECT_EQ(in.limit, kLimitDefault);
 }
 
-TEST(RpcSpecDSL_Default, PresentValueOverridesDefault)
+TEST(RpcSpecDSLDefault, present_value_overrides_default)
 {
     auto const in = parse(R"JSON({ "limit": 50 })JSON");
     EXPECT_EQ(in.limit, 50u);
 }
 
-TEST(RpcSpecDSL_Default, PresentValueIsStillClampedNotDefaulted)
+TEST(RpcSpecDSLDefault, present_value_is_still_clamped_not_defaulted)
 {
     // A present-but-out-of-range value is clamped; the default never enters.
     EXPECT_EQ(parse(R"JSON({ "limit": 9999 })JSON").limit, kLimitMax);
     EXPECT_EQ(parse(R"JSON({ "limit": 1 })JSON").limit, kLimitMin);
 }
 
-TEST(RpcSpecDSL_Default, DefaultDoesNotSuppressRequirementErrors)
+TEST(RpcSpecDSLDefault, default_does_not_suppress_requirement_errors)
 {
     // `min(1)` still runs even when the field is present and invalid; the default
     // is applied only on the absent branch, after items pass.
@@ -78,13 +78,13 @@ TEST(RpcSpecDSL_Default, DefaultDoesNotSuppressRequirementErrors)
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(RpcSpecDSL_Default, OptionalMemberWithoutDefaultStaysNullopt)
+TEST(RpcSpecDSLDefault, optional_member_without_default_stays_nullopt)
 {
     auto const in = parse(R"JSON({ "limit": 50 })JSON");
     EXPECT_FALSE(in.opt.has_value());
 }
 
-TEST(RpcSpecDSL_Default, DumpRendersDefaultValue)
+TEST(RpcSpecDSLDefault, dump_renders_default_value)
 {
     std::ostringstream oss;
     SpecDumpWriter writer{oss};

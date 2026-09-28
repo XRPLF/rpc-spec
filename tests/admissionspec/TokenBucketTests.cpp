@@ -3,7 +3,7 @@
 
 #include <chrono>
 
-TEST(TokenBucketTests, TokenBucket)
+TEST(TokenBucketTests, token_bucket)
 {
     auto const start = std::chrono::steady_clock::now();
 

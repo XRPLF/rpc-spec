@@ -51,14 +51,14 @@ parseLedgerData(std::string const& json)
 
 // --- vault_info: every field error collapses onto RpcMalformedRequest -------
 
-TEST(VaultInfoSpecClio, ValidRequestStillParses)
+TEST(VaultInfoSpecClio, valid_request_still_parses)
 {
     auto const result = parseVault(std::format(R"JSON({{"owner": "{}", "seq": 5}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
-TEST(VaultInfoSpecClio, NonHexVaultIdIsBareMalformedRequest)
+TEST(VaultInfoSpecClio, non_hex_vault_id_is_bare_malformed_request)
 {
     auto const result = parseVault(R"JSON({"vault_id": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -66,7 +66,7 @@ TEST(VaultInfoSpecClio, NonHexVaultIdIsBareMalformedRequest)
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
-TEST(VaultInfoSpecClio, MalformedOwnerCarriesOwnerNotHexString)
+TEST(VaultInfoSpecClio, malformed_owner_carries_owner_not_hex_string)
 {
     auto const result = parseVault(R"JSON({"owner": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -74,7 +74,7 @@ TEST(VaultInfoSpecClio, MalformedOwnerCarriesOwnerNotHexString)
     EXPECT_EQ(result.error().message, "OwnerNotHexString");
 }
 
-TEST(VaultInfoSpecClio, ZeroAccountOwnerIsRejectedOnClioOnly)
+TEST(VaultInfoSpecClio, zero_account_owner_is_rejected_on_clio_only)
 {
     // accountBase58 additionally rejects the all-zero AccountID; xrpld's
     // parseVault() accepts it, so this arm is Clio-only by construction.
@@ -83,7 +83,7 @@ TEST(VaultInfoSpecClio, ZeroAccountOwnerIsRejectedOnClioOnly)
     EXPECT_EQ(result.error(), rpc::ClioError::RpcMalformedRequest);
 }
 
-TEST(VaultInfoSpecClio, NonIntegerSeqIsBareMalformedRequest)
+TEST(VaultInfoSpecClio, non_integer_seq_is_bare_malformed_request)
 {
     auto const result = parseVault(R"JSON({"seq": "5"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -91,7 +91,7 @@ TEST(VaultInfoSpecClio, NonIntegerSeqIsBareMalformedRequest)
     EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
 }
 
-TEST(VaultInfoSpecClio, SeqZeroIsAcceptedBySpec)
+TEST(VaultInfoSpecClio, seq_zero_is_accepted_by_spec)
 {
     // Matches the xrpld arm: the spec type-checks only.
     auto const result = parseVault(std::format(R"JSON({{"owner": "{}", "seq": 0}})JSON", kAcct1));
@@ -101,7 +101,7 @@ TEST(VaultInfoSpecClio, SeqZeroIsAcceptedBySpec)
 
 // --- ledger_data: the marker type failure is message-less on Clio -----------
 
-TEST(LedgerDataSpecClio, HexStringMarkerStillParses)
+TEST(LedgerDataSpecClio, hex_string_marker_still_parses)
 {
     auto const result = parseLedgerData(std::format(R"JSON({{"marker": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
@@ -110,7 +110,7 @@ TEST(LedgerDataSpecClio, HexStringMarkerStillParses)
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*result->marker));
 }
 
-TEST(LedgerDataSpecClio, OtherMarkerTypesAreMessageLess)
+TEST(LedgerDataSpecClio, other_marker_types_are_message_less)
 {
     // xrpld emits "markerNotString" here; Clio deliberately emits nothing.
     for (auto const* bad : {"true", "{}", "[]", "-1"})
@@ -123,7 +123,7 @@ TEST(LedgerDataSpecClio, OtherMarkerTypesAreMessageLess)
     }
 }
 
-TEST(LedgerDataSpecClio, NonHexStringMarkerNamesTheField)
+TEST(LedgerDataSpecClio, non_hex_string_marker_names_the_field)
 {
     // This arm is shared: malformedFieldMessage() gives "markerMalformed" on Clio.
     auto const result = parseLedgerData(R"JSON({"marker": "NOTHEX"})JSON");

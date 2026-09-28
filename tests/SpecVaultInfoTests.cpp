@@ -39,7 +39,7 @@ parse(std::string const& json)
 
 }  // namespace
 
-TEST(VaultInfoSpec, EmptyRequestParses)
+TEST(VaultInfoSpec, empty_request_parses)
 {
     // No field is `required`; the owner/seq-vs-vault_id combination rule lives
     // in the handler, not the spec.
@@ -51,7 +51,7 @@ TEST(VaultInfoSpec, EmptyRequestParses)
     EXPECT_FALSE(result->tnxSequence.has_value());
 }
 
-TEST(VaultInfoSpec, VaultIdParses)
+TEST(VaultInfoSpec, vault_id_parses)
 {
     auto const result = parse(std::format(R"JSON({{"vault_id": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
@@ -59,7 +59,7 @@ TEST(VaultInfoSpec, VaultIdParses)
     ASSERT_TRUE(result->vaultID.has_value());
 }
 
-TEST(VaultInfoSpec, OwnerAndSeqParse)
+TEST(VaultInfoSpec, owner_and_seq_parse)
 {
     auto const result = parse(std::format(R"JSON({{"owner": "{}", "seq": 5}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
@@ -69,7 +69,7 @@ TEST(VaultInfoSpec, OwnerAndSeqParse)
     EXPECT_EQ(*result->tnxSequence, 5u);
 }
 
-TEST(VaultInfoSpec, SeqZeroIsAcceptedBySpec)
+TEST(VaultInfoSpec, seq_zero_is_accepted_by_spec)
 {
     // xrpld rejects seq == 0 inside parseVault(), not in the spec; the spec's
     // job is only the type check.
@@ -82,7 +82,7 @@ TEST(VaultInfoSpec, SeqZeroIsAcceptedBySpec)
 
 // --- xrpld field errors -----------------------------------------------------
 
-TEST(VaultInfoSpec, NonHexVaultIdIsInvalidParamsWithFieldMessage)
+TEST(VaultInfoSpec, non_hex_vault_id_is_invalid_params_with_field_message)
 {
     auto const result = parse(R"JSON({"vault_id": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -90,7 +90,7 @@ TEST(VaultInfoSpec, NonHexVaultIdIsInvalidParamsWithFieldMessage)
     EXPECT_EQ(result.error().message, "Invalid field 'vault_id', not hex string.");
 }
 
-TEST(VaultInfoSpec, NonStringVaultIdIsInvalidParamsWithFieldMessage)
+TEST(VaultInfoSpec, non_string_vault_id_is_invalid_params_with_field_message)
 {
     auto const result = parse(R"JSON({"vault_id": 5})JSON");
     ASSERT_FALSE(result.has_value());
@@ -98,7 +98,7 @@ TEST(VaultInfoSpec, NonStringVaultIdIsInvalidParamsWithFieldMessage)
     EXPECT_EQ(result.error().message, "Invalid field 'vault_id', not hex string.");
 }
 
-TEST(VaultInfoSpec, MalformedOwnerIsActMalformedWithFieldMessage)
+TEST(VaultInfoSpec, malformed_owner_is_act_malformed_with_field_message)
 {
     auto const result = parse(R"JSON({"owner": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -106,7 +106,7 @@ TEST(VaultInfoSpec, MalformedOwnerIsActMalformedWithFieldMessage)
     EXPECT_EQ(result.error().message, "Invalid field 'owner', not AccountID.");
 }
 
-TEST(VaultInfoSpec, NonStringOwnerIsActMalformedWithFieldMessage)
+TEST(VaultInfoSpec, non_string_owner_is_act_malformed_with_field_message)
 {
     auto const result = parse(R"JSON({"owner": 5})JSON");
     ASSERT_FALSE(result.has_value());
@@ -114,7 +114,7 @@ TEST(VaultInfoSpec, NonStringOwnerIsActMalformedWithFieldMessage)
     EXPECT_EQ(result.error().message, "Invalid field 'owner', not AccountID.");
 }
 
-TEST(VaultInfoSpec, NonIntegerSeqIsInvalidParamsWithFieldMessage)
+TEST(VaultInfoSpec, non_integer_seq_is_invalid_params_with_field_message)
 {
     auto const result = parse(R"JSON({"seq": "5"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -122,7 +122,7 @@ TEST(VaultInfoSpec, NonIntegerSeqIsInvalidParamsWithFieldMessage)
     EXPECT_EQ(result.error().message, "Invalid field 'seq', not a positive 32-bit integer.");
 }
 
-TEST(VaultInfoSpec, NegativeSeqIsInvalidParamsWithFieldMessage)
+TEST(VaultInfoSpec, negative_seq_is_invalid_params_with_field_message)
 {
     auto const result = parse(R"JSON({"seq": -1})JSON");
     ASSERT_FALSE(result.has_value());

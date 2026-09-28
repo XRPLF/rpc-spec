@@ -37,14 +37,14 @@ parseLedger(char const* json)
 
 }  // namespace
 
-TEST(LedgerSpecifier, DefaultConstructsToUnspecified)
+TEST(LedgerSpecifier, default_constructs_to_unspecified)
 {
     LedgerSpecifier const def{};
     EXPECT_TRUE(def.isUnspecified());
     EXPECT_FALSE(def.isShortcut());
 }
 
-TEST(LedgerSpecifier, ResolvedAppliesServerDefault)
+TEST(LedgerSpecifier, resolved_applies_server_default)
 {
     auto const result = LedgerSpecifier{}.resolved();
     ASSERT_TRUE(result.isShortcut());
@@ -52,13 +52,13 @@ TEST(LedgerSpecifier, ResolvedAppliesServerDefault)
     EXPECT_EQ(std::get<LedgerShortcut>(result.value), LedgerShortcut::Current);  // xrpld build
 }
 
-TEST(LedgerSpecifier, ResolvedLeavesConcreteValueUnchanged)
+TEST(LedgerSpecifier, resolved_leaves_concrete_value_unchanged)
 {
     LedgerSpecifier const seq{uint32_t{42}};
     EXPECT_EQ(seq.resolved(), seq);
 }
 
-TEST(LedgerSelector, NeitherFieldYieldsUnspecified)
+TEST(LedgerSelector, neither_field_yields_unspecified)
 {
     auto const led = parseLedger(R"JSON({})JSON");
     EXPECT_TRUE(led.isUnspecified());
@@ -66,7 +66,7 @@ TEST(LedgerSelector, NeitherFieldYieldsUnspecified)
     EXPECT_EQ(std::get<LedgerShortcut>(led.resolved().value), LedgerShortcut::Current);
 }
 
-TEST(LedgerSelector, EmptyIndexStringFails)
+TEST(LedgerSelector, empty_index_string_fails)
 {
     // An empty ledger_index is malformed. Only an ABSENT ledger_index means "use the
     // server default" — see NeitherFieldYieldsUnspecified above.
@@ -76,7 +76,7 @@ TEST(LedgerSelector, EmptyIndexStringFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, TrailingGarbageIndexStringFails)
+TEST(LedgerSelector, trailing_garbage_index_string_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": "30abc" })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -84,49 +84,49 @@ TEST(LedgerSelector, TrailingGarbageIndexStringFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, ShortcutValidated)
+TEST(LedgerSelector, shortcut_validated)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": "validated" })JSON");
     ASSERT_TRUE(led.isShortcut());
     EXPECT_EQ(std::get<LedgerShortcut>(led.value), LedgerShortcut::Validated);
 }
 
-TEST(LedgerSelector, ShortcutCurrent)
+TEST(LedgerSelector, shortcut_current)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": "current" })JSON");
     ASSERT_TRUE(led.isShortcut());
     EXPECT_EQ(std::get<LedgerShortcut>(led.value), LedgerShortcut::Current);
 }
 
-TEST(LedgerSelector, ShortcutClosed)
+TEST(LedgerSelector, shortcut_closed)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": "closed" })JSON");
     ASSERT_TRUE(led.isShortcut());
     EXPECT_EQ(std::get<LedgerShortcut>(led.value), LedgerShortcut::Closed);
 }
 
-TEST(LedgerSelector, NumericIndexYieldsSequence)
+TEST(LedgerSelector, numeric_index_yields_sequence)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": 12345 })JSON");
     ASSERT_TRUE(led.isSequence());
     EXPECT_EQ(std::get<uint32_t>(led.value), 12345u);
 }
 
-TEST(LedgerSelector, NumericStringIndexYieldsSequence)
+TEST(LedgerSelector, numeric_string_index_yields_sequence)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": "67890" })JSON");
     ASSERT_TRUE(led.isSequence());
     EXPECT_EQ(std::get<uint32_t>(led.value), 67890u);
 }
 
-TEST(LedgerSelector, MaxUint32IndexIsAccepted)
+TEST(LedgerSelector, max_uint32_index_is_accepted)
 {
     auto const led = parseLedger(R"JSON({ "ledger_index": 4294967295 })JSON");
     ASSERT_TRUE(led.isSequence());
     EXPECT_EQ(std::get<uint32_t>(led.value), 4294967295u);
 }
 
-TEST(LedgerSelector, UnknownIndexStringFails)
+TEST(LedgerSelector, unknown_index_string_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": "latest" })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -134,7 +134,7 @@ TEST(LedgerSelector, UnknownIndexStringFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, OutOfRangeNumericIndexFails)
+TEST(LedgerSelector, out_of_range_numeric_index_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": 9999999999 })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -142,7 +142,7 @@ TEST(LedgerSelector, OutOfRangeNumericIndexFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, NonStringNonNumberIndexFails)
+TEST(LedgerSelector, non_string_non_number_index_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_index": true })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -150,7 +150,7 @@ TEST(LedgerSelector, NonStringNonNumberIndexFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, ValidHashYieldsHash)
+TEST(LedgerSelector, valid_hash_yields_hash)
 {
     auto const led = parseLedger(
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789" })JSON");
@@ -160,7 +160,7 @@ TEST(LedgerSelector, ValidHashYieldsHash)
     EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 
-TEST(LedgerSelector, MalformedHashFails)
+TEST(LedgerSelector, malformed_hash_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_hash": "DEADBEEF" })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -168,7 +168,7 @@ TEST(LedgerSelector, MalformedHashFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerSelector, NonStringHashFails)
+TEST(LedgerSelector, non_string_hash_fails)
 {
     auto value = boost::json::parse(R"JSON({ "ledger_hash": 123 })JSON");
     auto const result = kLedgerSpec.parse(value);
@@ -178,7 +178,7 @@ TEST(LedgerSelector, NonStringHashFails)
 
 // Not mutually exclusive: when both are present, ledger_hash wins (mirrors the
 // historical getLedgerHeaderFromHashOrSeq contract). This must NOT error.
-TEST(LedgerSelector, BothHashAndIndexPrefersHash)
+TEST(LedgerSelector, both_hash_and_index_prefers_hash)
 {
     auto const led = parseLedger(
         R"JSON({ "ledger_hash": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": 5 })JSON");
@@ -188,7 +188,7 @@ TEST(LedgerSelector, BothHashAndIndexPrefersHash)
     EXPECT_EQ(std::get<xrpl::uint256>(led.value), expected);
 }
 
-TEST(LedgerSelector, BothHashAndMalformedIndexFails)
+TEST(LedgerSelector, both_hash_and_malformed_index_fails)
 {
     // ledger_hash wins when both are valid, but a malformed ledger_index must still be
     // reported rather than skipped just because a usable hash accompanied it.
@@ -211,7 +211,7 @@ constexpr auto kAcctLedgerSpec = spec<AccountAndLedgerInput>(
     ledgerSelector(&AccountAndLedgerInput::ledger));
 }  // namespace
 
-TEST(LedgerSelector, ComposesAlongsideOtherFields)
+TEST(LedgerSelector, composes_alongside_other_fields)
 {
     auto value = boost::json::parse(
         R"JSON({ "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "ledger_index": "validated" })JSON");
@@ -221,7 +221,7 @@ TEST(LedgerSelector, ComposesAlongsideOtherFields)
     EXPECT_EQ(std::get<LedgerShortcut>(result->ledger.value), LedgerShortcut::Validated);
 }
 
-TEST(LedgerSelector, ComposedSpecLeavesLedgerUnspecifiedWhenAbsent)
+TEST(LedgerSelector, composed_spec_leaves_ledger_unspecified_when_absent)
 {
     auto value =
         boost::json::parse(R"JSON({ "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" })JSON");
@@ -230,7 +230,7 @@ TEST(LedgerSelector, ComposedSpecLeavesLedgerUnspecifiedWhenAbsent)
     EXPECT_TRUE(result->ledger.isUnspecified());
 }
 
-TEST(LedgerSelector, SpecIsConstantEvaluable)
+TEST(LedgerSelector, spec_is_constant_evaluable)
 {
     // Forces consteval construction (incl. the boost::pfr completeness guard).
     static constexpr auto kSpec = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInput::ledger));

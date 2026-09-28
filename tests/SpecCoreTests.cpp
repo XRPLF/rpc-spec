@@ -24,7 +24,7 @@ using namespace rpc::spec;
 
 namespace {
 
-TEST(RpcSpecDSL, ValidRequestPasses)
+TEST(RpcSpecDSL, valid_request_passes)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -41,7 +41,7 @@ TEST(RpcSpecDSL, ValidRequestPasses)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL, MissingRequiredFieldFails)
+TEST(RpcSpecDSL, missing_required_field_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -56,7 +56,7 @@ TEST(RpcSpecDSL, MissingRequiredFieldFails)
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
-TEST(RpcSpecDSL, WrongTypeFails)
+TEST(RpcSpecDSL, wrong_type_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -74,7 +74,7 @@ TEST(RpcSpecDSL, WrongTypeFails)
     EXPECT_TRUE(result.error().message.empty());
 }
 
-TEST(RpcSpecDSL, WrongBoolTypeFails)
+TEST(RpcSpecDSL, wrong_bool_type_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("signer_lists", type<bool>),
@@ -87,7 +87,7 @@ TEST(RpcSpecDSL, WrongBoolTypeFails)
     EXPECT_TRUE(kSpec.process(valid).has_value());
 }
 
-TEST(RpcSpecDSL, MinRejectsValueBelowBound)
+TEST(RpcSpecDSL, min_rejects_value_below_bound)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, min(int64_t{1})),
@@ -97,7 +97,7 @@ TEST(RpcSpecDSL, MinRejectsValueBelowBound)
     EXPECT_FALSE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL, DeprecatedFieldProducesWarning)
+TEST(RpcSpecDSL, deprecated_field_produces_warning)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -117,7 +117,7 @@ TEST(RpcSpecDSL, DeprecatedFieldProducesWarning)
     EXPECT_EQ(warnings[0].code, rpc::WarningCode::WarnRpcDeprecated);
 }
 
-TEST(RpcSpecDSL, NoWarningWhenDeprecatedFieldAbsent)
+TEST(RpcSpecDSL, no_warning_when_deprecated_field_absent)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -129,7 +129,7 @@ TEST(RpcSpecDSL, NoWarningWhenDeprecatedFieldAbsent)
     EXPECT_TRUE(kSpec.check(request).empty());
 }
 
-TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
+TEST(RpcSpecDSL, versioned_spec_via_rpc_spec_view)
 {
     static constexpr auto kSpecV1 = RpcSpec{
         field("account", required, account),
@@ -153,7 +153,7 @@ TEST(RpcSpecDSL, VersionedSpecViaRpcSpecView)
     EXPECT_TRUE(spec(2).process(valid).has_value());
 }
 
-TEST(RpcSpecDSL_Override, ExtendingASpecCanOverrideAnExistingField)
+TEST(RpcSpecDSLOverride, extending_a_spec_can_override_an_existing_field)
 {
     // V1 requires the field to be a bool; V2 overrides the same key to require a string.
     // The override must fully replace V1's items for that key.
@@ -171,7 +171,7 @@ TEST(RpcSpecDSL_Override, ExtendingASpecCanOverrideAnExistingField)
     EXPECT_TRUE(kSpecV2.process(withString).has_value());
 }
 
-TEST(RpcSpecDSL_Override, OverrideDropsDeprecationFromOlderVersion)
+TEST(RpcSpecDSLOverride, override_drops_deprecation_from_older_version)
 {
     // V1 marks "x" deprecated. V2 redefines "x" without deprecation — no warning should fire.
     static constexpr auto kSpecV1 = RpcSpec{
@@ -189,7 +189,7 @@ TEST(RpcSpecDSL_Override, OverrideDropsDeprecationFromOlderVersion)
     EXPECT_TRUE(v2Warnings.empty());
 }
 
-TEST(RpcSpecDSL_Override, OverrideCanRemoveRequired)
+TEST(RpcSpecDSLOverride, override_can_remove_required)
 {
     static constexpr auto kSpecV1 = RpcSpec{
         field("x", required, type<std::string>),
@@ -201,7 +201,7 @@ TEST(RpcSpecDSL_Override, OverrideCanRemoveRequired)
     EXPECT_TRUE(kSpecV2.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_Override, OverrideCanAddRequired)
+TEST(RpcSpecDSLOverride, override_can_add_required)
 {
     static constexpr auto kSpecV1 = RpcSpec{
         field("x", type<std::string>),
@@ -216,7 +216,7 @@ TEST(RpcSpecDSL_Override, OverrideCanAddRequired)
     EXPECT_EQ(result.error().message, "Required field 'x' missing");
 }
 
-TEST(RpcSpecDSL_Override, OverridePreservesPositionOfFirstOccurrence)
+TEST(RpcSpecDSLOverride, override_preserves_position_of_first_occurrence)
 {
     // V1 declares "a" then "b". V2 overrides "a". When both would fail, the error for "a"
     // must surface first — proving the override runs in "a"'s original slot, not appended.
@@ -232,7 +232,7 @@ TEST(RpcSpecDSL_Override, OverridePreservesPositionOfFirstOccurrence)
     EXPECT_EQ(result.error().message, "Required field 'a' missing");
 }
 
-TEST(RpcSpecDSL_Override, OnlyLastOverrideWinsAcrossThreeVersions)
+TEST(RpcSpecDSLOverride, only_last_override_wins_across_three_versions)
 {
     // V3 overrides "x" again. V3's behavior must win over V2's, which won over V1's.
     static constexpr auto kSpecV1 = RpcSpec{
@@ -247,7 +247,7 @@ TEST(RpcSpecDSL_Override, OnlyLastOverrideWinsAcrossThreeVersions)
     EXPECT_TRUE(kSpecV3.process(withInt).has_value());
 }
 
-TEST(RpcSpecDSL_Override, ExtendingDoesNotMutateBaseSpec)
+TEST(RpcSpecDSLOverride, extending_does_not_mutate_base_spec)
 {
     // Building V2 must not change V1's behavior — V1 should still accept bool.
     static constexpr auto kSpecV1 = RpcSpec{
@@ -259,7 +259,7 @@ TEST(RpcSpecDSL_Override, ExtendingDoesNotMutateBaseSpec)
     EXPECT_TRUE(kSpecV1.process(withBool).has_value());
 }
 
-TEST(RpcSpecDSL_Override, OverrideAppliesToCheckOnlyItems)
+TEST(RpcSpecDSLOverride, override_applies_to_check_only_items)
 {
     // V1 emits a deprecation warning for "x"; V2 redefines "x" *and* adds a new deprecation
     // for "y". V2's check output must contain only "y" — V1's "x" warning is fully overridden.
@@ -277,7 +277,7 @@ TEST(RpcSpecDSL_Override, OverrideAppliesToCheckOnlyItems)
     EXPECT_EQ(warnings[0].field, "y");
 }
 
-TEST(RpcSpecDSL, WarningsCollectedAcrossAllFields)
+TEST(RpcSpecDSL, warnings_collected_across_all_fields)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -299,7 +299,7 @@ TEST(RpcSpecDSL, WarningsCollectedAcrossAllFields)
     EXPECT_EQ(warnings[1].code, rpc::WarningCode::WarnRpcDeprecated);
 }
 
-TEST(RpcSpecDSL, FullRequestPipeline)
+TEST(RpcSpecDSL, full_request_pipeline)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -324,7 +324,7 @@ TEST(RpcSpecDSL, FullRequestPipeline)
     EXPECT_EQ(request.as_object().at("limit").as_int64(), 10);
 }
 
-TEST(RpcSpecDSL, PipeStyleFieldDefinition)
+TEST(RpcSpecDSL, pipe_style_field_definition)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account") | required | account,
@@ -339,7 +339,7 @@ TEST(RpcSpecDSL, PipeStyleFieldDefinition)
     EXPECT_FALSE(kSpec.process(missingAccount).has_value());
 }
 
-TEST(RpcSpecDSL, CheckDoesNotInvokeModifiers)
+TEST(RpcSpecDSL, check_does_not_invoke_modifiers)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, clamp(int64_t{10}, int64_t{400})),
@@ -351,7 +351,7 @@ TEST(RpcSpecDSL, CheckDoesNotInvokeModifiers)
     EXPECT_EQ(request.as_object().at("limit").as_int64(), 2);
 }
 
-TEST(RpcSpecDSL, NonObjectRootTreatsAllFieldsAsAbsent)
+TEST(RpcSpecDSL, non_object_root_treats_all_fields_as_absent)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>),
@@ -364,7 +364,7 @@ TEST(RpcSpecDSL, NonObjectRootTreatsAllFieldsAsAbsent)
     EXPECT_TRUE(kSpec.process(scalar).has_value());
 }
 
-TEST(RpcSpecDSL, NonObjectRootWithRequiredFieldFails)
+TEST(RpcSpecDSL, non_object_root_with_required_field_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required),
@@ -377,7 +377,7 @@ TEST(RpcSpecDSL, NonObjectRootWithRequiredFieldFails)
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
-TEST(RpcSpecDSL, EmptySpecAcceptsEverything)
+TEST(RpcSpecDSL, empty_spec_accepts_everything)
 {
     static constexpr auto kSpec = RpcSpec{};
 
@@ -386,7 +386,7 @@ TEST(RpcSpecDSL, EmptySpecAcceptsEverything)
     EXPECT_TRUE(kSpec.check(request).empty());
 }
 
-TEST(RpcSpecDSL, FieldWithNoItemsIsNoOp)
+TEST(RpcSpecDSL, field_with_no_items_is_no_op)
 {
     static constexpr auto kSpec = RpcSpec{
         field("anything") | required,
@@ -396,7 +396,7 @@ TEST(RpcSpecDSL, FieldWithNoItemsIsNoOp)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_Ordering, StopsAtFirstFieldFailure)
+TEST(RpcSpecDSLOrdering, stops_at_first_field_failure)
 {
     // Both fields would fail if reached; only the first error must surface.
     static constexpr auto kSpec = RpcSpec{
@@ -410,7 +410,7 @@ TEST(RpcSpecDSL_Ordering, StopsAtFirstFieldFailure)
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
-TEST(RpcSpecDSL_Ordering, LaterFieldFailureReportedWhenEarlierPasses)
+TEST(RpcSpecDSLOrdering, later_field_failure_reported_when_earlier_passes)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required),
@@ -424,7 +424,7 @@ TEST(RpcSpecDSL_Ordering, LaterFieldFailureReportedWhenEarlierPasses)
     EXPECT_EQ(result.error().message, "Required field 'limit' missing");
 }
 
-TEST(RpcSpecDSL_Ordering, StopsAtFirstItemFailureWithinAField)
+TEST(RpcSpecDSLOrdering, stops_at_first_item_failure_within_a_field)
 {
     // Both Type<int64> and Min would fail (the value is the wrong type and below the bound),
     // but Type runs first and short-circuits — Min's error message must never surface.
@@ -439,7 +439,7 @@ TEST(RpcSpecDSL_Ordering, StopsAtFirstItemFailureWithinAField)
     EXPECT_TRUE(result.error().message.empty());
 }
 
-TEST(RpcSpecDSL_Ordering, LaterItemRunsWhenEarlierPasses)
+TEST(RpcSpecDSLOrdering, later_item_runs_when_earlier_passes)
 {
     // Type<int64> passes (value is int), then Min sees the value and fails.
     static constexpr auto kSpec = RpcSpec{
@@ -452,7 +452,7 @@ TEST(RpcSpecDSL_Ordering, LaterItemRunsWhenEarlierPasses)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(RpcSpecDSL, SpecIsConstantEvaluable)
+TEST(RpcSpecDSL, spec_is_constant_evaluable)
 {
     static constexpr auto kSpec = RpcSpec{
         field("a", required),
@@ -514,7 +514,7 @@ static_assert(rpc::spec::SomeRequirement<rpc::spec::AccountMarkerValidator>);
 static_assert(rpc::spec::SomeRequirement<rpc::spec::AccountTypeValidator>);
 static_assert(rpc::spec::SomeRequirement<rpc::spec::LedgerEntryTypeValidator>);
 
-TEST(RpcSpecDSL_WarningsToJson, SingleDeprecatedFieldProducesGroupedWarning)
+TEST(RpcSpecDSLWarningsToJson, single_deprecated_field_produces_grouped_warning)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -539,7 +539,7 @@ TEST(RpcSpecDSL_WarningsToJson, SingleDeprecatedFieldProducesGroupedWarning)
     EXPECT_NE(msg.find(" Field 'ident' is deprecated."), std::string::npos);
 }
 
-TEST(RpcSpecDSL_WarningsToJson, MultipleDeprecatedFieldsGroupIntoOneEntry)
+TEST(RpcSpecDSLWarningsToJson, multiple_deprecated_fields_group_into_one_entry)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -567,7 +567,7 @@ TEST(RpcSpecDSL_WarningsToJson, MultipleDeprecatedFieldsGroupIntoOneEntry)
     EXPECT_NE(msg.find(" Field 'ledger' is deprecated."), std::string::npos);
 }
 
-TEST(RpcSpecDSL_WarningsToJson, EmptyWarningsProducesEmptyArray)
+TEST(RpcSpecDSLWarningsToJson, empty_warnings_produces_empty_array)
 {
     Warnings const empty{};
     auto const arr = rpc::spec::toJsonArray(empty);

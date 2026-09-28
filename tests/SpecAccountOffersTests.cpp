@@ -49,12 +49,12 @@ withMarker(std::string const& marker)
 
 }  // namespace
 
-TEST(AccountOffersSpec, AccountRequired)
+TEST(AccountOffersSpec, account_required)
 {
     EXPECT_FALSE(parse(R"JSON({})JSON").has_value());
 }
 
-TEST(AccountOffersSpec, MinimalRequestParses)
+TEST(AccountOffersSpec, minimal_request_parses)
 {
     auto const result = parse(req());
     ASSERT_TRUE(result.has_value())
@@ -63,7 +63,7 @@ TEST(AccountOffersSpec, MinimalRequestParses)
     EXPECT_FALSE(result->marker.has_value());
 }
 
-TEST(AccountOffersSpec, MalformedAccountIsActMalformed)
+TEST(AccountOffersSpec, malformed_account_is_act_malformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -71,7 +71,7 @@ TEST(AccountOffersSpec, MalformedAccountIsActMalformed)
     EXPECT_EQ(result.error().message, "accountMalformed");
 }
 
-TEST(AccountOffersSpec, NonStringAccountIsInvalidParams)
+TEST(AccountOffersSpec, non_string_account_is_invalid_params)
 {
     // The shared accountId converter distinguishes wrong-type from unparseable.
     auto const result = parse(R"JSON({"account": 5})JSON");
@@ -82,7 +82,7 @@ TEST(AccountOffersSpec, NonStringAccountIsInvalidParams)
 
 // --- limit ------------------------------------------------------------------
 
-TEST(AccountOffersSpec, LimitBelowClampFloorIsRaised)
+TEST(AccountOffersSpec, limit_below_clamp_floor_is_raised)
 {
     auto const result = parse(req(R"JSON(, "limit": 5)JSON"));
     ASSERT_TRUE(result.has_value())
@@ -90,21 +90,21 @@ TEST(AccountOffersSpec, LimitBelowClampFloorIsRaised)
     EXPECT_EQ(result->limit, kLimitMin);
 }
 
-TEST(AccountOffersSpec, LimitAboveMaxIsClamped)
+TEST(AccountOffersSpec, limit_above_max_is_clamped)
 {
     auto const result = parse(req(R"JSON(, "limit": 100000)JSON"));
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->limit, kLimitMax);
 }
 
-TEST(AccountOffersSpec, LimitZeroIsRejected)
+TEST(AccountOffersSpec, limit_zero_is_rejected)
 {
     EXPECT_FALSE(parse(req(R"JSON(, "limit": 0)JSON")).has_value());
 }
 
 // --- AccountMarkerStrConverter ---------------------------------------------
 
-TEST(AccountOffersSpec, WellFormedMarkerRoundTripsAsString)
+TEST(AccountOffersSpec, well_formed_marker_round_trips_as_string)
 {
     auto const marker = std::format("{},7", kHex1);
     auto const result = parse(withMarker(marker));
@@ -114,14 +114,14 @@ TEST(AccountOffersSpec, WellFormedMarkerRoundTripsAsString)
     EXPECT_EQ(*result->marker, marker);
 }
 
-TEST(AccountOffersSpec, MarkerHintZeroIsAccepted)
+TEST(AccountOffersSpec, marker_hint_zero_is_accepted)
 {
     auto const result = parse(withMarker(std::format("{},0", kHex1)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
-TEST(AccountOffersSpec, NonStringMarkerNamesTheField)
+TEST(AccountOffersSpec, non_string_marker_names_the_field)
 {
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
@@ -129,7 +129,7 @@ TEST(AccountOffersSpec, NonStringMarkerNamesTheField)
     EXPECT_EQ(result.error().message, "markerNotString");
 }
 
-TEST(AccountOffersSpec, MarkerWithoutCommaIsMalformedCursor)
+TEST(AccountOffersSpec, marker_without_comma_is_malformed_cursor)
 {
     auto const result = parse(withMarker(kHex1));
     ASSERT_FALSE(result.has_value());
@@ -137,7 +137,7 @@ TEST(AccountOffersSpec, MarkerWithoutCommaIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountOffersSpec, MarkerWithBadHexIsMalformedCursor)
+TEST(AccountOffersSpec, marker_with_bad_hex_is_malformed_cursor)
 {
     auto const result = parse(withMarker("NOTHEX,7"));
     ASSERT_FALSE(result.has_value());
@@ -145,7 +145,7 @@ TEST(AccountOffersSpec, MarkerWithBadHexIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountOffersSpec, MarkerWithEmptyHintIsMalformedCursor)
+TEST(AccountOffersSpec, marker_with_empty_hint_is_malformed_cursor)
 {
     auto const result = parse(withMarker(std::format("{},", kHex1)));
     ASSERT_FALSE(result.has_value());
@@ -153,7 +153,7 @@ TEST(AccountOffersSpec, MarkerWithEmptyHintIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountOffersSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
+TEST(AccountOffersSpec, marker_with_trailing_garbage_after_hint_is_malformed_cursor)
 {
     auto const result = parse(withMarker(std::format("{},7x", kHex1)));
     ASSERT_FALSE(result.has_value());
@@ -161,7 +161,7 @@ TEST(AccountOffersSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountOffersSpec, MarkerWithNegativeHintIsMalformedCursor)
+TEST(AccountOffersSpec, marker_with_negative_hint_is_malformed_cursor)
 {
     // from_chars into uint64_t rejects a leading '-'.
     auto const result = parse(withMarker(std::format("{},-1", kHex1)));
@@ -170,7 +170,7 @@ TEST(AccountOffersSpec, MarkerWithNegativeHintIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountOffersSpec, DeprecatedFieldsDoNotFailTheRequest)
+TEST(AccountOffersSpec, deprecated_fields_do_not_fail_the_request)
 {
     auto const result = parse(req(R"JSON(, "ledger": 5, "strict": true)JSON"));
     ASSERT_TRUE(result.has_value())

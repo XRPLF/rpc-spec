@@ -35,7 +35,7 @@ struct Config
     std::unordered_map<std::string, ConfigValue> values;
 };
 
-TEST(ResolverTests, ReadConfig)
+TEST(ResolverTests, read_config)
 {
     auto config = Config{};
     config.values["foo.max_payload_bytes"] = uint64_t{1024};

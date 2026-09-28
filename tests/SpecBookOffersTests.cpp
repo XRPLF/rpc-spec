@@ -35,7 +35,7 @@ parseBookOffers(std::string const& json)
 
 }  // namespace
 
-TEST(BookOffersSpec, CurrencyOnlyTakerParses)
+TEST(BookOffersSpec, currency_only_taker_parses)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": "XRP"},
@@ -46,7 +46,7 @@ TEST(BookOffersSpec, CurrencyOnlyTakerParses)
     EXPECT_TRUE(result->takerPays.holds<xrpl::Issue>());
 }
 
-TEST(BookOffersSpec, MptIssuanceIdParsesAsMptIssue)
+TEST(BookOffersSpec, mpt_issuance_id_parses_as_mpt_issue)
 {
     auto const result = parseBookOffers(
         std::format(
@@ -67,7 +67,7 @@ TEST(BookOffersSpec, MptIssuanceIdParsesAsMptIssue)
     EXPECT_EQ(result->takerPays.get<xrpl::MPTIssue>().getMptID(), expected);
 }
 
-TEST(BookOffersSpec, MptIssuanceIdWithCurrencyFails)
+TEST(BookOffersSpec, mpt_issuance_id_with_currency_fails)
 {
     auto const result = parseBookOffers(
         std::format(
@@ -81,7 +81,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithCurrencyFails)
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets'.");
 }
 
-TEST(BookOffersSpec, MptIssuanceIdWithIssuerFails)
+TEST(BookOffersSpec, mpt_issuance_id_with_issuer_fails)
 {
     auto const result = parseBookOffers(
         std::format(
@@ -95,7 +95,7 @@ TEST(BookOffersSpec, MptIssuanceIdWithIssuerFails)
     EXPECT_EQ(result.error().message, "Invalid field 'taker_pays'.");
 }
 
-TEST(BookOffersSpec, NeitherCurrencyNorMptIssuanceIdFails)
+TEST(BookOffersSpec, neither_currency_nor_mpt_issuance_id_fails)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {},
@@ -106,7 +106,7 @@ TEST(BookOffersSpec, NeitherCurrencyNorMptIssuanceIdFails)
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets.currency'.");
 }
 
-TEST(BookOffersSpec, NonStringCurrencyIsInvalidParams)
+TEST(BookOffersSpec, non_string_currency_is_invalid_params)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": 123},
@@ -117,7 +117,7 @@ TEST(BookOffersSpec, NonStringCurrencyIsInvalidParams)
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.currency', not string.");
 }
 
-TEST(BookOffersSpec, MalformedTakerGetsMptIdIsDstAmtMalformed)
+TEST(BookOffersSpec, malformed_taker_gets_mpt_id_is_dst_amt_malformed)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"mpt_issuance_id": "NOTAHEX"},
@@ -127,7 +127,7 @@ TEST(BookOffersSpec, MalformedTakerGetsMptIdIsDstAmtMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcDstAmtMalformed);
 }
 
-TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
+TEST(BookOffersSpec, malformed_taker_pays_mpt_id_is_src_cur_malformed)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": "XRP"},
@@ -137,7 +137,7 @@ TEST(BookOffersSpec, MalformedTakerPaysMptIdIsSrcCurMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcSrcCurMalformed);
 }
 
-TEST(BookOffersSpec, NonStringMptIssuanceIdNamesMptIssuanceIdField)
+TEST(BookOffersSpec, non_string_mpt_issuance_id_names_mpt_issuance_id_field)
 {
     // Deliberately diverges from xrpld, which names `.currency` here — see #3205.
     auto const result = parseBookOffers(R"JSON({
@@ -149,7 +149,7 @@ TEST(BookOffersSpec, NonStringMptIssuanceIdNamesMptIssuanceIdField)
     EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.mpt_issuance_id', not string.");
 }
 
-TEST(BookOffersSpec, NonStringTakerPaysMptIssuanceIdNamesMptIssuanceIdField)
+TEST(BookOffersSpec, non_string_taker_pays_mpt_issuance_id_names_mpt_issuance_id_field)
 {
     auto const result = parseBookOffers(R"JSON({
         "taker_gets": {"currency": "XRP"},

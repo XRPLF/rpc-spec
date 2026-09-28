@@ -10,7 +10,7 @@ namespace {
 
 // FieldView / ObjectView navigation — child() and element() on the boost::json backend.
 
-TEST(RpcSpecDSL_FieldView, ChildReturnsAbsentFaWhenParentAbsent)
+TEST(RpcSpecDSLFieldView, child_returns_absent_fa_when_parent_absent)
 {
     auto request = boost::json::parse(R"JSON({})JSON");
     ObjectView root{request};
@@ -20,7 +20,7 @@ TEST(RpcSpecDSL_FieldView, ChildReturnsAbsentFaWhenParentAbsent)
     EXPECT_FALSE(child.present());
 }
 
-TEST(RpcSpecDSL_FieldView, ChildReturnsAbsentFaWhenParentNotObject)
+TEST(RpcSpecDSLFieldView, child_returns_absent_fa_when_parent_not_object)
 {
     auto request = boost::json::parse(R"JSON({ "foo": 42 })JSON");
     ObjectView root{request};
@@ -31,7 +31,7 @@ TEST(RpcSpecDSL_FieldView, ChildReturnsAbsentFaWhenParentNotObject)
     EXPECT_FALSE(child.present());
 }
 
-TEST(RpcSpecDSL_FieldView, ChildNavigatesIntoSubObject)
+TEST(RpcSpecDSLFieldView, child_navigates_into_sub_object)
 {
     auto request = boost::json::parse(R"JSON({ "foo": { "bar": "hello" } })JSON");
     ObjectView root{request};
@@ -45,7 +45,7 @@ TEST(RpcSpecDSL_FieldView, ChildNavigatesIntoSubObject)
     EXPECT_EQ(child.asString(), "hello");
 }
 
-TEST(RpcSpecDSL_FieldView, ChildMissingKeyReturnsAbsent)
+TEST(RpcSpecDSLFieldView, child_missing_key_returns_absent)
 {
     auto request = boost::json::parse(R"JSON({ "foo": { "a": 1 } })JSON");
     ObjectView root{request};
@@ -54,7 +54,7 @@ TEST(RpcSpecDSL_FieldView, ChildMissingKeyReturnsAbsent)
     EXPECT_FALSE(child.present());
 }
 
-TEST(RpcSpecDSL_FieldView, ElementNavigatesIntoArray)
+TEST(RpcSpecDSLFieldView, element_navigates_into_array)
 {
     auto request = boost::json::parse(R"JSON({ "ids": [10, 20, 30] })JSON");
     ObjectView root{request};
@@ -71,7 +71,7 @@ TEST(RpcSpecDSL_FieldView, ElementNavigatesIntoArray)
     EXPECT_EQ(elem2.asInt64(), 30);
 }
 
-TEST(RpcSpecDSL_FieldView, ElementOutOfBoundsReturnsAbsent)
+TEST(RpcSpecDSLFieldView, element_out_of_bounds_returns_absent)
 {
     auto request = boost::json::parse(R"JSON({ "ids": [1, 2] })JSON");
     ObjectView root{request};
@@ -79,7 +79,7 @@ TEST(RpcSpecDSL_FieldView, ElementOutOfBoundsReturnsAbsent)
     EXPECT_FALSE(fieldView.element(5).present());
 }
 
-TEST(RpcSpecDSL_FieldView, RootOverNonObjectReportsIsObjectFalse)
+TEST(RpcSpecDSLFieldView, root_over_non_object_reports_is_object_false)
 {
     auto arr = boost::json::parse(R"JSON([1, 2, 3])JSON");
     ObjectView root{arr};
@@ -89,7 +89,7 @@ TEST(RpcSpecDSL_FieldView, RootOverNonObjectReportsIsObjectFalse)
     EXPECT_FALSE(fieldView.present());
 }
 
-TEST(RpcSpecDSL_FieldView, ConstRootYieldsReadOnlyChild)
+TEST(RpcSpecDSLFieldView, const_root_yields_read_only_child)
 {
     auto const request = boost::json::parse(R"JSON({ "foo": 1 })JSON");
     ObjectView const root{request};
@@ -99,7 +99,7 @@ TEST(RpcSpecDSL_FieldView, ConstRootYieldsReadOnlyChild)
     EXPECT_EQ(fieldView.asInt64(), 1);
 }
 
-TEST(RpcSpecDSL_FieldView, ObjectSizeReportsMemberCount)
+TEST(RpcSpecDSLFieldView, object_size_reports_member_count)
 {
     auto request = boost::json::parse(R"JSON({ "empty": {}, "one": {"a": 1}, "arr": [1, 2] })JSON");
     ObjectView root{request};
