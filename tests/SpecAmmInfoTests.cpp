@@ -51,7 +51,7 @@ withAsset(std::string const& assetJson)
 
 }  // namespace
 
-TEST(AmmInfoSpec, EmptyRequestParses)
+TEST(AmmInfoSpec, empty_request_parses)
 {
     // Neither asset nor asset2 is `required`; both default to noIssue().
     auto const result = parse(R"JSON({})JSON");
@@ -59,7 +59,7 @@ TEST(AmmInfoSpec, EmptyRequestParses)
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
-TEST(AmmInfoSpec, ObjectAssetsParse)
+TEST(AmmInfoSpec, object_assets_parse)
 {
     auto const result = parse(
         std::format(
@@ -69,7 +69,7 @@ TEST(AmmInfoSpec, ObjectAssetsParse)
         << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
-TEST(AmmInfoSpec, XrpObjectAssetYieldsXrpIssue)
+TEST(AmmInfoSpec, xrp_object_asset_yields_xrp_issue)
 {
     auto const result = parse(
         std::format(
@@ -82,7 +82,7 @@ TEST(AmmInfoSpec, XrpObjectAssetYieldsXrpIssue)
 
 // --- the type gate ----------------------------------------------------------
 
-TEST(AmmInfoSpec, AssetNeitherStringNorObjectIsIssueMalformed)
+TEST(AmmInfoSpec, asset_neither_string_nor_object_is_issue_malformed)
 {
     for (auto const* bad : {"123", "true", "[]", "null"})
     {
@@ -92,7 +92,7 @@ TEST(AmmInfoSpec, AssetNeitherStringNorObjectIsIssueMalformed)
     }
 }
 
-TEST(AmmInfoSpec, Asset2NeitherStringNorObjectIsIssueMalformed)
+TEST(AmmInfoSpec, asset2_neither_string_nor_object_is_issue_malformed)
 {
     auto const result = parse(R"JSON({"asset": {"currency": "XRP"}, "asset2": 123})JSON");
     ASSERT_FALSE(result.has_value());
@@ -101,14 +101,14 @@ TEST(AmmInfoSpec, Asset2NeitherStringNorObjectIsIssueMalformed)
 
 // --- the object arm ---------------------------------------------------------
 
-TEST(AmmInfoSpec, ObjectAssetBadCurrencyIsIssueMalformed)
+TEST(AmmInfoSpec, object_asset_bad_currency_is_issue_malformed)
 {
     auto const result = parse(withAsset(R"JSON({"currency": "TOOLONGCURRENCY"})JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
-TEST(AmmInfoSpec, ObjectAssetBadIssuerIsIssueMalformed)
+TEST(AmmInfoSpec, object_asset_bad_issuer_is_issue_malformed)
 {
     auto const result =
         parse(withAsset(R"JSON({"currency": "USD", "issuer": "notanaccount"})JSON"));
@@ -116,14 +116,14 @@ TEST(AmmInfoSpec, ObjectAssetBadIssuerIsIssueMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
-TEST(AmmInfoSpec, ObjectAssetMissingCurrencyIsIssueMalformed)
+TEST(AmmInfoSpec, object_asset_missing_currency_is_issue_malformed)
 {
     auto const result = parse(withAsset(std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
 }
 
-TEST(AmmInfoSpec, ObjectAssetNonXrpMissingIssuerIsIssueMalformed)
+TEST(AmmInfoSpec, object_asset_non_xrp_missing_issuer_is_issue_malformed)
 {
     auto const result = parse(withAsset(R"JSON({"currency": "USD"})JSON"));
     ASSERT_FALSE(result.has_value());
@@ -132,7 +132,7 @@ TEST(AmmInfoSpec, ObjectAssetNonXrpMissingIssuerIsIssueMalformed)
 
 // --- account fields ---------------------------------------------------------
 
-TEST(AmmInfoSpec, AccountAndAmmAccountParse)
+TEST(AmmInfoSpec, account_and_amm_account_parse)
 {
     auto const result =
         parse(std::format(R"JSON({{"account": "{}", "amm_account": "{}"}})JSON", kAcct1, kAcct2));
@@ -142,14 +142,14 @@ TEST(AmmInfoSpec, AccountAndAmmAccountParse)
     ASSERT_TRUE(result->ammAccount.has_value());
 }
 
-TEST(AmmInfoSpec, MalformedAccountIsActMalformed)
+TEST(AmmInfoSpec, malformed_account_is_act_malformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
-TEST(AmmInfoSpec, MalformedAmmAccountIsActMalformed)
+TEST(AmmInfoSpec, malformed_amm_account_is_act_malformed)
 {
     auto const result = parse(R"JSON({"amm_account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());

@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <vector>
 
-TEST(TypesTests, AdmissionDecisionDefaultConstructed)
+TEST(TypesTests, admission_decision_default_constructed)
 {
     constexpr auto decision = admission::spec::AdmissionDecision{};
     EXPECT_EQ(decision.admitted(), true);
@@ -16,7 +16,7 @@ TEST(TypesTests, AdmissionDecisionDefaultConstructed)
     EXPECT_TRUE(decision.reason.empty());
 }
 
-TEST(TypesTests, AdmissionDecisionAdmit)
+TEST(TypesTests, admission_decision_admit)
 {
     constexpr auto decision = admission::spec::AdmissionDecision::admit(42.5);
     EXPECT_EQ(decision.admitted(), true);
@@ -26,7 +26,7 @@ TEST(TypesTests, AdmissionDecisionAdmit)
     EXPECT_TRUE(decision.reason.empty());
 }
 
-TEST(TypesTests, AdmissionDecisionDrop)
+TEST(TypesTests, admission_decision_drop)
 {
     constexpr auto decision = admission::spec::AdmissionDecision::drop(
         "The quick brown fox jumps over the lazy dog.", 123.45);
@@ -38,7 +38,7 @@ TEST(TypesTests, AdmissionDecisionDrop)
     EXPECT_EQ(decision.reason, std::string_view{"The quick brown fox jumps over the lazy dog."});
 }
 
-TEST(TypesTests, FixedString)
+TEST(TypesTests, fixed_string)
 {
     constexpr auto fs =
         admission::spec::FixedString{"The quick brown fox jumps over the lazy dog."};
@@ -46,7 +46,7 @@ TEST(TypesTests, FixedString)
     EXPECT_EQ(fs.view(), "The quick brown fox jumps over the lazy dog.");
 }
 
-TEST(TypesTests, SizeCostRamp)
+TEST(TypesTests, size_cost_ramp)
 {
     constexpr auto tiers = std::to_array<admission::spec::SizeTier>({
         {.upToBytes = 10, .cost = 1.23},
@@ -80,7 +80,7 @@ TEST(TypesTests, SizeCostRamp)
     EXPECT_EQ(admission::spec::costFor(ramp1.tiers, 1000000), 1000.23);
 }
 
-TEST(TypesTests, Tunable)
+TEST(TypesTests, tunable)
 {
     constexpr auto t1 = admission::spec::tunable<"max_bytes">(10000ull, "test.max_bytes");
     EXPECT_EQ(t1.defaultValue, 10000ull);
@@ -127,7 +127,7 @@ TEST(TypesTests, Tunable)
     }
 }
 
-TEST(TypesTests, Tunables)
+TEST(TypesTests, tunables)
 {
     constexpr auto t1 = admission::spec::tunable<"max_bytes">(10000ull, "test.max_bytes");
     constexpr auto t2 = admission::spec::tunable<"max_requests">(42.5, "test.max_requests");

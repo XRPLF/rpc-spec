@@ -424,7 +424,7 @@ visitJson(std::string_view json, Check& check)
 
 }  // namespace
 
-TEST(ConnectionLimiterTests, RateLimit)
+TEST(ConnectionLimiterTests, rate_limit)
 {
     auto bucketSettings =
         admission::spec::BucketSettings{.capacity = 50, .refillRatePerSecond = 10};
@@ -498,7 +498,7 @@ TEST(ConnectionLimiterTests, RateLimit)
 // limiter, once per format. Each protobuf payload and its JSON twin below encode the identical
 // logical message.
 
-TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
+TEST(ConnectionLimiterTests, protobuf_message_admission_over_protobuf)
 {
     auto limiter = admission::spec::ConnectionLimiter<int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
@@ -548,7 +548,7 @@ TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverProtobuf)
     EXPECT_EQ(admit(highPriority).reason, "priority too high");
 }
 
-TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverJson)
+TEST(ConnectionLimiterTests, protobuf_message_admission_over_json)
 {
     auto limiter = admission::spec::ConnectionLimiter<int32_t>{
         admission::spec::BucketSettings{.capacity = 1000.0, .refillRatePerSecond = 1.0}, 8};
@@ -569,7 +569,7 @@ TEST(ConnectionLimiterTests, ProtobufMessageAdmissionOverJson)
 // The packed fixed-width visitor: a tagless run of 4- or 8-byte little-endian elements, emitted as
 // sibling scalars of the given field. Decodes each element (with the schema's signedness),
 // propagates the field number, and short-circuits on the first drop.
-TEST(ProtobufVisitor, PackedFixed)
+TEST(ProtobufVisitor, packed_fixed)
 {
     using admission::spec::visitPackedFixed;
 
@@ -650,7 +650,7 @@ TEST(ProtobufVisitor, PackedFixed)
 }
 
 // The degenerate visitor: no decoding at all, the payload arrives as one opaque scalar event.
-TEST(PassthroughVisitor, EmitsWholePayloadAsOneScalar)
+TEST(PassthroughVisitor, emits_whole_payload_as_one_scalar)
 {
     using admission::spec::visitPassthrough;
 

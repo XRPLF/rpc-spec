@@ -34,7 +34,7 @@ parse(std::string const& json)
 
 }  // namespace
 
-TEST(LedgerIndexSpec, DateAbsentLeavesUnset)
+TEST(LedgerIndexSpec, date_absent_leaves_unset)
 {
     auto const result = parse(R"JSON({})JSON");
     ASSERT_TRUE(result.has_value())
@@ -42,7 +42,7 @@ TEST(LedgerIndexSpec, DateAbsentLeavesUnset)
     EXPECT_FALSE(result->date.has_value());
 }
 
-TEST(LedgerIndexSpec, WellFormedDateParses)
+TEST(LedgerIndexSpec, well_formed_date_parses)
 {
     auto const result = parse(R"JSON({"date": "2024-01-15T12:30:45Z"})JSON");
     ASSERT_TRUE(result.has_value())
@@ -50,7 +50,7 @@ TEST(LedgerIndexSpec, WellFormedDateParses)
     ASSERT_TRUE(result->date.has_value());
 }
 
-TEST(LedgerIndexSpec, DateMapsToExactUtcInstant)
+TEST(LedgerIndexSpec, date_maps_to_exact_utc_instant)
 {
     auto const seconds = [](char const* date) {
         auto const result = parse(std::format(R"JSON({{"date": "{}"}})JSON", date));
@@ -65,7 +65,7 @@ TEST(LedgerIndexSpec, DateMapsToExactUtcInstant)
     EXPECT_EQ(seconds("2024-02-30T00:00:00Z"), seconds("2024-03-01T00:00:00Z"));
 }
 
-TEST(LedgerIndexSpec, DistinctDatesProduceDistinctTimePoints)
+TEST(LedgerIndexSpec, distinct_dates_produce_distinct_time_points)
 {
     auto const a = parse(R"JSON({"date": "2024-01-15T12:30:45Z"})JSON");
     auto const b = parse(R"JSON({"date": "2024-01-15T12:30:46Z"})JSON");
@@ -76,7 +76,7 @@ TEST(LedgerIndexSpec, DistinctDatesProduceDistinctTimePoints)
     EXPECT_LT(*a->date, *b->date);
 }
 
-TEST(LedgerIndexSpec, NonStringDateIsInvalidParams)
+TEST(LedgerIndexSpec, non_string_date_is_invalid_params)
 {
     for (auto const* bad : {"123", "true", "{}", "[]"})
     {
@@ -86,7 +86,7 @@ TEST(LedgerIndexSpec, NonStringDateIsInvalidParams)
     }
 }
 
-TEST(LedgerIndexSpec, MisformattedDateIsInvalidParams)
+TEST(LedgerIndexSpec, misformatted_date_is_invalid_params)
 {
     // Wrong separator, missing Z, plain date, and outright garbage.
     for (auto const* bad :

@@ -44,12 +44,12 @@ req(std::string const& extra = {})
 
 }  // namespace
 
-TEST(AccountLinesSpec, AccountRequired)
+TEST(AccountLinesSpec, account_required)
 {
     EXPECT_FALSE(parse(R"JSON({})JSON").has_value());
 }
 
-TEST(AccountLinesSpec, MinimalRequestParses)
+TEST(AccountLinesSpec, minimal_request_parses)
 {
     auto const result = parse(req());
     ASSERT_TRUE(result.has_value())
@@ -65,21 +65,21 @@ TEST(AccountLinesSpec, MinimalRequestParses)
 // wrong JSON type and an unparseable string, unlike the shared accountId
 // converter which distinguishes them.
 
-TEST(AccountLinesSpec, MalformedAccountIsActMalformed)
+TEST(AccountLinesSpec, malformed_account_is_act_malformed)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
-TEST(AccountLinesSpec, NonStringAccountIsAlsoActMalformed)
+TEST(AccountLinesSpec, non_string_account_is_also_act_malformed)
 {
     auto const result = parse(R"JSON({"account": 5})JSON");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
-TEST(AccountLinesSpec, PeerParses)
+TEST(AccountLinesSpec, peer_parses)
 {
     auto const result = parse(req(std::format(R"JSON(, "peer": "{}")JSON", kAcct2)));
     ASSERT_TRUE(result.has_value())
@@ -87,7 +87,7 @@ TEST(AccountLinesSpec, PeerParses)
     ASSERT_TRUE(result->peer.has_value());
 }
 
-TEST(AccountLinesSpec, MalformedPeerIsActMalformed)
+TEST(AccountLinesSpec, malformed_peer_is_act_malformed)
 {
     auto const result = parse(req(R"JSON(, "peer": "notanaccount")JSON"));
     ASSERT_FALSE(result.has_value());
@@ -96,7 +96,7 @@ TEST(AccountLinesSpec, MalformedPeerIsActMalformed)
 
 // --- AsBoolConverter --------------------------------------------------------
 
-TEST(AccountLinesSpec, IgnoreDefaultBoolParses)
+TEST(AccountLinesSpec, ignore_default_bool_parses)
 {
     auto const result = parse(req(R"JSON(, "ignore_default": true)JSON"));
     ASSERT_TRUE(result.has_value())
@@ -104,7 +104,7 @@ TEST(AccountLinesSpec, IgnoreDefaultBoolParses)
     EXPECT_TRUE(result->ignoreDefault);
 }
 
-TEST(AccountLinesSpec, IgnoreDefaultNonBoolIsRejected)
+TEST(AccountLinesSpec, ignore_default_non_bool_is_rejected)
 {
     for (auto const* bad : {"1", R"("true")", "{}"})
     {
@@ -115,7 +115,7 @@ TEST(AccountLinesSpec, IgnoreDefaultNonBoolIsRejected)
 
 // --- limit ------------------------------------------------------------------
 
-TEST(AccountLinesSpec, LimitBelowClampFloorIsRaised)
+TEST(AccountLinesSpec, limit_below_clamp_floor_is_raised)
 {
     // min(1) admits it, then clamp(10, 400) raises it to the floor.
     auto const result = parse(req(R"JSON(, "limit": 5)JSON"));
@@ -124,14 +124,14 @@ TEST(AccountLinesSpec, LimitBelowClampFloorIsRaised)
     EXPECT_EQ(result->limit, kLimitMin);
 }
 
-TEST(AccountLinesSpec, LimitAboveMaxIsClamped)
+TEST(AccountLinesSpec, limit_above_max_is_clamped)
 {
     auto const result = parse(req(R"JSON(, "limit": 100000)JSON"));
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->limit, kLimitMax);
 }
 
-TEST(AccountLinesSpec, LimitZeroIsRejected)
+TEST(AccountLinesSpec, limit_zero_is_rejected)
 {
     auto const result = parse(req(R"JSON(, "limit": 0)JSON"));
     ASSERT_FALSE(result.has_value());
@@ -139,7 +139,7 @@ TEST(AccountLinesSpec, LimitZeroIsRejected)
 
 // --- accountMarker ----------------------------------------------------------
 
-TEST(AccountLinesSpec, WellFormedMarkerParses)
+TEST(AccountLinesSpec, well_formed_marker_parses)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{},7")JSON", kHex1)));
     ASSERT_TRUE(result.has_value())
@@ -147,7 +147,7 @@ TEST(AccountLinesSpec, WellFormedMarkerParses)
     ASSERT_TRUE(result->marker.has_value());
 }
 
-TEST(AccountLinesSpec, NonStringMarkerNamesTheField)
+TEST(AccountLinesSpec, non_string_marker_names_the_field)
 {
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
@@ -155,7 +155,7 @@ TEST(AccountLinesSpec, NonStringMarkerNamesTheField)
     EXPECT_EQ(result.error().message, "markerNotString");
 }
 
-TEST(AccountLinesSpec, MarkerWithoutCommaIsMalformedCursor)
+TEST(AccountLinesSpec, marker_without_comma_is_malformed_cursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{}")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
@@ -163,7 +163,7 @@ TEST(AccountLinesSpec, MarkerWithoutCommaIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountLinesSpec, MarkerWithBadHexIsMalformedCursor)
+TEST(AccountLinesSpec, marker_with_bad_hex_is_malformed_cursor)
 {
     auto const result = parse(req(R"JSON(, "marker": "NOTHEX,7")JSON"));
     ASSERT_FALSE(result.has_value());
@@ -171,7 +171,7 @@ TEST(AccountLinesSpec, MarkerWithBadHexIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountLinesSpec, MarkerWithNonNumericHintIsMalformedCursor)
+TEST(AccountLinesSpec, marker_with_non_numeric_hint_is_malformed_cursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{},abc")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
@@ -179,7 +179,7 @@ TEST(AccountLinesSpec, MarkerWithNonNumericHintIsMalformedCursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(AccountLinesSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
+TEST(AccountLinesSpec, marker_with_trailing_garbage_after_hint_is_malformed_cursor)
 {
     auto const result = parse(req(std::format(R"JSON(, "marker": "{},7x")JSON", kHex1)));
     ASSERT_FALSE(result.has_value());
@@ -189,7 +189,7 @@ TEST(AccountLinesSpec, MarkerWithTrailingGarbageAfterHintIsMalformedCursor)
 
 // --- deprecated fields ------------------------------------------------------
 
-TEST(AccountLinesSpec, DeprecatedFieldsDoNotFailTheRequest)
+TEST(AccountLinesSpec, deprecated_fields_do_not_fail_the_request)
 {
     auto const result = parse(req(R"JSON(, "ledger": 5, "peer_index": 3)JSON"));
     ASSERT_TRUE(result.has_value())

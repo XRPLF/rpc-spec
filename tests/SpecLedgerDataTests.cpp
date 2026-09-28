@@ -40,7 +40,7 @@ parse(std::string const& json)
 
 }  // namespace
 
-TEST(LedgerDataSpec, EmptyRequestParses)
+TEST(LedgerDataSpec, empty_request_parses)
 {
     auto const result = parse(R"JSON({})JSON");
     ASSERT_TRUE(result.has_value())
@@ -53,7 +53,7 @@ TEST(LedgerDataSpec, EmptyRequestParses)
 
 // --- limit ------------------------------------------------------------------
 
-TEST(LedgerDataSpec, LimitIsNotUpperBoundedBySpec)
+TEST(LedgerDataSpec, limit_is_not_upper_bounded_by_spec)
 {
     // Deliberate: the effective cap depends on `binary`, so the handler resolves it.
     auto const result = parse(R"JSON({"limit": 100000})JSON");
@@ -63,12 +63,12 @@ TEST(LedgerDataSpec, LimitIsNotUpperBoundedBySpec)
     EXPECT_EQ(*result->limit, 100000u);
 }
 
-TEST(LedgerDataSpec, LimitZeroIsRejected)
+TEST(LedgerDataSpec, limit_zero_is_rejected)
 {
     EXPECT_FALSE(parse(R"JSON({"limit": 0})JSON").has_value());
 }
 
-TEST(LedgerDataSpec, LimitBooleanIsRejected)
+TEST(LedgerDataSpec, limit_boolean_is_rejected)
 {
     // isIntegral() is true for JSON booleans in some backends; type<uint32_t> must not admit it.
     EXPECT_FALSE(parse(R"JSON({"limit": true})JSON").has_value());
@@ -76,7 +76,7 @@ TEST(LedgerDataSpec, LimitBooleanIsRejected)
 
 // --- MarkerConverter --------------------------------------------------------
 
-TEST(LedgerDataSpec, HexStringMarkerParsesAsUint256)
+TEST(LedgerDataSpec, hex_string_marker_parses_as_uint256)
 {
     auto const result = parse(std::format(R"JSON({{"marker": "{}"}})JSON", kHex1));
     ASSERT_TRUE(result.has_value())
@@ -85,7 +85,7 @@ TEST(LedgerDataSpec, HexStringMarkerParsesAsUint256)
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*result->marker));
 }
 
-TEST(LedgerDataSpec, Uint32MarkerParsesAsDiffMarker)
+TEST(LedgerDataSpec, uint32_marker_parses_as_diff_marker)
 {
     auto const result = parse(R"JSON({"marker": 42})JSON");
     ASSERT_TRUE(result.has_value())
@@ -95,7 +95,7 @@ TEST(LedgerDataSpec, Uint32MarkerParsesAsDiffMarker)
     EXPECT_EQ(std::get<uint32_t>(*result->marker), 42u);
 }
 
-TEST(LedgerDataSpec, NonHexStringMarkerIsMalformedField)
+TEST(LedgerDataSpec, non_hex_string_marker_is_malformed_field)
 {
     auto const result = parse(R"JSON({"marker": "NOTHEX"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -103,7 +103,7 @@ TEST(LedgerDataSpec, NonHexStringMarkerIsMalformedField)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
-TEST(LedgerDataSpec, OtherMarkerTypesReportMarkerNotString)
+TEST(LedgerDataSpec, other_marker_types_report_marker_not_string)
 {
     // The xrpld arm carries an explicit token here; Clio's is message-less.
     for (auto const* bad : {"true", "{}", "[]", "-1"})
@@ -117,7 +117,7 @@ TEST(LedgerDataSpec, OtherMarkerTypesReportMarkerNotString)
 
 // --- LedgerEntryTypeConverter ----------------------------------------------
 
-TEST(LedgerDataSpec, KnownTypeParses)
+TEST(LedgerDataSpec, known_type_parses)
 {
     auto const result = parse(R"JSON({"type": "account"})JSON");
     ASSERT_TRUE(result.has_value())
@@ -125,7 +125,7 @@ TEST(LedgerDataSpec, KnownTypeParses)
     EXPECT_NE(result->type, xrpl::ltANY);
 }
 
-TEST(LedgerDataSpec, UnknownTypeIsInvalidField)
+TEST(LedgerDataSpec, unknown_type_is_invalid_field)
 {
     auto const result = parse(R"JSON({"type": "bogus"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -133,7 +133,7 @@ TEST(LedgerDataSpec, UnknownTypeIsInvalidField)
     EXPECT_EQ(result.error().message, "Invalid field 'type'.");
 }
 
-TEST(LedgerDataSpec, NonStringTypeIsExpectedFieldError)
+TEST(LedgerDataSpec, non_string_type_is_expected_field_error)
 {
     auto const result = parse(R"JSON({"type": 5})JSON");
     ASSERT_FALSE(result.has_value());
@@ -143,7 +143,7 @@ TEST(LedgerDataSpec, NonStringTypeIsExpectedFieldError)
 
 // --- strict bools -----------------------------------------------------------
 
-TEST(LedgerDataSpec, BinaryAndOutOfOrderAcceptBools)
+TEST(LedgerDataSpec, binary_and_out_of_order_accept_bools)
 {
     auto const result = parse(R"JSON({"binary": true, "out_of_order": true})JSON");
     ASSERT_TRUE(result.has_value())
@@ -152,17 +152,17 @@ TEST(LedgerDataSpec, BinaryAndOutOfOrderAcceptBools)
     EXPECT_TRUE(result->outOfOrder);
 }
 
-TEST(LedgerDataSpec, BinaryRejectsNonBool)
+TEST(LedgerDataSpec, binary_rejects_non_bool)
 {
     EXPECT_FALSE(parse(R"JSON({"binary": 1})JSON").has_value());
 }
 
-TEST(LedgerDataSpec, OutOfOrderRejectsNonBool)
+TEST(LedgerDataSpec, out_of_order_rejects_non_bool)
 {
     EXPECT_FALSE(parse(R"JSON({"out_of_order": "true"})JSON").has_value());
 }
 
-TEST(LedgerDataSpec, DeprecatedLedgerFieldDoesNotFailTheRequest)
+TEST(LedgerDataSpec, deprecated_ledger_field_does_not_fail_the_request)
 {
     auto const result = parse(R"JSON({"ledger": 5})JSON");
     ASSERT_TRUE(result.has_value())

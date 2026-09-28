@@ -22,14 +22,14 @@ static_assert(rpc::spec::typeNameOf<int64_t>() == "int64");
 static_assert(rpc::spec::typeNameOf<bool>() == "bool");
 static_assert(rpc::spec::typeNameOf<std::string>() == "string");
 
-TEST(RpcSpec, StatusDefault)
+TEST(RpcSpec, status_default)
 {
     rpc::Status const status;
     EXPECT_FALSE(static_cast<bool>(status));
     EXPECT_TRUE(status == xrpl::RpcSuccess);
 }
 
-TEST(RpcSpec, LedgerTypesTable)
+TEST(RpcSpec, ledger_types_table)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
     static_assert(not table.empty());
@@ -40,7 +40,7 @@ TEST(RpcSpec, LedgerTypesTable)
     EXPECT_EQ(it->type, xrpl::ltACCOUNT_ROOT);
 }
 
-TEST(RpcSpec, SponsorshipIsARegisteredDeletionBlocker)
+TEST(RpcSpec, sponsorship_is_a_registered_deletion_blocker)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
 
@@ -53,7 +53,7 @@ TEST(RpcSpec, SponsorshipIsARegisteredDeletionBlocker)
     EXPECT_EQ(it->category, rpc::spec::LedgerCategory::DeletionBlocker);
 }
 
-TEST(RpcSpec, DeletionBlockersPresent)
+TEST(RpcSpec, deletion_blockers_present)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;
 

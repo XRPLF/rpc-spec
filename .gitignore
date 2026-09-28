@@ -15,3 +15,6 @@ conan.lock
 compile_commands.json
 *.swp
 .DS_Store
+
+# Python
+__pycache__

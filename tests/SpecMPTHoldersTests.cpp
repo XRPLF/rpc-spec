@@ -44,14 +44,14 @@ request(std::string const& extra)
 
 }  // namespace
 
-TEST(MPTHoldersSpec, AccountsAbsentLeavesFilterUnset)
+TEST(MPTHoldersSpec, accounts_absent_leaves_filter_unset)
 {
     auto const result = parse(request(""));
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(result->accounts.has_value());
 }
 
-TEST(MPTHoldersSpec, AccountsParsedIntoAccountIdVector)
+TEST(MPTHoldersSpec, accounts_parsed_into_account_id_vector)
 {
     auto const result =
         parse(request(std::format(R"(, "accounts": ["{}", "{}"])", kAccount, kAccount2)));
@@ -61,7 +61,7 @@ TEST(MPTHoldersSpec, AccountsParsedIntoAccountIdVector)
     EXPECT_NE(result->accounts->at(0), result->accounts->at(1));
 }
 
-TEST(MPTHoldersSpec, AccountsRejectsNonArray)
+TEST(MPTHoldersSpec, accounts_rejects_non_array)
 {
     auto const result = parse(request(R"(, "accounts": "notanarray")"));
     ASSERT_FALSE(result.has_value());
@@ -69,7 +69,7 @@ TEST(MPTHoldersSpec, AccountsRejectsNonArray)
     EXPECT_EQ(result.error().message, "Invalid field 'accounts', not array.");
 }
 
-TEST(MPTHoldersSpec, AccountsRejectsEmptyArray)
+TEST(MPTHoldersSpec, accounts_rejects_empty_array)
 {
     auto const result = parse(request(R"(, "accounts": [])"));
     ASSERT_FALSE(result.has_value());
@@ -77,7 +77,7 @@ TEST(MPTHoldersSpec, AccountsRejectsEmptyArray)
         result.error().message, "Invalid field 'accounts', not an array of 1 to 100 account IDs.");
 }
 
-TEST(MPTHoldersSpec, AccountsRejectsMoreThanTheBound)
+TEST(MPTHoldersSpec, accounts_rejects_more_than_the_bound)
 {
     std::string accounts;
     for (auto i = 0uz; i <= kMaxAccounts; ++i)
@@ -89,7 +89,7 @@ TEST(MPTHoldersSpec, AccountsRejectsMoreThanTheBound)
         result.error().message, "Invalid field 'accounts', not an array of 1 to 100 account IDs.");
 }
 
-TEST(MPTHoldersSpec, AccountsAcceptsExactlyTheBound)
+TEST(MPTHoldersSpec, accounts_accepts_exactly_the_bound)
 {
     std::string accounts;
     for (auto i = 0uz; i < kMaxAccounts; ++i)
@@ -100,14 +100,14 @@ TEST(MPTHoldersSpec, AccountsAcceptsExactlyTheBound)
     EXPECT_EQ(result->accounts->size(), kMaxAccounts);
 }
 
-TEST(MPTHoldersSpec, AccountsRejectsNonStringElement)
+TEST(MPTHoldersSpec, accounts_rejects_non_string_element)
 {
     auto const result = parse(request(R"(, "accounts": [1])"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().message, "Invalid field 'accounts', not an array of account IDs.");
 }
 
-TEST(MPTHoldersSpec, AccountsRejectsMalformedElement)
+TEST(MPTHoldersSpec, accounts_rejects_malformed_element)
 {
     auto const result = parse(request(R"(, "accounts": ["notanaccount"])"));
     ASSERT_FALSE(result.has_value());
@@ -118,7 +118,7 @@ TEST(MPTHoldersSpec, AccountsRejectsMalformedElement)
 // actually named, so it lives in the handler - the spec only makes the distinction possible by
 // leaving `limit` unset when absent.
 
-TEST(MPTHoldersSpec, MarkerAndAccountsBothParseSoTheHandlerCanRejectThePair)
+TEST(MPTHoldersSpec, marker_and_accounts_both_parse_so_the_handler_can_reject_the_pair)
 {
     auto const result =
         parse(request(std::format(R"(, "accounts": ["{}"], "marker": "{}")", kAccount, kMarker)));
@@ -127,7 +127,7 @@ TEST(MPTHoldersSpec, MarkerAndAccountsBothParseSoTheHandlerCanRejectThePair)
     EXPECT_TRUE(result->marker.has_value());
 }
 
-TEST(MPTHoldersSpec, LimitIsUnsetWhenAbsentAndSetWhenGiven)
+TEST(MPTHoldersSpec, limit_is_unset_when_absent_and_set_when_given)
 {
     auto const absent = parse(request(""));
     ASSERT_TRUE(absent.has_value());
@@ -139,7 +139,7 @@ TEST(MPTHoldersSpec, LimitIsUnsetWhenAbsentAndSetWhenGiven)
     EXPECT_EQ(*given->limit, 10u);
 }
 
-TEST(MPTHoldersSpec, LimitStillClampedToTheMaximum)
+TEST(MPTHoldersSpec, limit_still_clamped_to_the_maximum)
 {
     auto const result = parse(request(R"(, "limit": 99999)"));
     ASSERT_TRUE(result.has_value());

@@ -50,13 +50,13 @@ statusOf(Spec const& spec, std::string_view json)
 // invalidFieldMessage.
 // ---------------------------------------------------------------------------
 
-TEST(ClioErrors, HexFieldMessagesAreBuiltFromTheKey)
+TEST(ClioErrors, hex_field_messages_are_built_from_the_key)
 {
     EXPECT_EQ(rpc::notStringFieldMessage("nft_id"), "nft_idNotString");
     EXPECT_EQ(rpc::malformedFieldMessage("nft_id"), "nft_idMalformed");
 }
 
-TEST(ClioErrors, Uint256ValidatorReportsNotStringThenMalformed)
+TEST(ClioErrors, uint256_validator_reports_not_string_then_malformed)
 {
     static constexpr auto kSpec = RpcSpec{field("nft_id", uint256Hex)};
 
@@ -69,7 +69,7 @@ TEST(ClioErrors, Uint256ValidatorReportsNotStringThenMalformed)
     EXPECT_EQ(malformed.message, "nft_idMalformed");
 }
 
-TEST(ClioErrors, Uint192ValidatorReportsNotStringThenMalformed)
+TEST(ClioErrors, uint192_validator_reports_not_string_then_malformed)
 {
     static constexpr auto kSpec = RpcSpec{field("mpt_issuance_id", uint192Hex)};
 
@@ -96,7 +96,7 @@ constexpr auto kLedgerSpec = spec<LedgerOnlyInput>(ledgerSelector(&LedgerOnlyInp
 
 }  // namespace
 
-TEST(ClioErrors, LedgerHashReportsNotStringThenMalformed)
+TEST(ClioErrors, ledger_hash_reports_not_string_then_malformed)
 {
     auto notString = boost::json::parse(R"JSON({"ledger_hash": 1})JSON");
     auto const r1 = kLedgerSpec.parse(notString);
@@ -110,7 +110,7 @@ TEST(ClioErrors, LedgerHashReportsNotStringThenMalformed)
     EXPECT_EQ(r2.error().message, "ledger_hashMalformed");
 }
 
-TEST(ClioErrors, LedgerIndexUsesOneTokenForEveryFailure)
+TEST(ClioErrors, ledger_index_uses_one_token_for_every_failure)
 {
     for (auto const* json :
          {R"JSON({"ledger_index": true})JSON",
@@ -125,7 +125,7 @@ TEST(ClioErrors, LedgerIndexUsesOneTokenForEveryFailure)
     }
 }
 
-TEST(ClioErrors, LedgerIndexAcceptsValidatedAndSequences)
+TEST(ClioErrors, ledger_index_accepts_validated_and_sequences)
 {
     for (auto const* json :
          {R"JSON({"ledger_index": "validated"})JSON",
@@ -137,7 +137,7 @@ TEST(ClioErrors, LedgerIndexAcceptsValidatedAndSequences)
     }
 }
 
-TEST(ClioErrors, LedgerIndexRejectsCurrentAndClosed)
+TEST(ClioErrors, ledger_index_rejects_current_and_closed)
 {
     // Clio holds neither. Requests naming them are forwarded to xrpld before validation, except
     // for Clio-only methods, which xrpld cannot answer - so the spec rejects them rather than
@@ -152,7 +152,7 @@ TEST(ClioErrors, LedgerIndexRejectsCurrentAndClosed)
     }
 }
 
-TEST(ClioErrors, LedgerIndexValidatorMatchesTheSelector)
+TEST(ClioErrors, ledger_index_validator_matches_the_selector)
 {
     static constexpr auto kSpec = RpcSpec{field("ledger_index", ledgerIndex)};
 
@@ -167,7 +167,7 @@ TEST(ClioErrors, LedgerIndexValidatorMatchesTheSelector)
 // The account cursor, whose parse failure names no field.
 // ---------------------------------------------------------------------------
 
-TEST(ClioErrors, AccountMarkerReportsNotStringThenMalformedCursor)
+TEST(ClioErrors, account_marker_reports_not_string_then_malformed_cursor)
 {
     static constexpr auto kSpec = RpcSpec{field("marker", accountMarker)};
 
@@ -177,7 +177,7 @@ TEST(ClioErrors, AccountMarkerReportsNotStringThenMalformedCursor)
     EXPECT_EQ(rpc::malformedCursorMessage("marker"), "Malformed cursor.");
 }
 
-TEST(ClioErrors, LedgerHashTakesPrecedenceOverLedgerIndexOnError)
+TEST(ClioErrors, ledger_hash_takes_precedence_over_ledger_index_on_error)
 {
     // Every handler declared ledger_hash ahead of ledger_index, so with both malformed the
     // hash error is the one reported.
@@ -187,7 +187,7 @@ TEST(ClioErrors, LedgerHashTakesPrecedenceOverLedgerIndexOnError)
     EXPECT_EQ(result.error().message, "ledger_hashMalformed");
 }
 
-TEST(ClioErrors, LedgerIndexStillValidatedWhenHashIsValid)
+TEST(ClioErrors, ledger_index_still_validated_when_hash_is_valid)
 {
     auto req = boost::json::parse(
         R"JSON({"ledger_hash": "4BC50C9B0D8515D3EAAE1E74B29A95804346C491EE1A95BF25E4AAB854A6A652",
@@ -197,7 +197,7 @@ TEST(ClioErrors, LedgerIndexStillValidatedWhenHashIsValid)
     EXPECT_EQ(result.error().message, "ledgerIndexMalformed");
 }
 
-TEST(ClioErrors, ToNumberRejectsValuesThatWouldTruncateToUint32)
+TEST(ClioErrors, to_number_rejects_values_that_would_truncate_to_uint32)
 {
     static constexpr auto kSpec = RpcSpec{field("oracle_document_id", toNumber)};
 

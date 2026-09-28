@@ -19,7 +19,7 @@
 
 using namespace rpc::spec;
 
-TEST(RpcSpecDSL_Clamp, Int64MutatesJsonValueInPlace)
+TEST(RpcSpecDSLClamp, int64_mutates_json_value_in_place)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", type<int64_t>, clamp(int64_t{10}, int64_t{400})),
@@ -38,7 +38,7 @@ TEST(RpcSpecDSL_Clamp, Int64MutatesJsonValueInPlace)
     EXPECT_EQ(inRange.as_object().at("limit").as_int64(), 50);
 }
 
-TEST(RpcSpecDSL_Clamp, DoubleClamp)
+TEST(RpcSpecDSLClamp, double_clamp)
 {
     static constexpr auto kSpec = RpcSpec{
         field("ratio", type<double>, clamp(0.0, 1.0)),
@@ -53,7 +53,7 @@ TEST(RpcSpecDSL_Clamp, DoubleClamp)
     EXPECT_DOUBLE_EQ(tooHigh.as_object().at("ratio").as_double(), 1.0);
 }
 
-TEST(RpcSpecDSL_Clamp, Uint32Clamp)
+TEST(RpcSpecDSLClamp, uint32_clamp)
 {
     static constexpr auto kSpec = RpcSpec{
         field("n", type<uint32_t>, clamp(uint32_t{10}, uint32_t{400})),
@@ -68,7 +68,7 @@ TEST(RpcSpecDSL_Clamp, Uint32Clamp)
     EXPECT_EQ(tooHigh.as_object().at("n").as_uint64(), 400u);
 }
 
-TEST(RpcSpecDSL_IfType, SkipsSubValidatorsOnTypeMismatch)
+TEST(RpcSpecDSLIfType, skips_sub_validators_on_type_mismatch)
 {
     static constexpr auto kSpec = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{1}))),
@@ -78,7 +78,7 @@ TEST(RpcSpecDSL_IfType, SkipsSubValidatorsOnTypeMismatch)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfType, RunsSubValidatorsOnTypeMatch)
+TEST(RpcSpecDSLIfType, runs_sub_validators_on_type_match)
 {
     static constexpr auto kSpec = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{1}))),
@@ -94,7 +94,7 @@ TEST(RpcSpecDSL_IfType, RunsSubValidatorsOnTypeMatch)
     EXPECT_TRUE(kSpec.process(good).has_value());
 }
 
-TEST(RpcSpecDSL_IfType, AbsentFieldIsSkipped)
+TEST(RpcSpecDSLIfType, absent_field_is_skipped)
 {
     static constexpr auto kSpec = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{1}))),
@@ -104,7 +104,7 @@ TEST(RpcSpecDSL_IfType, AbsentFieldIsSkipped)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfType, ModifierMutatesOnTypeMatch)
+TEST(RpcSpecDSLIfType, modifier_mutates_on_type_match)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", ifType<int64_t>(clamp(int64_t{10}, int64_t{400}))),
@@ -115,7 +115,7 @@ TEST(RpcSpecDSL_IfType, ModifierMutatesOnTypeMatch)
     EXPECT_EQ(request.as_object().at("limit").as_int64(), 10);
 }
 
-TEST(RpcSpecDSL_IfType, ModifierSkipsOnTypeMismatch)
+TEST(RpcSpecDSLIfType, modifier_skips_on_type_mismatch)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", ifType<int64_t>(clamp(int64_t{10}, int64_t{400}))),
@@ -126,7 +126,7 @@ TEST(RpcSpecDSL_IfType, ModifierSkipsOnTypeMismatch)
     EXPECT_EQ(request.as_object().at("limit").as_string(), "default");
 }
 
-TEST(RpcSpecDSL_IfType, MultipleSubValidatorsAllRun)
+TEST(RpcSpecDSLIfType, multiple_sub_validators_all_run)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit", ifType<int64_t>(min(int64_t{1}), clamp(int64_t{10}, int64_t{400}))),
@@ -144,7 +144,7 @@ TEST(RpcSpecDSL_IfType, MultipleSubValidatorsAllRun)
     EXPECT_EQ(cappedHigh.as_object().at("limit").as_int64(), 400);
 }
 
-TEST(RpcSpecDSL_IfType, StopsAtFirstSubValidatorError)
+TEST(RpcSpecDSLIfType, stops_at_first_sub_validator_error)
 {
     static constexpr auto kSpec = RpcSpec{
         field("value", ifType<int64_t>(min(int64_t{5}), min(int64_t{10}))),
@@ -157,7 +157,7 @@ TEST(RpcSpecDSL_IfType, StopsAtFirstSubValidatorError)
     EXPECT_TRUE(result.error().message.empty());
 }
 
-TEST(RpcSpecDSL_IfType, UnionTypeLedgerIndex)
+TEST(RpcSpecDSLIfType, union_type_ledger_index)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -185,7 +185,7 @@ TEST(RpcSpecDSL_IfType, UnionTypeLedgerIndex)
     EXPECT_TRUE(kSpec.process(wrongType).has_value());
 }
 
-TEST(RpcSpecDSL_IfType, PipeStyle)
+TEST(RpcSpecDSLIfType, pipe_style)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account") | required | account,
@@ -201,7 +201,7 @@ TEST(RpcSpecDSL_IfType, PipeStyle)
     EXPECT_FALSE(kSpec.process(invalid).has_value());
 }
 
-TEST(RpcSpecDSL_IfType, CombinedWithOtherValidators)
+TEST(RpcSpecDSLIfType, combined_with_other_validators)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", required, account),
@@ -231,7 +231,7 @@ TEST(RpcSpecDSL_IfType, CombinedWithOtherValidators)
     EXPECT_EQ(low.as_object().at("limit").as_int64(), 10);
 }
 
-TEST(RpcSpecDSL_IfType, PipeStyleWithSubItems)
+TEST(RpcSpecDSLIfType, pipe_style_with_sub_items)
 {
     static constexpr auto kSpec = RpcSpec{
         field("limit") | ifType<int64_t>(min(int64_t{1}), clamp(int64_t{10}, int64_t{400})),
@@ -245,7 +245,7 @@ TEST(RpcSpecDSL_IfType, PipeStyleWithSubItems)
     EXPECT_FALSE(kSpec.process(bad).has_value());
 }
 
-TEST(RpcSpecDSL_Section, ValidSubObjectPasses)
+TEST(RpcSpecDSLSection, valid_sub_object_passes)
 {
     static constexpr auto kSpec = RpcSpec{
         field(
@@ -259,7 +259,7 @@ TEST(RpcSpecDSL_Section, ValidSubObjectPasses)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_Section, MissingRequiredSubFieldFails)
+TEST(RpcSpecDSLSection, missing_required_sub_field_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("taker_pays", section(field("currency", required))),
@@ -272,7 +272,7 @@ TEST(RpcSpecDSL_Section, MissingRequiredSubFieldFails)
     EXPECT_EQ(result.error().message, "Required field 'currency' missing");
 }
 
-TEST(RpcSpecDSL_Section, WrongSubFieldTypeFails)
+TEST(RpcSpecDSLSection, wrong_sub_field_type_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("taker_pays", section(field("currency", required, type<std::string>))),
@@ -284,7 +284,7 @@ TEST(RpcSpecDSL_Section, WrongSubFieldTypeFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(RpcSpecDSL_Section, AbsentParentFieldSkipsSection)
+TEST(RpcSpecDSLSection, absent_parent_field_skips_section)
 {
     static constexpr auto kSpec = RpcSpec{
         field("taker_pays", section(field("currency", required))),
@@ -294,7 +294,7 @@ TEST(RpcSpecDSL_Section, AbsentParentFieldSkipsSection)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_Section, NonObjectParentFieldFails)
+TEST(RpcSpecDSLSection, non_object_parent_field_fails)
 {
     static constexpr auto kSpec = RpcSpec{
         field("taker_pays", section(field("currency", required))),
@@ -306,7 +306,7 @@ TEST(RpcSpecDSL_Section, NonObjectParentFieldFails)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(RpcSpecDSL_Section, ModifierMutatesSubField)
+TEST(RpcSpecDSLSection, modifier_mutates_sub_field)
 {
     static constexpr auto kSpec = RpcSpec{
         field("options", section(field("limit", type<int64_t>, clamp(int64_t{10}, int64_t{400})))),
@@ -317,7 +317,7 @@ TEST(RpcSpecDSL_Section, ModifierMutatesSubField)
     EXPECT_EQ(request.as_object().at("options").as_object().at("limit").as_int64(), 10);
 }
 
-TEST(RpcSpecDSL_Section, PipeStyle)
+TEST(RpcSpecDSLSection, pipe_style)
 {
     static constexpr auto kSpec = RpcSpec{
         field("payload") |
@@ -333,7 +333,7 @@ TEST(RpcSpecDSL_Section, PipeStyle)
     EXPECT_FALSE(kSpec.process(bad).has_value());
 }
 
-TEST(RpcSpecDSL_IfObject, SkipsWhenFieldIsNotObject)
+TEST(RpcSpecDSLIfObject, skips_when_field_is_not_object)
 {
     static constexpr auto kSpec = RpcSpec{
         field("entry", ifType<JsonObject>(section(field("a", required)))),
@@ -343,7 +343,7 @@ TEST(RpcSpecDSL_IfObject, SkipsWhenFieldIsNotObject)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfObject, RunsSectionWhenFieldIsObject)
+TEST(RpcSpecDSLIfObject, runs_section_when_field_is_object)
 {
     static constexpr auto kSpec = RpcSpec{
         field("entry", ifType<JsonObject>(section(field("a", required, type<std::string>)))),
@@ -359,7 +359,7 @@ TEST(RpcSpecDSL_IfObject, RunsSectionWhenFieldIsObject)
     EXPECT_EQ(result.error().message, "Required field 'a' missing");
 }
 
-TEST(RpcSpecDSL_IfObject, AbsentFieldSkipped)
+TEST(RpcSpecDSLIfObject, absent_field_skipped)
 {
     static constexpr auto kSpec = RpcSpec{
         field("entry", ifType<JsonObject>(section(field("a", required)))),
@@ -369,7 +369,7 @@ TEST(RpcSpecDSL_IfObject, AbsentFieldSkipped)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfArray, SkipsWhenFieldIsNotArray)
+TEST(RpcSpecDSLIfArray, skips_when_field_is_not_array)
 {
     static constexpr auto kSpec = RpcSpec{
         field("ids", ifType<JsonArray>(ifType<int64_t>())),
@@ -379,7 +379,7 @@ TEST(RpcSpecDSL_IfArray, SkipsWhenFieldIsNotArray)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfArray, RunsSubProcessorsWhenFieldIsArray)
+TEST(RpcSpecDSLIfArray, runs_sub_processors_when_field_is_array)
 {
     static constexpr auto kSpec = RpcSpec{
         field("ids", ifType<JsonArray>(ifType<int64_t>())),
@@ -389,7 +389,7 @@ TEST(RpcSpecDSL_IfArray, RunsSubProcessorsWhenFieldIsArray)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_IfArray, AbsentFieldSkipped)
+TEST(RpcSpecDSLIfArray, absent_field_skipped)
 {
     static constexpr auto kSpec = RpcSpec{
         field("ids", ifType<JsonArray>(ifType<int64_t>())),
@@ -399,7 +399,7 @@ TEST(RpcSpecDSL_IfArray, AbsentFieldSkipped)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_WithCustomError, OverridesCodeOnRequirementFailure)
+TEST(RpcSpecDSLWithCustomError, overrides_code_on_requirement_failure)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", withCustomError(required, rpc::XrpldError::RpcActMalformed)),
@@ -412,7 +412,7 @@ TEST(RpcSpecDSL_WithCustomError, OverridesCodeOnRequirementFailure)
     EXPECT_TRUE(result.error().message.empty());
 }
 
-TEST(RpcSpecDSL_WithCustomError, PassesThroughWhenWrappedSucceeds)
+TEST(RpcSpecDSLWithCustomError, passes_through_when_wrapped_succeeds)
 {
     static constexpr auto kSpec = RpcSpec{
         field("account", withCustomError(required, rpc::XrpldError::RpcActMalformed)),
@@ -423,7 +423,7 @@ TEST(RpcSpecDSL_WithCustomError, PassesThroughWhenWrappedSucceeds)
     EXPECT_TRUE(kSpec.process(request).has_value());
 }
 
-TEST(RpcSpecDSL_WithCustomError, AppendsCustomMessageOnFailure)
+TEST(RpcSpecDSLWithCustomError, appends_custom_message_on_failure)
 {
     static constexpr auto kSpec = RpcSpec{
         field(
@@ -438,7 +438,7 @@ TEST(RpcSpecDSL_WithCustomError, AppendsCustomMessageOnFailure)
     EXPECT_EQ(result.error().message, "invalidMarker");
 }
 
-TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
+TEST(RpcSpecDSLWithCustomError, modifier_path_overrides_code)
 {
     // Wrapping IfType (a SomeModifier) — sub-validator failure must surface as the custom code.
     static constexpr auto kSpec = RpcSpec{
@@ -458,7 +458,7 @@ TEST(RpcSpecDSL_WithCustomError, ModifierPathOverridesCode)
     EXPECT_TRUE(kSpec.process(skipped).has_value());
 }
 
-TEST(RpcSpecDSL_CustomModifier, LambdaInvokedWhenPresent)
+TEST(RpcSpecDSLCustomModifier, lambda_invoked_when_present)
 {
     static constexpr auto kSpec = RpcSpec{
         field("val", customModifier([](auto& fieldView) -> rpc::spec::MaybeError {
@@ -471,7 +471,7 @@ TEST(RpcSpecDSL_CustomModifier, LambdaInvokedWhenPresent)
     EXPECT_EQ(request.as_object().at("val").as_int64(), 99);
 }
 
-TEST(RpcSpecDSL_CustomModifier, LambdaNotInvokedWhenAbsent)
+TEST(RpcSpecDSLCustomModifier, lambda_not_invoked_when_absent)
 {
     static constexpr auto kSpec = RpcSpec{
         field("val", customModifier([](auto& fieldView) -> rpc::spec::MaybeError {
@@ -483,7 +483,7 @@ TEST(RpcSpecDSL_CustomModifier, LambdaNotInvokedWhenAbsent)
     EXPECT_TRUE(kSpec.process(absent).has_value());
 }
 
-TEST(RpcSpecDSL_CustomModifier, LambdaCanReturnError)
+TEST(RpcSpecDSLCustomModifier, lambda_can_return_error)
 {
     static constexpr auto kSpec = RpcSpec{
         field("val", customModifier([](auto& /*f*/) -> rpc::spec::MaybeError {
@@ -496,7 +496,7 @@ TEST(RpcSpecDSL_CustomModifier, LambdaCanReturnError)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(RpcSpecDSL_ToLower, ConvertsToLowercase)
+TEST(RpcSpecDSLToLower, converts_to_lowercase)
 {
     static constexpr auto kSpec = RpcSpec{
         field("tx_type", toLower),
@@ -506,7 +506,7 @@ TEST(RpcSpecDSL_ToLower, ConvertsToLowercase)
     EXPECT_EQ(request.as_object().at("tx_type").as_string(), "payment");
 }
 
-TEST(RpcSpecDSL_ToLower, AlreadyLowercaseUnchanged)
+TEST(RpcSpecDSLToLower, already_lowercase_unchanged)
 {
     static constexpr auto kSpec = RpcSpec{
         field("tx_type", toLower),
@@ -516,7 +516,7 @@ TEST(RpcSpecDSL_ToLower, AlreadyLowercaseUnchanged)
     EXPECT_EQ(request.as_object().at("tx_type").as_string(), "payment");
 }
 
-TEST(RpcSpecDSL_ToLower, AbsentFieldNoOp)
+TEST(RpcSpecDSLToLower, absent_field_no_op)
 {
     static constexpr auto kSpec = RpcSpec{
         field("tx_type", toLower),
@@ -525,7 +525,7 @@ TEST(RpcSpecDSL_ToLower, AbsentFieldNoOp)
     EXPECT_TRUE(kSpec.process(absent).has_value());
 }
 
-TEST(RpcSpecDSL_ToLower, NonStringNoOp)
+TEST(RpcSpecDSLToLower, non_string_no_op)
 {
     static constexpr auto kSpec = RpcSpec{
         field("tx_type", toLower),
@@ -535,7 +535,7 @@ TEST(RpcSpecDSL_ToLower, NonStringNoOp)
     EXPECT_TRUE(num.as_object().at("tx_type").is_int64());
 }
 
-TEST(RpcSpecDSL_ClampAs, Int32OverflowClampedToMax)
+TEST(RpcSpecDSLClampAs, int32_overflow_clamped_to_max)
 {
     static constexpr auto kSpec = RpcSpec{field("v", type<int64_t>, clampAs<int32_t>)};
     auto j = boost::json::parse(R"JSON({ "v": 4294967296 })JSON");
@@ -543,7 +543,7 @@ TEST(RpcSpecDSL_ClampAs, Int32OverflowClampedToMax)
     EXPECT_EQ(j.as_object().at("v").as_int64(), std::numeric_limits<int32_t>::max());
 }
 
-TEST(RpcSpecDSL_ClampAs, Int32UnderflowClampedToMin)
+TEST(RpcSpecDSLClampAs, int32_underflow_clamped_to_min)
 {
     static constexpr auto kSpec = RpcSpec{field("v", type<int64_t>, clampAs<int32_t>)};
     auto j = boost::json::parse(R"JSON({ "v": -4294967296 })JSON");
@@ -551,7 +551,7 @@ TEST(RpcSpecDSL_ClampAs, Int32UnderflowClampedToMin)
     EXPECT_EQ(j.as_object().at("v").as_int64(), std::numeric_limits<int32_t>::min());
 }
 
-TEST(RpcSpecDSL_ClampAs, Int32InRangeUnchanged)
+TEST(RpcSpecDSLClampAs, int32_in_range_unchanged)
 {
     static constexpr auto kSpec = RpcSpec{field("v", type<int64_t>, clampAs<int32_t>)};
     auto j = boost::json::parse(R"JSON({ "v": 12345 })JSON");
@@ -559,7 +559,7 @@ TEST(RpcSpecDSL_ClampAs, Int32InRangeUnchanged)
     EXPECT_EQ(j.as_object().at("v").as_int64(), 12345);
 }
 
-TEST(RpcSpecDSL_ClampAs, Uint32OverflowClampedToMax)
+TEST(RpcSpecDSLClampAs, uint32_overflow_clamped_to_max)
 {
     static constexpr auto kSpec = RpcSpec{field("v", type<int64_t>, clampAs<uint32_t>)};
     auto j = boost::json::parse(R"JSON({ "v": 8589934592 })JSON");
@@ -569,7 +569,7 @@ TEST(RpcSpecDSL_ClampAs, Uint32OverflowClampedToMax)
         static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()));
 }
 
-TEST(RpcSpecDSL_ClampAs, Uint32NegativeClampedToZero)
+TEST(RpcSpecDSLClampAs, uint32_negative_clamped_to_zero)
 {
     static constexpr auto kSpec = RpcSpec{field("v", type<int64_t>, clampAs<uint32_t>)};
     auto j = boost::json::parse(R"JSON({ "v": -5 })JSON");
@@ -577,7 +577,7 @@ TEST(RpcSpecDSL_ClampAs, Uint32NegativeClampedToZero)
     EXPECT_EQ(j.as_object().at("v").as_uint64(), 0u);
 }
 
-TEST(RpcSpecDSL_ClampAs, AbsentFieldPasses)
+TEST(RpcSpecDSLClampAs, absent_field_passes)
 {
     static constexpr auto kSpec = RpcSpec{field("v", clampAs<int32_t>)};
     auto absent = boost::json::parse(R"JSON({})JSON");
@@ -595,7 +595,7 @@ struct TypedTxInput
 };
 }  // namespace
 
-TEST(TypedSpecModifier, ClampRunsBeforeConverter)
+TEST(TypedSpecModifier, clamp_runs_before_converter)
 {
     static constexpr auto kSpec = spec<TypedLimitInput>(
         field("limit", &TypedLimitInput::limit, clamp(uint32_t{10}, uint32_t{400}), asUint32));
@@ -616,7 +616,7 @@ TEST(TypedSpecModifier, ClampRunsBeforeConverter)
     EXPECT_EQ(ok->limit, 50u);
 }
 
-TEST(TypedSpecModifier, ToLowerRunsBeforeConverter)
+TEST(TypedSpecModifier, to_lower_runs_before_converter)
 {
     static constexpr auto kSpec =
         spec<TypedTxInput>(field("tx_type", &TypedTxInput::txType, toLower, asString));
@@ -627,7 +627,7 @@ TEST(TypedSpecModifier, ToLowerRunsBeforeConverter)
     EXPECT_EQ(result->txType, "payment");  // lowercased by the modifier, then converted
 }
 
-TEST(TypedSpecModifier, ConverterValidatesModifiedValue)
+TEST(TypedSpecModifier, converter_validates_modified_value)
 {
     // The converter still rejects values the modifier left invalid.
     static constexpr auto kSpec = spec<TypedLimitInput>(

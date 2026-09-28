@@ -40,7 +40,7 @@ parse(std::string const& json)
 
 }  // namespace
 
-TEST(LedgerEntrySpec, CheckHexLocator)
+TEST(LedgerEntrySpec, check_hex_locator)
 {
     auto const result = parse(
         R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
@@ -52,7 +52,7 @@ TEST(LedgerEntrySpec, CheckHexLocator)
     EXPECT_EQ(*result->check, expected);
 }
 
-TEST(LedgerEntrySpec, AccountRootLocator)
+TEST(LedgerEntrySpec, account_root_locator)
 {
     auto const result = parse(R"JSON({"account_root": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
     ASSERT_TRUE(result.has_value());
@@ -63,7 +63,7 @@ TEST(LedgerEntrySpec, AccountRootLocator)
     EXPECT_EQ(*result->accountRoot, *expected);
 }
 
-TEST(LedgerEntrySpec, MptIssuanceHexLocator)
+TEST(LedgerEntrySpec, mpt_issuance_hex_locator)
 {
     auto const result =
         parse(R"JSON({"mpt_issuance": "00000000ABCDEF0123456789ABCDEF0123456789ABCDEF01"})JSON");
@@ -75,7 +75,7 @@ TEST(LedgerEntrySpec, MptIssuanceHexLocator)
     EXPECT_EQ(*result->mptIssuance, expected);
 }
 
-TEST(LedgerEntrySpec, OfferHexArm)
+TEST(LedgerEntrySpec, offer_hex_arm)
 {
     auto const result = parse(
         R"JSON({"offer": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
@@ -88,7 +88,7 @@ TEST(LedgerEntrySpec, OfferHexArm)
     EXPECT_EQ(std::get<xrpl::uint256>(*result->offer), expected);
 }
 
-TEST(LedgerEntrySpec, OfferObjectArm)
+TEST(LedgerEntrySpec, offer_object_arm)
 {
     auto const result =
         parse(R"JSON({"offer": {"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "seq": 5}})JSON");
@@ -103,7 +103,7 @@ TEST(LedgerEntrySpec, OfferObjectArm)
     EXPECT_EQ(entry.seq, 5u);
 }
 
-TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
+TEST(LedgerEntrySpec, directory_object_with_owner_and_sub_index)
 {
     auto const result = parse(
         R"JSON({"directory": {"owner": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sub_index": 42}})JSON");
@@ -121,7 +121,7 @@ TEST(LedgerEntrySpec, DirectoryObjectWithOwnerAndSubIndex)
     EXPECT_FALSE(entry.dirRoot.has_value());
 }
 
-TEST(LedgerEntrySpec, AmmObjectArm)
+TEST(LedgerEntrySpec, amm_object_arm)
 {
     auto const result = parse(R"JSON({
         "amm": {
@@ -134,7 +134,7 @@ TEST(LedgerEntrySpec, AmmObjectArm)
     EXPECT_TRUE(std::holds_alternative<AmmEntry>(*result->amm));
 }
 
-TEST(LedgerEntrySpec, RippleStateObjectLocator)
+TEST(LedgerEntrySpec, ripple_state_object_locator)
 {
     auto const result = parse(R"JSON({
         "ripple_state": {
@@ -154,7 +154,7 @@ TEST(LedgerEntrySpec, RippleStateObjectLocator)
     EXPECT_EQ(result->rippleStateAccount->accounts[1], *expectedAcct2);
 }
 
-TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
+TEST(LedgerEntrySpec, deposit_preauth_authorized_account)
 {
     auto const result = parse(R"JSON({
         "deposit_preauth": {
@@ -174,7 +174,7 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedAccount)
     EXPECT_FALSE(entry.authorizedCredentials.has_value());
 }
 
-TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
+TEST(LedgerEntrySpec, deposit_preauth_authorized_credentials)
 {
     auto const result = parse(R"JSON({
         "deposit_preauth": {
@@ -200,7 +200,7 @@ TEST(LedgerEntrySpec, DepositPreauthAuthorizedCredentials)
     EXPECT_EQ(cred.credentialType, "ABCD");
 }
 
-TEST(LedgerEntrySpec, AuthorizedCredentialsIssuerRejectsZeroAccount)
+TEST(LedgerEntrySpec, authorized_credentials_issuer_rejects_zero_account)
 {
     auto const result = parse(R"JSON({
         "deposit_preauth": {
@@ -214,7 +214,7 @@ TEST(LedgerEntrySpec, AuthorizedCredentialsIssuerRejectsZeroAccount)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(LedgerEntrySpec, CredentialObjectTypeAcceptsHex)
+TEST(LedgerEntrySpec, credential_object_type_accepts_hex)
 {
     auto const result = parse(R"JSON({
         "credential": {
@@ -226,7 +226,7 @@ TEST(LedgerEntrySpec, CredentialObjectTypeAcceptsHex)
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
 }
 
-TEST(LedgerEntrySpec, CredentialObjectTypeRejectsNonHex)
+TEST(LedgerEntrySpec, credential_object_type_rejects_non_hex)
 {
     auto const result = parse(R"JSON({
         "credential": {
@@ -240,7 +240,7 @@ TEST(LedgerEntrySpec, CredentialObjectTypeRejectsNonHex)
     EXPECT_EQ(result.error().message, "credential_type NotHexString");
 }
 
-TEST(LedgerEntrySpec, CredentialObjectTypeRejectsEmpty)
+TEST(LedgerEntrySpec, credential_object_type_rejects_empty)
 {
     auto const result = parse(R"JSON({
         "credential": {
@@ -254,7 +254,7 @@ TEST(LedgerEntrySpec, CredentialObjectTypeRejectsEmpty)
     EXPECT_EQ(result.error().message, "credential_type is empty");
 }
 
-TEST(LedgerEntrySpec, BridgeObjectLocator)
+TEST(LedgerEntrySpec, bridge_object_locator)
 {
     auto const result = parse(R"JSON({
         "bridge": {
@@ -272,7 +272,7 @@ TEST(LedgerEntrySpec, BridgeObjectLocator)
     EXPECT_EQ(result->bridge->lockingChainDoor, *expectedDoor);
 }
 
-TEST(LedgerEntrySpec, XChainOwnedClaimIdObjectArm)
+TEST(LedgerEntrySpec, x_chain_owned_claim_id_object_arm)
 {
     auto const result = parse(R"JSON({
         "xchain_owned_claim_id": {
@@ -291,7 +291,7 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdObjectArm)
     EXPECT_EQ(entry.claimId, 7u);
 }
 
-TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
+TEST(LedgerEntrySpec, x_chain_owned_claim_id_hex_arm)
 {
     auto const result = parse(
         R"JSON({"xchain_owned_claim_id": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
@@ -300,7 +300,7 @@ TEST(LedgerEntrySpec, XChainOwnedClaimIdHexArm)
     EXPECT_TRUE(std::holds_alternative<xrpl::uint256>(*result->xchainOwnedClaimId));
 }
 
-TEST(LedgerEntrySpec, LedgerIndexValidated)
+TEST(LedgerEntrySpec, ledger_index_validated)
 {
     auto const result = parse(
         R"JSON({"check": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789", "ledger_index": "validated"})JSON");
@@ -309,7 +309,7 @@ TEST(LedgerEntrySpec, LedgerIndexValidated)
     EXPECT_EQ(std::get<LedgerShortcut>(result->ledger.value), LedgerShortcut::Validated);
 }
 
-TEST(LedgerEntrySpec, LedgerUnspecifiedWhenAbsent)
+TEST(LedgerEntrySpec, ledger_unspecified_when_absent)
 {
     auto const result = parse(R"JSON({})JSON");
     if (result.has_value())
@@ -318,13 +318,13 @@ TEST(LedgerEntrySpec, LedgerUnspecifiedWhenAbsent)
     }
 }
 
-TEST(LedgerEntrySpec, MalformedCheckHexReturnsError)
+TEST(LedgerEntrySpec, malformed_check_hex_returns_error)
 {
     auto const result = parse(R"JSON({"check": "xyz"})JSON");
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(LedgerEntrySpec, RippleStateWithOnlyOneAccountReturnsError)
+TEST(LedgerEntrySpec, ripple_state_with_only_one_account_returns_error)
 {
     auto const result = parse(R"JSON({
         "ripple_state": {
@@ -335,7 +335,7 @@ TEST(LedgerEntrySpec, RippleStateWithOnlyOneAccountReturnsError)
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(LedgerEntrySpec, SponsorshipHexArm)
+TEST(LedgerEntrySpec, sponsorship_hex_arm)
 {
     auto const result = parse(
         R"JSON({"sponsorship": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON");
@@ -348,7 +348,7 @@ TEST(LedgerEntrySpec, SponsorshipHexArm)
     EXPECT_EQ(std::get<xrpl::uint256>(*result->sponsorship), expected);
 }
 
-TEST(LedgerEntrySpec, SponsorshipObjectArm)
+TEST(LedgerEntrySpec, sponsorship_object_arm)
 {
     auto const result = parse(
         R"JSON({"sponsorship": {"sponsor": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "sponsee": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"}})JSON");
@@ -365,21 +365,21 @@ TEST(LedgerEntrySpec, SponsorshipObjectArm)
     EXPECT_EQ(entry.sponsee, *sponsee);
 }
 
-TEST(LedgerEntrySpec, SponsorshipMissingSponseeReturnsError)
+TEST(LedgerEntrySpec, sponsorship_missing_sponsee_returns_error)
 {
     auto const result =
         parse(R"JSON({"sponsorship": {"sponsor": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"}})JSON");
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(LedgerEntrySpec, SponsorshipMalformedSponsorReturnsError)
+TEST(LedgerEntrySpec, sponsorship_malformed_sponsor_returns_error)
 {
     auto const result = parse(
         R"JSON({"sponsorship": {"sponsor": "not-an-account", "sponsee": "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"}})JSON");
     EXPECT_FALSE(result.has_value());
 }
 
-TEST(LedgerEntryDump, AllFieldsVisible)
+TEST(LedgerEntryDump, all_fields_visible)
 {
     std::ostringstream oss;
     rpc::spec::SpecDumpWriter writer{oss};

@@ -50,7 +50,7 @@ oneOracle()
 
 }  // namespace
 
-TEST(GetAggregatePriceSpec, MinimalValidRequestParses)
+TEST(GetAggregatePriceSpec, minimal_valid_request_parses)
 {
     auto const result = parse(withOracles(oneOracle()));
     ASSERT_TRUE(result.has_value())
@@ -59,7 +59,7 @@ TEST(GetAggregatePriceSpec, MinimalValidRequestParses)
     EXPECT_EQ(result->oracles[0].documentId, 1u);
 }
 
-TEST(GetAggregatePriceSpec, BaseAssetRequired)
+TEST(GetAggregatePriceSpec, base_asset_required)
 {
     auto value = boost::json::parse(
         std::format(R"JSON({{"quote_asset": "XRP", "oracles": {}}})JSON", oneOracle()));
@@ -67,7 +67,7 @@ TEST(GetAggregatePriceSpec, BaseAssetRequired)
     ASSERT_FALSE(result.has_value());
 }
 
-TEST(GetAggregatePriceSpec, OraclesRequired)
+TEST(GetAggregatePriceSpec, oracles_required)
 {
     auto const result = parse(R"JSON({"base_asset": "USD", "quote_asset": "XRP"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -75,42 +75,42 @@ TEST(GetAggregatePriceSpec, OraclesRequired)
 
 // --- oracles: kOraclesValidator arms ---------------------------------------
 
-TEST(GetAggregatePriceSpec, OraclesNotArrayIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_not_array_is_oracle_malformed)
 {
     auto const result = parse(withOracles(R"JSON("nope")JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesEmptyArrayIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_empty_array_is_oracle_malformed)
 {
     auto const result = parse(withOracles("[]"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesElementNotObjectIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_element_not_object_is_oracle_malformed)
 {
     auto const result = parse(withOracles(R"JSON([1])JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesMissingDocumentIdIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_missing_document_id_is_oracle_malformed)
 {
     auto const result = parse(withOracles(std::format(R"JSON([{{"account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesMissingAccountIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_missing_account_is_oracle_malformed)
 {
     auto const result = parse(withOracles(R"JSON([{"oracle_document_id": 1}])JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
+TEST(GetAggregatePriceSpec, oracles_document_id_wrong_type_is_oracle_malformed)
 {
     // Neither uint32 nor string — rejected by the Type<uint32_t, std::string> gate.
     auto const result = parse(withOracles(
@@ -119,7 +119,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdWrongTypeIsOracleMalformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, OraclesDocumentIdNumericStringIsAccepted)
+TEST(GetAggregatePriceSpec, oracles_document_id_numeric_string_is_accepted)
 {
     auto const result = parse(withOracles(
         std::format(R"JSON([{{"oracle_document_id": "123", "account": "{}"}}])JSON", kAcct1)));
@@ -129,7 +129,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdNumericStringIsAccepted)
     EXPECT_EQ(result->oracles[0].documentId, 123u);
 }
 
-TEST(GetAggregatePriceSpec, OraclesDocumentIdNonNumericStringIsInvalidParams)
+TEST(GetAggregatePriceSpec, oracles_document_id_non_numeric_string_is_invalid_params)
 {
     // Deliberate asymmetry: the type gate passes (it *is* a string), then
     // ToNumberModifier fails, and its InvalidParams is propagated verbatim
@@ -140,7 +140,7 @@ TEST(GetAggregatePriceSpec, OraclesDocumentIdNonNumericStringIsInvalidParams)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(GetAggregatePriceSpec, OraclesMalformedAccountIsInvalidParams)
+TEST(GetAggregatePriceSpec, oracles_malformed_account_is_invalid_params)
 {
     auto const result =
         parse(withOracles(R"JSON([{"oracle_document_id": 1, "account": "notanaccount"}])JSON"));
@@ -148,7 +148,7 @@ TEST(GetAggregatePriceSpec, OraclesMalformedAccountIsInvalidParams)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
 }
 
-TEST(GetAggregatePriceSpec, OraclesNonStringAccountIsInvalidParams)
+TEST(GetAggregatePriceSpec, oracles_non_string_account_is_invalid_params)
 {
     auto const result = parse(withOracles(R"JSON([{"oracle_document_id": 1, "account": 5}])JSON"));
     ASSERT_FALSE(result.has_value());
@@ -157,7 +157,7 @@ TEST(GetAggregatePriceSpec, OraclesNonStringAccountIsInvalidParams)
 
 // --- trim / time_threshold --------------------------------------------------
 
-TEST(GetAggregatePriceSpec, TrimAtBoundsParses)
+TEST(GetAggregatePriceSpec, trim_at_bounds_parses)
 {
     for (auto const* trim : {"1", "25"})
     {
@@ -172,7 +172,7 @@ TEST(GetAggregatePriceSpec, TrimAtBoundsParses)
     }
 }
 
-TEST(GetAggregatePriceSpec, TrimOutOfRangeIsRejected)
+TEST(GetAggregatePriceSpec, trim_out_of_range_is_rejected)
 {
     for (auto const* trim : {"0", "26"})
     {
@@ -186,7 +186,7 @@ TEST(GetAggregatePriceSpec, TrimOutOfRangeIsRejected)
     }
 }
 
-TEST(GetAggregatePriceSpec, TimeThresholdParses)
+TEST(GetAggregatePriceSpec, time_threshold_parses)
 {
     auto value = boost::json::parse(
         std::format(

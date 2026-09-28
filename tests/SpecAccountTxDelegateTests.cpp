@@ -34,14 +34,14 @@ parseAccountTx(std::string const& delegateJson)
 
 }  // namespace
 
-TEST(AccountTxDelegateSpec, AbsentDelegateLeavesFilterUnset)
+TEST(AccountTxDelegateSpec, absent_delegate_leaves_filter_unset)
 {
     auto const result = parseAccountTx("");
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
     EXPECT_FALSE(result->delegateFilter.has_value());
 }
 
-TEST(AccountTxDelegateSpec, ActorParses)
+TEST(AccountTxDelegateSpec, actor_parses)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "actor"})JSON");
     ASSERT_TRUE(result.has_value()) << "msg: " << result.error().message;
@@ -50,7 +50,7 @@ TEST(AccountTxDelegateSpec, ActorParses)
     EXPECT_FALSE(result->delegateFilter->counterParty.has_value());
 }
 
-TEST(AccountTxDelegateSpec, AuthorizerWithCounterPartyParses)
+TEST(AccountTxDelegateSpec, authorizer_with_counter_party_parses)
 {
     auto const result = parseAccountTx(
         std::format(
@@ -63,7 +63,7 @@ TEST(AccountTxDelegateSpec, AuthorizerWithCounterPartyParses)
     EXPECT_EQ(*result->delegateFilter->counterParty, kCounterparty);
 }
 
-TEST(AccountTxDelegateSpec, NotAnObjectFails)
+TEST(AccountTxDelegateSpec, not_an_object_fails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": "actor")JSON");
     ASSERT_FALSE(result.has_value());
@@ -71,7 +71,7 @@ TEST(AccountTxDelegateSpec, NotAnObjectFails)
     EXPECT_EQ(result.error().message, "delegateNotObject");
 }
 
-TEST(AccountTxDelegateSpec, MissingDelegateFilterFails)
+TEST(AccountTxDelegateSpec, missing_delegate_filter_fails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {})JSON");
     ASSERT_FALSE(result.has_value());
@@ -79,7 +79,7 @@ TEST(AccountTxDelegateSpec, MissingDelegateFilterFails)
     EXPECT_EQ(result.error().message, "Field 'delegate_filter' is required but missing.");
 }
 
-TEST(AccountTxDelegateSpec, UnknownDelegateFilterValueFails)
+TEST(AccountTxDelegateSpec, unknown_delegate_filter_value_fails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": "bogus"})JSON");
     ASSERT_FALSE(result.has_value());
@@ -88,7 +88,7 @@ TEST(AccountTxDelegateSpec, UnknownDelegateFilterValueFails)
         result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
 
-TEST(AccountTxDelegateSpec, NonStringDelegateFilterFails)
+TEST(AccountTxDelegateSpec, non_string_delegate_filter_fails)
 {
     auto const result = parseAccountTx(R"JSON(, "delegate": {"delegate_filter": 1})JSON");
     ASSERT_FALSE(result.has_value());
@@ -97,7 +97,7 @@ TEST(AccountTxDelegateSpec, NonStringDelegateFilterFails)
         result.error().message, "Field 'delegate_filter' value must be 'actor' or 'authorizer'.");
 }
 
-TEST(AccountTxDelegateSpec, MalformedCounterPartyFails)
+TEST(AccountTxDelegateSpec, malformed_counter_party_fails)
 {
     auto const result = parseAccountTx(
         R"JSON(, "delegate": {"delegate_filter": "actor", "counter_party": "not-an-account"})JSON");
