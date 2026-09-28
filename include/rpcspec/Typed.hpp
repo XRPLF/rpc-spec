@@ -378,6 +378,62 @@ field(std::string_view key, Member InputT::* member)
     return PartialBoundField<InputT, Member>{key, member};
 }
 
+/** A bound field with a second accepted JSON key and one shared field definition. */
+template <typename Field>
+    requires detail::kIsBoundField<Field>
+struct AliasedField : Field
+{
+    std::string_view alternateKey;
+
+    consteval AliasedField(std::string_view alternateKey, Field field)
+        : Field{field}, alternateKey{alternateKey}
+    {
+    }
+
+    template <SomeObjectView Root, typename InputT>
+    [[nodiscard]] MaybeError
+    parseInto(Root& root, InputT& out) const
+    {
+        auto selected = static_cast<Field const&>(*this);
+        if (root.child(alternateKey).present())
+        {
+            if (root.child(this->key).present())
+                return std::unexpected{
+                    rpc::Status{rpc::XrpldError::RpcInvalidParams, "Too many fields provided."}};
+            selected.key = alternateKey;
+        }
+        return selected.parseInto(root, out);
+    }
+
+    template <SomeObjectView Root>
+    [[nodiscard]] Warnings
+    check(Root const& root) const
+    {
+        auto selected = static_cast<Field const&>(*this);
+        if (root.child(alternateKey).present())
+            selected.key = alternateKey;
+        return selected.check(root);
+    }
+
+    void
+    dump(SpecDumpWriter& writer) const
+    {
+        Field::dump(writer);
+        auto alternate = static_cast<Field const&>(*this);
+        alternate.key = alternateKey;
+        alternate.dump(writer);
+    }
+};
+
+/** Accept @p alternateKey as another spelling of a bound @p field. */
+template <typename Field>
+    requires detail::kIsBoundField<Field>
+[[nodiscard]] consteval auto
+alias(std::string_view alternateKey, Field field)
+{
+    return AliasedField<Field>{alternateKey, field};
+}
+
 /**
  * @brief Count the number of distinct keys among the bound fields.
  *

@@ -63,6 +63,14 @@ TEST(LedgerEntrySpec, account_root_locator)
     EXPECT_EQ(*result->accountRoot, *expected);
 }
 
+TEST(LedgerEntrySpec, account_alias_locator)
+{
+    auto const result = parse(R"JSON({"account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->accountRoot.has_value());
+    EXPECT_EQ(*result->accountRoot, *rpc::spec::detail::accountFromStringStrict(kAcct1));
+}
+
 TEST(LedgerEntrySpec, mpt_issuance_hex_locator)
 {
     auto const result =
@@ -147,11 +155,68 @@ TEST(LedgerEntrySpec, ripple_state_object_locator)
 
     auto const expectedAcct1 = rpc::spec::detail::accountFromStringStrict(kAcct1);
     ASSERT_TRUE(expectedAcct1.has_value());
-    EXPECT_EQ(result->rippleStateAccount->accounts[0], *expectedAcct1);
+    EXPECT_EQ(std::get<RippleStateEntry>(*result->rippleStateAccount).accounts[0], *expectedAcct1);
 
     auto const expectedAcct2 = rpc::spec::detail::accountFromStringStrict(kAcct2);
     ASSERT_TRUE(expectedAcct2.has_value());
-    EXPECT_EQ(result->rippleStateAccount->accounts[1], *expectedAcct2);
+    EXPECT_EQ(std::get<RippleStateEntry>(*result->rippleStateAccount).accounts[1], *expectedAcct2);
+}
+
+TEST(LedgerEntrySpec, state_alias_object_locator)
+{
+    auto const result = parse(R"JSON({
+        "state": {
+            "accounts": ["rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh", "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK"],
+            "currency": "USD"
+        }
+    })JSON");
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->rippleStateAccount.has_value());
+    EXPECT_EQ(
+        std::get<RippleStateEntry>(*result->rippleStateAccount).accounts[0],
+        *rpc::spec::detail::accountFromStringStrict(kAcct1));
+}
+
+TEST(LedgerEntrySpec, state_hex_locator)
+{
+    for (auto const* name : {"state", "ripple_state"})
+    {
+        SCOPED_TRACE(name);
+        auto const result = parse(std::string{"{\""} + name + "\":\"" + kHex64 + "\"}");
+        ASSERT_TRUE(result.has_value());
+        ASSERT_TRUE(result->rippleStateAccount.has_value());
+        xrpl::uint256 expected;
+        ASSERT_TRUE(expected.parseHex(kHex64));
+        EXPECT_EQ(std::get<xrpl::uint256>(*result->rippleStateAccount), expected);
+    }
+}
+
+TEST(LedgerEntrySpec, conflicting_aliases_are_rejected)
+{
+    for (
+        auto const* json :
+        {R"JSON({"account_root":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh","account":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON",
+         R"JSON({"ripple_state":"ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789","state":"ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON"})
+    {
+        SCOPED_TRACE(json);
+        auto const result = parse(json);
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(
+            result.error(),
+            (rpc::Status{rpc::XrpldError::RpcInvalidParams, "Too many fields provided."}));
+    }
+}
+
+TEST(LedgerEntrySpec, invalid_alias_values_are_rejected)
+{
+    for (auto const* json :
+         {R"JSON({"account":"invalid"})JSON",
+          R"JSON({"state":"invalid"})JSON",
+          R"JSON({"state":{}})JSON"})
+    {
+        SCOPED_TRACE(json);
+        EXPECT_FALSE(parse(json).has_value());
+    }
 }
 
 TEST(LedgerEntrySpec, deposit_preauth_authorized_account)
@@ -385,6 +450,8 @@ TEST(LedgerEntryDump, all_fields_visible)
     rpc::spec::SpecDumpWriter writer{oss};
     rpc::spec::handlers::ledger_entry::kInputSpec.dump(writer);
     auto const text = oss.str();
+    EXPECT_NE(text.find("- account:"), std::string::npos);
+    EXPECT_NE(text.find("- state:"), std::string::npos);
     for (auto const* key : {
              "ledger_hash",
              "ledger_index",

@@ -746,9 +746,9 @@ struct RippleStateConverter
     static constexpr std::string_view kName = "ripple_state";
 
     /**
-     * @brief The value this converter produces (`RippleStateEntry`).
+     * @brief The value this converter produces (a hex index or `RippleStateEntry`).
      */
-    using ValueType = RippleStateEntry;
+    using ValueType = std::variant<xrpl::uint256, RippleStateEntry>;
 
     /**
      * @brief Validate the field and produce its strongly-typed value.
@@ -761,6 +761,10 @@ struct RippleStateConverter
     [[nodiscard]] Parsed<ValueType>
     parse(View const& fieldView) const
     {
+        if (fieldView.isString())
+            return ValueType{
+                rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+
         RippleStateEntry entry;
         auto const accountsView = fieldView.child("accounts");
         entry.accounts[0] = rpc::spec::detail::accountFromValidated(
@@ -769,7 +773,7 @@ struct RippleStateConverter
             std::string{accountsView.element(1).asString()});
         entry.currency = rpc::spec::detail::currencyFromValidated(
             std::string{fieldView.child("currency").asString()});
-        return entry;
+        return ValueType{entry};
     }
 };
 
@@ -983,7 +987,7 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("binary", &Input::binary, type<bool>, jsonBool),
     field("index", &Input::index, kMalformedRequestHexStringValidator, asUint256),
-    field("account_root", &Input::accountRoot, accountBase58, accountId),
+    alias("account", field("account_root", &Input::accountRoot, accountBase58, accountId)),
     field("did", &Input::did, accountBase58, accountId),
     field("check", &Input::check, kMalformedRequestHexStringValidator, asUint256),
     field(
@@ -1029,14 +1033,17 @@ inline constexpr auto kInputSpec = spec<Input>(
         &Input::paymentChannel,
         kMalformedRequestHexStringValidator,
         asUint256),
-    field(
-        "ripple_state",
-        &Input::rippleStateAccount,
-        type<JsonObject>,
-        section(
-            field("accounts", required, kRippleStateAccountsValidator),
-            field("currency", required, currency)),
-        rippleStateConv),
+    alias(
+        "state",
+        field(
+            "ripple_state",
+            &Input::rippleStateAccount,
+            type<std::string, JsonObject>,
+            ifType<std::string>(kMalformedRequestHexStringValidator),
+            ifType<JsonObject>(section(
+                field("accounts", required, kRippleStateAccountsValidator),
+                field("currency", required, currency))),
+            rippleStateConv)),
     field(
         "ticket",
         &Input::ticket,
