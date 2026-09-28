@@ -1,4 +1,5 @@
 #include <boost/json/parse.hpp>
+#include <boost/json/value.hpp>
 
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
