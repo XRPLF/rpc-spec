@@ -99,6 +99,6 @@ TEST(RpcSpecDSLDefault, dump_renders_default_value)
     std::ostringstream oss;
     SpecDumpWriter writer{oss};
     kSpec.dump(writer);
-    EXPECT_NE(oss.str().find("default"), std::string::npos);
-    EXPECT_NE(oss.str().find("value: 200"), std::string::npos);
+    EXPECT_TRUE(oss.str().contains("default"));
+    EXPECT_TRUE(oss.str().contains("value: 200"));
 }

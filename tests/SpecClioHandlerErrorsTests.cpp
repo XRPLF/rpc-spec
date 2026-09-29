@@ -2,8 +2,8 @@
  * @file
  * @brief Clio-backend arms of the handler specs that branch on RPCSPEC_IS_CLIO.
  *
- * `vault_info` and `ledger_data` are the two handler specs whose field errors
- * differ per server. Compiled with RPCSPEC_IS_CLIO=1 (see rpcspec_clio_tests),
+ * `vault_info`, `ledger_data` and `ledger` are the handler specs whose field
+ * errors differ per server. Compiled with RPCSPEC_IS_CLIO=1 (see rpcspec_clio_tests),
  * this translation unit is the only place those branches run; the xrpld wording
  * is pinned by SpecVaultInfoTests / SpecLedgerDataTests.
  *
@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
 #include <rpcspec/handlers/vault_info/Spec.hpp>
@@ -130,4 +131,26 @@ TEST(LedgerDataSpecClio, non_hex_string_marker_names_the_field)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "markerMalformed");
+}
+
+TEST(LedgerSpecClio, ledger_is_validated_before_other_fields)
+{
+    for (auto const version : {1u, 2u})
+    {
+        auto value = boost::json::parse(R"JSON({ "ledger_index": "potato", "full": "blah" })JSON");
+        auto const result = handlers::ledger::kSpec.parse(value, version);
+        ASSERT_FALSE(result.has_value()) << version;
+        EXPECT_EQ(result.error().message, "ledgerIndexMalformed") << version;
+    }
+}
+
+TEST(LedgerSpecClio, diff_must_be_bool)
+{
+    for (auto const version : {1u, 2u})
+    {
+        auto value = boost::json::parse(R"JSON({ "diff": "yes" })JSON");
+        auto const result = handlers::ledger::kSpec.parse(value, version);
+        ASSERT_FALSE(result.has_value()) << version;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << version;
+    }
 }

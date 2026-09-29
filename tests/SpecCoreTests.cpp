@@ -548,9 +548,9 @@ TEST(RpcSpecDSLWarningsToJson, single_deprecated_field_produces_grouped_warning)
 
     auto const msg = std::string{arr[0].as_object().at("message").as_string()};
     // Standard text must be present as a prefix.
-    EXPECT_NE(msg.find("deprecated"), std::string::npos);
+    EXPECT_TRUE(msg.contains("deprecated"));
     // The per-field extra must be appended with a leading space.
-    EXPECT_NE(msg.find(" Field 'ident' is deprecated."), std::string::npos);
+    EXPECT_TRUE(msg.contains(" Field `ident` is deprecated."));
 }
 
 TEST(RpcSpecDSLWarningsToJson, multiple_deprecated_fields_group_into_one_entry)
@@ -577,8 +577,8 @@ TEST(RpcSpecDSLWarningsToJson, multiple_deprecated_fields_group_into_one_entry)
     EXPECT_EQ(arr[0].as_object().at("id").as_int64(), 2004);
 
     auto const msg = std::string{arr[0].as_object().at("message").as_string()};
-    EXPECT_NE(msg.find(" Field 'ident' is deprecated."), std::string::npos);
-    EXPECT_NE(msg.find(" Field 'ledger' is deprecated."), std::string::npos);
+    EXPECT_TRUE(msg.contains(" Field `ident` is deprecated."));
+    EXPECT_TRUE(msg.contains(" Field `ledger` is deprecated."));
 }
 
 TEST(RpcSpecDSLWarningsToJson, empty_warnings_produces_empty_array)

@@ -158,16 +158,6 @@ ledgerSpecifierFromIndex(View const& fieldView)
     auto const sv = fieldView.asString();
     if (sv == "validated")
         return LedgerSpecifier{LedgerShortcut::Validated};
-    if constexpr (kIsXrpldBuild)
-    {
-        // Clio serves only validated data and never holds these two, so it rejects them;
-        // requests naming them are diverted to xrpld by ForwardingProxy before ever
-        // reaching validation.
-        if (sv == "current")
-            return LedgerSpecifier{LedgerShortcut::Current};
-        if (sv == "closed")
-            return LedgerSpecifier{LedgerShortcut::Closed};
-    }
 
     uint32_t seq = 0;
     auto const* const begin = sv.data();
@@ -189,18 +179,8 @@ ledgerSpecifierFromHash(View const& fieldView)
 {
     if (not fieldView.isString())
     {
-        if constexpr (kIsClioBuild)
-        {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage("ledger_hash")}};
-        }
-        else
-        {
-            // Not notStringFieldMessage: its xrpld arm drops the ", not string" that xrpld
-            // reports for this field.
-            return std::unexpected{rpc::Status{
-                rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "string")}};
-        }
+        return std::unexpected{
+            rpc::Status{rpc::kMalformedField, rpc::notStringFieldMessage("ledger_hash")}};
     }
     xrpl::uint256 hash;
     if (not hash.parseHex(std::string{fieldView.asString()}.c_str()))
@@ -211,17 +191,151 @@ ledgerSpecifierFromHash(View const& fieldView)
     return LedgerSpecifier{hash};
 }
 
+/**
+ * @brief Parse a ledger hash the way xrpld's `ledgerFromHash` does.
+ *
+ * @param fieldView A string field holding the hash.
+ * @return The selection, or a Status naming @p fieldView's key.
+ */
+template <SomeFieldView View>
+[[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
+xrpldLedgerFromHash(View const& fieldView)
+{
+    xrpl::uint256 hash;
+    if (not hash.parseHex(std::string{fieldView.asString()}.c_str()))
+    {
+        return std::unexpected{rpc::Status{
+            rpc::kMalformedField, rpc::expectedFieldMessage(fieldView.key(), "hex string")}};
+    }
+    return LedgerSpecifier{hash};
+}
+
+/**
+ * @brief Parse a ledger index the way xrpld's `ledgerFromIndex` does.
+ *
+ * @param fieldView A string or integer field holding the index.
+ * @return The selection, or a Status naming @p fieldView's key.
+ */
+template <SomeFieldView View>
+[[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
+xrpldLedgerFromIndex(View const& fieldView)
+{
+    auto const invalid = [&] {
+        return std::unexpected{rpc::Status{
+            rpc::kMalformedField, rpc::expectedFieldMessage(fieldView.key(), "string or number")}};
+    };
+
+    if (not fieldView.isString())
+    {
+        if (fieldView.isUint32())
+            return LedgerSpecifier{uint32_t{fieldView.asUint32()}};
+        return invalid();
+    }
+
+    auto sv = fieldView.asString();
+    if (sv == "current" or sv.empty())
+        return LedgerSpecifier{LedgerShortcut::Current};
+    if (sv == "validated")
+        return LedgerSpecifier{LedgerShortcut::Validated};
+    if (sv == "closed")
+        return LedgerSpecifier{LedgerShortcut::Closed};
+
+    // beast::lexicalCastChecked, which xrpld parses with, allows a leading '+'.
+    if (sv.starts_with('+'))
+        sv.remove_prefix(1);
+
+    uint32_t seq = 0;
+    auto const* const begin = sv.data();
+    auto const* const end = sv.data() + sv.size();
+    if (auto const [ptr, ec] = std::from_chars(begin, end, seq); ec == std::errc{} and ptr == end)
+        return LedgerSpecifier{seq};
+    return invalid();
+}
+
+/**
+ * @brief Resolve the ledger a request selects the way xrpld's `ledgerFromRequest` does.
+ *
+ * @param root The request root to read from.
+ * @return The selection, unspecified when none of the three is present, or a Status
+ *         describing the failure.
+ */
+template <SomeObjectView Root>
+[[nodiscard]] inline std::expected<LedgerSpecifier, rpc::Status>
+xrpldLedgerFromRequest(Root& root)
+{
+    auto const legacyView = root.child("ledger");
+    auto const hashView = root.child("ledger_hash");
+    auto const indexView = root.child("ledger_index");
+
+    auto const count = static_cast<int>(legacyView.present()) +
+        static_cast<int>(hashView.present()) + static_cast<int>(indexView.present());
+    if (count > 1)
+    {
+        if (legacyView.present())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField,
+                "Exactly one of 'ledger', 'ledger_hash', or 'ledger_index' can be specified."}};
+        }
+        return std::unexpected{rpc::Status{
+            rpc::kMalformedField,
+            "Exactly one of 'ledger_hash' or 'ledger_index' can be specified."}};
+    }
+
+    auto const isStringOrInteger = [](auto const& view) {
+        return view.isString() or view.isInt64();
+    };
+
+    if (legacyView.present())
+    {
+        if (not isStringOrInteger(legacyView))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField, rpc::expectedFieldMessage("ledger", "string or number")}};
+        }
+        if (legacyView.isString() and legacyView.asString().size() == 64)
+            return xrpldLedgerFromHash(legacyView);
+        return xrpldLedgerFromIndex(legacyView);
+    }
+
+    if (hashView.present())
+    {
+        if (not hashView.isString())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField, rpc::expectedFieldMessage("ledger_hash", "hex string")}};
+        }
+        return xrpldLedgerFromHash(hashView);
+    }
+
+    if (indexView.present())
+    {
+        if (not isStringOrInteger(indexView))
+        {
+            return std::unexpected{rpc::Status{
+                rpc::kMalformedField,
+                rpc::expectedFieldMessage("ledger_index", "string or number")}};
+        }
+        return xrpldLedgerFromIndex(indexView);
+    }
+
+    return LedgerSpecifier{};
+}
+
 }  // namespace detail
 
 /**
  * @brief A spec field that resolves the ledger_hash / ledger_index pair into a
  * single LedgerSpecifier Input member.
  *
- * Unlike an ordinary bound field (one JSON key, one converter) this reads both
- * root keys and produces the unified value. ledger_hash takes precedence over
- * ledger_index when both are present (mirroring the historical
- * getLedgerHeaderFromHashOrSeq contract — the two are NOT mutually exclusive),
- * and naming neither leaves the member unspecified. It duck-types as a bound
+ * Unlike an ordinary bound field (one JSON key, one converter) this reads several
+ * root keys and produces the unified value, and naming none of them leaves the
+ * member unspecified. The two servers disagree on the rules:
+ *   - Clio: ledger_hash takes precedence over ledger_index when both are present
+ *     (mirroring the historical getLedgerHeaderFromHashOrSeq contract — the two are
+ *     NOT mutually exclusive).
+ *   - xrpld: at most one of ledger_hash, ledger_index and the legacy `ledger` may be
+ *     present; see detail::xrpldLedgerFromRequest. It duck-types as a bound
  * field (exposes @c kIsBound, @c key, @c parseInto, @c check and @c dump) so
  * TypedSpec dispatches and counts it like any other. The bound key is
  * "ledger_index"; a spec using this must not also bind that key.
@@ -268,32 +382,42 @@ struct LedgerSelectorField
     [[nodiscard]] MaybeError
     parseInto(Root& root, InputT& out) const
     {
-        auto const hashView = root.child("ledger_hash");
-        auto const indexView = root.child("ledger_index");
-
-        // ledger_hash is checked first so that, when both are malformed, its error is the one
-        // reported - every handler declared ledger_hash ahead of ledger_index.
-        if (hashView.present())
+        if constexpr (kIsXrpldBuild)
         {
-            auto res = detail::ledgerSpecifierFromHash(hashView);
+            auto res = detail::xrpldLedgerFromRequest(root);
             if (not res.has_value())
                 return std::unexpected{std::move(res).error()};
-            // ledger_index is still validated even though the hash takes precedence.
+            out.*member = std::move(res).value();
+        }
+        else
+        {
+            auto const hashView = root.child("ledger_hash");
+            auto const indexView = root.child("ledger_index");
+
+            // ledger_hash is checked first so that, when both are malformed, its error is the one
+            // reported - every handler declared ledger_hash ahead of ledger_index.
+            if (hashView.present())
+            {
+                auto res = detail::ledgerSpecifierFromHash(hashView);
+                if (not res.has_value())
+                    return std::unexpected{std::move(res).error()};
+                // ledger_index is still validated even though the hash takes precedence.
+                if (indexView.present())
+                {
+                    if (auto idx = detail::ledgerSpecifierFromIndex(indexView); not idx.has_value())
+                        return std::unexpected{std::move(idx).error()};
+                }
+                out.*member = std::move(res).value();
+                return {};
+            }
+
             if (indexView.present())
             {
-                if (auto idx = detail::ledgerSpecifierFromIndex(indexView); not idx.has_value())
-                    return std::unexpected{std::move(idx).error()};
+                auto res = detail::ledgerSpecifierFromIndex(indexView);
+                if (not res.has_value())
+                    return std::unexpected{std::move(res).error()};
+                out.*member = std::move(res).value();
             }
-            out.*member = std::move(res).value();
-            return {};
-        }
-
-        if (indexView.present())
-        {
-            auto res = detail::ledgerSpecifierFromIndex(indexView);
-            if (not res.has_value())
-                return std::unexpected{std::move(res).error()};
-            out.*member = std::move(res).value();
         }
 
         return {};

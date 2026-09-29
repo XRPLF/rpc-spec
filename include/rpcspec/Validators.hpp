@@ -472,7 +472,9 @@ struct Deprecated
             return Warning{
                 .code = rpc::WarningCode::WarnRpcDeprecated,
                 .field = std::string{fieldView.key()},
-                .message = std::format("Field '{}' is deprecated.", fieldView.key())};
+                .message = kIsClioBuild
+                    ? std::format("Field '{}' is deprecated.", fieldView.key())
+                    : std::format("Field `{}` is deprecated.", fieldView.key())};
         }
         return std::nullopt;
     }

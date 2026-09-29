@@ -190,6 +190,7 @@ inline constexpr auto takerConv = TakerConverter{};
  * @brief The spec that validates a request and parses it into `Input`.
  */
 inline constexpr auto kInputSpec = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field(
         "taker_gets",
         &Input::takerGets,
@@ -233,8 +234,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         min(uint32_t{kLimitMin}),
         clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
         defaultTo(kLimitDefault),
-        asUint32),
-    ledgerSelector(&Input::ledger));
+        asUint32));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

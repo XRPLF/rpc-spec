@@ -424,5 +424,5 @@ TEST(LedgerEntryDump, all_fields_visible)
              "binary",
              "include_deleted",
          })
-        EXPECT_NE(text.find(key), std::string::npos) << "missing from dump: " << key;
+        EXPECT_TRUE(text.contains(key)) << "missing from dump: " << key;
 }
