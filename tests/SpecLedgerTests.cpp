@@ -272,12 +272,18 @@ TEST(LedgerSelector, legacy_ledger_errors_name_the_legacy_field)
     for (
         auto const& [json, message] : {
             Case{
-                R"JSON({ "ledger": "invalid" })JSON",
-                "Invalid field 'ledger', not string or number."},
-            Case{R"JSON({ "ledger": true })JSON", "Invalid field 'ledger', not string or number."},
+                .json = R"JSON({ "ledger": "invalid" })JSON",
+                .message = "Invalid field 'ledger', not string or number.",
+            },
             Case{
-                R"JSON({ "ledger": "XBCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789" })JSON",
-                "Invalid field 'ledger', not hex string."},
+                .json = R"JSON({ "ledger": true })JSON",
+                .message = "Invalid field 'ledger', not string or number.",
+            },
+            Case{
+                .json =
+                    R"JSON({ "ledger": "XBCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789" })JSON",
+                .message = "Invalid field 'ledger', not hex string.",
+            },
         })
     {
         auto value = boost::json::parse(json);
