@@ -344,18 +344,16 @@ TEST(SubscribeDump, field_keys_and_stream_values_present)
     handlers::subscribe::kInputSpec.dump(writer);
     auto const text = oss.str();
 
-    static constexpr auto npos = std::string::npos;
-
-    EXPECT_NE(text.find("accounts"), npos) << "missing: accounts";
-    EXPECT_NE(text.find("streams"), npos) << "missing: streams";
-    EXPECT_NE(text.find("accounts_proposed"), npos) << "missing: accounts_proposed";
-    EXPECT_NE(text.find("books"), npos) << "missing: books";
-    EXPECT_NE(text.find("ledger"), npos) << "missing: ledger";
-    EXPECT_NE(text.find("transactions_proposed"), npos) << "missing: transactions_proposed";
-    EXPECT_NE(text.find("validations"), npos) << "missing: validations";
-    EXPECT_NE(text.find("book_changes"), npos) << "missing: book_changes";
-    EXPECT_NE(text.find("manifests"), npos) << "missing: manifests";
-    EXPECT_NE(text.find("oneOf"), npos) << "missing: oneOf";
+    EXPECT_TRUE(text.contains("accounts")) << "missing: accounts";
+    EXPECT_TRUE(text.contains("streams")) << "missing: streams";
+    EXPECT_TRUE(text.contains("accounts_proposed")) << "missing: accounts_proposed";
+    EXPECT_TRUE(text.contains("books")) << "missing: books";
+    EXPECT_TRUE(text.contains("ledger")) << "missing: ledger";
+    EXPECT_TRUE(text.contains("transactions_proposed")) << "missing: transactions_proposed";
+    EXPECT_TRUE(text.contains("validations")) << "missing: validations";
+    EXPECT_TRUE(text.contains("book_changes")) << "missing: book_changes";
+    EXPECT_TRUE(text.contains("manifests")) << "missing: manifests";
+    EXPECT_TRUE(text.contains("oneOf")) << "missing: oneOf";
 }
 
 TEST(UnsubscribeSpec, accounts_two_elements)
@@ -438,12 +436,10 @@ TEST(UnsubscribeDump, stream_values_present)
     handlers::unsubscribe::kInputSpec.dump(writer);
     auto const text = oss.str();
 
-    static constexpr auto npos = std::string::npos;
-
-    EXPECT_NE(text.find("streams"), npos) << "missing: streams";
-    EXPECT_NE(text.find("ledger"), npos) << "missing: ledger";
-    EXPECT_NE(text.find("transactions_proposed"), npos) << "missing: transactions_proposed";
-    EXPECT_NE(text.find("validations"), npos) << "missing: validations";
-    EXPECT_NE(text.find("book_changes"), npos) << "missing: book_changes";
-    EXPECT_NE(text.find("oneOf"), npos) << "missing: oneOf";
+    EXPECT_TRUE(text.contains("streams")) << "missing: streams";
+    EXPECT_TRUE(text.contains("ledger")) << "missing: ledger";
+    EXPECT_TRUE(text.contains("transactions_proposed")) << "missing: transactions_proposed";
+    EXPECT_TRUE(text.contains("validations")) << "missing: validations";
+    EXPECT_TRUE(text.contains("book_changes")) << "missing: book_changes";
+    EXPECT_TRUE(text.contains("oneOf")) << "missing: oneOf";
 }

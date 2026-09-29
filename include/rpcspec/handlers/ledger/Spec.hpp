@@ -15,6 +15,7 @@ namespace rpc::spec::handlers::ledger {
  * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.
  */
 inline constexpr auto kInputSpecV1 = spec<Input>(
+    ledgerSelector(&Input::ledger),
     field("full", &Input::full)  //
         | type<bool>             //
         | ifServerClio(notSupportedIf(true), deprecated) | jsonBool,
@@ -25,12 +26,11 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
     field("queue", &Input::queue)  //
         | type<bool>               //
         | ifServerClio(notSupportedIf(true)) | jsonBool,
-    ledgerSelector(&Input::ledger),
     field("transactions", &Input::transactions, type<bool>, jsonBool),
     field("expand", &Input::expand, type<bool>, jsonBool),
     field("binary", &Input::binary, type<bool>, jsonBool),
-    field("diff", &Input::diff, type<bool>, jsonBool),
-    field("ledger", deprecated),
+    field("diff", &Input::diff, ifServerClio(type<bool>), jsonBool),
+    field("ledger", ifServerClio(deprecated)),
     field("type", deprecated));
 
 /**
@@ -41,8 +41,7 @@ inline constexpr auto kInputSpecV2 = extend(
     field("transactions", &Input::transactions, jsonBoolStrict),
     field("expand", &Input::expand, jsonBoolStrict),
     field("binary", &Input::binary, jsonBoolStrict),
-    field("owner_funds", &Input::ownerFunds, jsonBoolStrict),
-    field("diff", &Input::diff, jsonBoolStrict));
+    field("owner_funds", &Input::ownerFunds, jsonBoolStrict));
 
 /**
  * @brief Version-selecting spec for 'ledger' (V1, V2+).

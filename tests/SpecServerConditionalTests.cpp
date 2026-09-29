@@ -106,9 +106,8 @@ TEST(SubscribeDumpClio, dump_contains_not_supported_and_server_stream)
     handlers::subscribe::kInputSpec.dump(writer);
     auto const text = oss.str();
 
-    static constexpr auto npos = std::string::npos;
-    EXPECT_NE(text.find("notSupported"), npos) << "missing: notSupported";
-    EXPECT_NE(text.find("server"), npos) << "missing: server";
+    EXPECT_TRUE(text.contains("notSupported")) << "missing: notSupported";
+    EXPECT_TRUE(text.contains("server")) << "missing: server";
 }
 
 TEST(UnsubscribeSpecClio, server_stream_rejected_with_not_supported)
