@@ -398,8 +398,10 @@ struct AliasedField : Field
         if (root.child(alternateKey).present())
         {
             if (root.child(this->key).present())
+            {
                 return std::unexpected{
                     rpc::Status{rpc::XrpldError::RpcInvalidParams, "Too many fields provided."}};
+            }
             selected.key = alternateKey;
         }
         return selected.parseInto(root, out);

@@ -762,8 +762,10 @@ struct RippleStateConverter
     parse(View const& fieldView) const
     {
         if (fieldView.isString())
+        {
             return ValueType{
                 rpc::spec::detail::uint256FromValidated(std::string{fieldView.asString()})};
+        }
 
         RippleStateEntry entry;
         auto const accountsView = fieldView.child("accounts");

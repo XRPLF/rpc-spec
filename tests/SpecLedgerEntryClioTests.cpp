@@ -3,11 +3,14 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/ledger_entry/Spec.hpp>
+#include <rpcspec/handlers/ledger_entry/Types.hpp>
 
 #include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
+#include <array>
 #include <string>
 #include <variant>
 
@@ -52,10 +55,16 @@ TEST(LedgerEntrySpecClio, state_alias_accepts_object_and_hex)
 
 TEST(LedgerEntrySpecClio, conflicting_aliases_are_rejected)
 {
-    for (
-        auto const* json :
-        {R"JSON({"account_root":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh","account":"rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"})JSON",
-         R"JSON({"ripple_state":"ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789","state":"ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"})JSON"})
+    static constexpr std::array kCases{
+        R"JSON({
+            "account_root": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
+            "account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"
+        })JSON",
+        R"JSON({
+            "ripple_state": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789",
+            "state": "ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789"
+        })JSON"};
+    for (auto const* json : kCases)
     {
         SCOPED_TRACE(json);
         auto const result = parse(json);
