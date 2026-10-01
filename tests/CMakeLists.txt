@@ -63,6 +63,7 @@ add_executable(
     rpcspec_clio_tests
     SpecClioErrorsTests.cpp
     SpecClioHandlerErrorsTests.cpp
+    SpecLedgerEntryClioTests.cpp
     SpecServerConditionalTests.cpp
     StatusPrinter.cpp
 )

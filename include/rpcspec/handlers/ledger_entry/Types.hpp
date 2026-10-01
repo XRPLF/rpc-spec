@@ -529,9 +529,9 @@ struct Input
     std::optional<std::variant<xrpl::uint256, SponsorshipEntry>> sponsorship;
 
     /**
-     * @brief Value of the `ripple_state` request field.
+     * @brief Value of the `ripple_state` or `state` request field.
      */
-    std::optional<RippleStateEntry> rippleStateAccount;
+    std::optional<std::variant<xrpl::uint256, RippleStateEntry>> rippleStateAccount;
 
     /**
      * @brief Value of the `bridge` request field.
