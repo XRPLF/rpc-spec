@@ -35,6 +35,7 @@ add_executable(
     SpecNftHistoryTests.cpp
     SpecNoRippleCheckTests.cpp
     SpecSubscribeTests.cpp
+    SpecTransactionEntryTests.cpp
     SpecValidatorTests.cpp
     SpecVaultInfoTests.cpp
     StatusPrinter.cpp
