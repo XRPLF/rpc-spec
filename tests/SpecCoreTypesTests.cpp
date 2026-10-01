@@ -29,6 +29,19 @@ TEST(RpcSpec, status_default)
     EXPECT_TRUE(status == xrpl::RpcSuccess);
 }
 
+TEST(RpcSpec, status_converts_from_xrpld_error_code)
+{
+    auto const toStatus = [](rpc::Status status) { return status; };
+
+    EXPECT_FALSE(static_cast<bool>(toStatus(rpc::Status::kOK)));
+    EXPECT_EQ(toStatus(rpc::Status::kOK), rpc::Status{});
+
+    auto const status = toStatus(xrpl::RpcInvalidParams);
+    EXPECT_TRUE(static_cast<bool>(status));
+    EXPECT_TRUE(status == xrpl::RpcInvalidParams);
+    EXPECT_TRUE(status.message.empty());
+}
+
 TEST(RpcSpec, ledger_types_table)
 {
     constexpr auto& table = rpc::spec::kLedgerTypesTable;

@@ -2,10 +2,11 @@
  * @file
  * @brief Clio-backend arms of the handler specs that branch on RPCSPEC_IS_CLIO.
  *
- * `vault_info`, `ledger_data` and `ledger` are the handler specs whose field
- * errors differ per server. Compiled with RPCSPEC_IS_CLIO=1 (see rpcspec_clio_tests),
- * this translation unit is the only place those branches run; the xrpld wording
- * is pinned by SpecVaultInfoTests / SpecLedgerDataTests.
+ * `vault_info`, `ledger_data`, `ledger` and `transaction_entry` are the handler
+ * specs whose field errors differ per server. Compiled with RPCSPEC_IS_CLIO=1 (see
+ * rpcspec_clio_tests), this translation unit is the only place those branches run;
+ * the xrpld wording is pinned by SpecVaultInfoTests / SpecLedgerDataTests /
+ * SpecTransactionEntryTests.
  *
  * Keeping both sides asserted is deliberate — vault_info's error contract has
  * already drifted between the two servers once.
@@ -18,6 +19,7 @@
 #include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
+#include <rpcspec/handlers/transaction_entry/Spec.hpp>
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 
 #include <Backend.hpp>  // IWYU pragma: keep
@@ -46,6 +48,13 @@ parseLedgerData(std::string const& json)
 {
     auto value = boost::json::parse(json);
     return handlers::ledger_data::kInputSpec.parse(value);
+}
+
+auto
+parseTransactionEntry(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::transaction_entry::kInputSpec.parse(value);
 }
 
 }  // namespace
@@ -153,4 +162,41 @@ TEST(LedgerSpecClio, diff_must_be_bool)
         ASSERT_FALSE(result.has_value()) << version;
         EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << version;
     }
+}
+
+// --- transaction_entry: tx_hash is rejected by the spec on Clio only --------
+
+TEST(TransactionEntrySpecClio, valid_hash_parses)
+{
+    auto const result = parseTransactionEntry(std::format(R"JSON({{"tx_hash": "{}"}})JSON", kHex1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->txHash.has_value());
+
+    xrpl::uint256 expected;
+    ASSERT_TRUE(expected.parseHex(kHex1));
+    EXPECT_EQ(*result->txHash, expected);
+}
+
+TEST(TransactionEntrySpecClio, missing_hash_is_field_not_found_transaction)
+{
+    auto const result = parseTransactionEntry(R"JSON({})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::ClioError::RpcFieldNotFoundTransaction);
+}
+
+TEST(TransactionEntrySpecClio, non_hex_hash_is_malformed)
+{
+    auto const result = parseTransactionEntry(R"JSON({"tx_hash": "DEADBEEF"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "tx_hashMalformed");
+}
+
+TEST(TransactionEntrySpecClio, non_string_hash_is_not_string)
+{
+    auto const result = parseTransactionEntry(R"JSON({"tx_hash": 42})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "tx_hashNotString");
 }

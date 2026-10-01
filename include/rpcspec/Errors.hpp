@@ -305,7 +305,22 @@ struct Status
      */
     std::optional<ExtraInfo> extraInfo;
 
+    /**
+     * @brief The code of a successful Status; a Status built from it converts to false.
+     */
+    static constexpr XrpldError kOK = xrpl::RpcSuccess;
+
     Status() = default;
+
+    /**
+     * @brief Construct a new Status object from an xrpld error code
+     *
+     * Its own overload so that the conversion is implicit: through @ref CombinedError it would
+     * take two user-defined conversions.
+     *
+     * @param code The error code
+     */
+    /* implicit */ Status(XrpldError code) : code(code) {};
 
     /**
      * @brief Construct a new Status object
