@@ -17,6 +17,7 @@
 #include <rpcspec/handlers/transaction_entry/Types.hpp>
 
 #include <Backend.hpp>  // IWYU pragma: keep
+#include <xrpl_mock.hpp>
 
 #include <format>
 #include <string>
