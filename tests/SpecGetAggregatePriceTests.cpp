@@ -110,13 +110,19 @@ TEST(GetAggregatePriceSpec, oracles_missing_account_is_oracle_malformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
 }
 
-TEST(GetAggregatePriceSpec, oracles_document_id_wrong_type_is_oracle_malformed)
+TEST(GetAggregatePriceSpec, oracles_document_id_wrong_type_is_invalid_params)
 {
-    // Neither uint32 nor string — rejected by the Type<uint32_t, std::string> gate.
-    auto const result = parse(withOracles(
-        std::format(R"JSON([{{"oracle_document_id": {{}}, "account": "{}"}}])JSON", kAcct1)));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed);
+    // Neither uint32 nor string — rejected by the Type<uint32_t, std::string> gate with
+    // RpcInvalidParams, matching xrpld and Clio 2.8.0 (only a *missing* id is malformed).
+    for (auto const* docId : {"-1", "null", "2.3", "true", "{}", "[]", "4294967296"})
+    {
+        SCOPED_TRACE(docId);
+        auto const result = parse(withOracles(
+            std::format(
+                R"JSON([{{"oracle_document_id": {}, "account": "{}"}}])JSON", docId, kAcct1)));
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    }
 }
 
 TEST(GetAggregatePriceSpec, oracles_document_id_numeric_string_is_accepted)
@@ -131,9 +137,8 @@ TEST(GetAggregatePriceSpec, oracles_document_id_numeric_string_is_accepted)
 
 TEST(GetAggregatePriceSpec, oracles_document_id_non_numeric_string_is_invalid_params)
 {
-    // Deliberate asymmetry: the type gate passes (it *is* a string), then
-    // ToNumberModifier fails, and its InvalidParams is propagated verbatim
-    // rather than being remapped to RpcOracleMalformed.
+    // The type gate passes (it *is* a string), then ToNumberModifier fails with
+    // InvalidParams.
     auto const result = parse(withOracles(
         std::format(R"JSON([{{"oracle_document_id": "a", "account": "{}"}}])JSON", kAcct1)));
     ASSERT_FALSE(result.has_value());
