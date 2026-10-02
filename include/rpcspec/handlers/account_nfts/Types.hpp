@@ -41,7 +41,7 @@ struct Input
      */
     xrpl::AccountID account;
 
-    uint32_t limit;  ///< Clamped to [kLimitMin, kLimitMax]
+    uint32_t limit;  ///< Clamped to [kLimitMin, kLimitMax] by Clio; by the xrpld handler, per role
 
     /**
      * @brief Value of the `marker` request field.

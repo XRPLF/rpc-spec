@@ -12,6 +12,7 @@
 #include <rpcspec/handlers/account_nfts/Types.hpp>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace rpc::spec::handlers::account_nfts {
@@ -22,15 +23,31 @@ namespace rpc::spec::handlers::account_nfts {
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
-    field("marker", &Input::marker, asUint256),
     field(
         "limit",
         &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
         defaultTo(kLimitDefault),
-        asUint32));
+        asUint32),
+    field(
+        "marker",
+        &Input::marker,
+        ifServerXrpld(withCustomError(
+            type<std::string>,
+            rpc::XrpldError::RpcInvalidParams,
+            "Invalid field 'marker', not string.")),
+        asUint256));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

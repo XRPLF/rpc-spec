@@ -61,6 +61,12 @@ public:
         return readValue_ != nullptr;
     }
 
+    [[nodiscard]] static bool
+    isNull() noexcept
+    {
+        return false;
+    }
+
     [[nodiscard]] bool
     isInt64() const noexcept
     {
@@ -272,7 +278,7 @@ TEST(RpcSpecDSLMockBackend, missing_required_field_fails)
     auto const result = kSPEC.process(root);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(RpcSpecDSLMockBackend, wrong_type_fails)

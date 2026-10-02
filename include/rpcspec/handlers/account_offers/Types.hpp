@@ -1,8 +1,7 @@
 /** @file */
 #pragma once
 
-#include <xrpl/protocol/AccountID.h>
-
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
@@ -39,7 +38,7 @@ struct Input
     /**
      * @brief Value of the `account` request field.
      */
-    xrpl::AccountID account;
+    DeferredAccountId account;
 
     /**
      * @brief Value of the `limit` request field.

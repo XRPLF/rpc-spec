@@ -59,8 +59,7 @@ struct Required
         if (not fieldView.present())
         {
             return std::unexpected{rpc::Status{
-                rpc::XrpldError::RpcInvalidParams,
-                "Required field '" + std::string{fieldView.key()} + "' missing"}};
+                rpc::XrpldError::RpcInvalidParams, rpc::missingFieldMessage(fieldView.key())}};
         }
         return {};
     }
@@ -1760,6 +1759,71 @@ struct Default
  */
 template <typename V>
 Default(V) -> Default<V>;
+
+/**
+ * @brief Replaces a JSON null with a fixed value, so a null field reads as that value.
+ *
+ * Build via `nullAs`.
+ *
+ * @tparam V The replacement value type; must be one the field view can `set`.
+ */
+template <typename V>
+struct NullAs
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("nullAs").
+     */
+    static constexpr std::string_view kName = "nullAs";
+
+    /**
+     * @brief The value written in place of a null.
+     */
+    V value;
+
+    /**
+     * @brief Construct a @ref NullAs.
+     *
+     * @param value The value written in place of a null.
+     */
+    consteval explicit NullAs(V value) : value{value}
+    {
+    }
+
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
+    template <typename Writer>
+    void
+    describeParams(Writer& writer) const
+    {
+        writer.param("value", value);
+    }
+
+    /**
+     * @brief Replace the field's value when it is null.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to modify.
+     * @return Always empty; this modifier never fails.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] MaybeError
+    modify(View& fieldView) const
+    {
+        if (fieldView.isNull())
+            fieldView.set(value);
+        return {};
+    }
+};
+
+/**
+ * @brief Deduction guide for @ref NullAs.
+ */
+template <typename V>
+NullAs(V) -> NullAs<V>;
 
 /**
  * @brief Validates that a string field names a recognised ledger entry type.

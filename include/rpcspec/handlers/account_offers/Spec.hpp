@@ -3,6 +3,7 @@
 
 #include <xrpl/basics/base_uint.h>
 
+#include <rpcspec/Account.hpp>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
@@ -48,7 +49,9 @@ struct AccountMarkerStrConverter
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams,
+                kIsXrpldBuild ? rpc::expectedFieldMessage(fieldView.key(), "string")
+                              : rpc::notStringFieldMessage(fieldView.key())}};
         }
         auto const sv = fieldView.asString();
         auto const malformed = [&] {
@@ -59,10 +62,16 @@ struct AccountMarkerStrConverter
         if (commaPos == std::string_view::npos)
             return malformed();
         auto const hexPart = std::string{sv.substr(0, commaPos)};
-        auto const hintPart = sv.substr(commaPos + 1);
+        auto hintPart = sv.substr(commaPos + 1);
         xrpl::uint256 index;
         if (not index.parseHex(hexPart.c_str()))
             return malformed();
+        if constexpr (kIsXrpldBuild)
+        {
+            hintPart = hintPart.substr(0, hintPart.find(','));
+            if (hintPart.starts_with('+'))
+                hintPart.remove_prefix(1);
+        }
         uint64_t hint = 0;
         auto const [ptr, ec] =
             std::from_chars(hintPart.data(), hintPart.data() + hintPart.size(), hint);
@@ -83,18 +92,27 @@ inline constexpr auto accountMarkerStr = AccountMarkerStrConverter{};
  */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("account", &Input::account, required, accountId),
+    field("account", &Input::account, required, deferredAccountId),
     field(
         "limit",
         &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
         defaultTo(kLimitDefault),
         asUint32),
     field("marker", &Input::marker, accountMarkerStr),
-    field("ledger", deprecated),
-    field("strict", deprecated));
+    field("ledger", ifServerClio(deprecated)),
+    field("strict", ifServerClio(deprecated)));
 
 /**
  * @brief The API v2 spec, derived from `kInputSpecV1`.

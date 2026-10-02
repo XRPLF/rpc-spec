@@ -343,4 +343,18 @@ defaultTo(V value)
     return Default<V>{value};
 }
 
+/**
+ * @brief Treat a JSON null as @p value, as xrpld does for an omitted-or-null `limit`.
+ *
+ * @tparam V The replacement value type.
+ * @param value The value written in place of a null.
+ * @return A `NullAs` field item.
+ */
+template <typename V>
+consteval auto
+nullAs(V value)
+{
+    return NullAs<V>{value};
+}
+
 }  // namespace rpc::spec
