@@ -44,11 +44,12 @@ inline constexpr auto kOraclesValidator = CustomModifier{[](auto& fieldView) -> 
         if (not docIdView.present() or not accountView.present())
             return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
 
+        // Like xrpld, a present but invalid document id is RpcInvalidParams, not
+        // RpcOracleMalformed: both the type gate (e.g. -1, null, 2.3) and the
+        // string-to-number conversion (e.g. "a") propagate their InvalidParams.
         if (auto err = Type<uint32_t, std::string>::verify(docIdView); not err.has_value())
-            return std::unexpected{rpc::Status{rpc::XrpldError::RpcOracleMalformed}};
+            return err;
 
-        // Mirrors the old behaviour: RpcInvalidParams when the string is not a valid
-        // integer, e.g. "a".
         if (auto err = ToNumberModifier::modify(docIdView); not err.has_value())
             return err;
 
