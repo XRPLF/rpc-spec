@@ -18,7 +18,9 @@
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_currencies/Spec.hpp>
 #include <rpcspec/handlers/account_nfts/Spec.hpp>
+#include <rpcspec/handlers/account_nfts/Types.hpp>
 #include <rpcspec/handlers/account_offers/Spec.hpp>
+#include <rpcspec/handlers/account_offers/Types.hpp>
 #include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
