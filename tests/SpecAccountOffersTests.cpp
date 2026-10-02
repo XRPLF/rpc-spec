@@ -18,6 +18,7 @@
 #include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
+#include <initializer_list>
 #include <string>
 
 using namespace rpc::spec;
@@ -27,6 +28,7 @@ namespace {
 
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
+constexpr auto kPublicKeyHex = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
 
 auto
 parse(std::string const& json)
@@ -51,7 +53,10 @@ withMarker(std::string const& marker)
 
 TEST(AccountOffersSpec, account_required)
 {
-    EXPECT_FALSE(parse(R"JSON({})JSON").has_value());
+    auto const result = parse(R"JSON({})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(AccountOffersSpec, minimal_request_parses)
@@ -63,43 +68,71 @@ TEST(AccountOffersSpec, minimal_request_parses)
     EXPECT_FALSE(result->marker.has_value());
 }
 
-TEST(AccountOffersSpec, malformed_account_is_act_malformed)
+TEST(AccountOffersSpec, malformed_account_is_left_to_the_handler)
 {
     auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
-    EXPECT_EQ(result.error().message, "accountMalformed");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_FALSE(result->account.has_value());
+    EXPECT_EQ(result->account.error(), AccountError::Malformed);
 }
 
 TEST(AccountOffersSpec, non_string_account_is_invalid_params)
 {
-    // The shared accountId converter distinguishes wrong-type from unparseable.
     auto const result = parse(R"JSON({"account": 5})JSON");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "accountNotString");
+    EXPECT_EQ(result.error().message, "Invalid field 'account'.");
+}
+
+TEST(AccountOffersSpec, public_key_is_not_an_account)
+{
+    auto const result = parse(std::format(R"JSON({{"account": "{}"}})JSON", kPublicKeyHex));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_FALSE(result->account.has_value());
 }
 
 // --- limit ------------------------------------------------------------------
 
-TEST(AccountOffersSpec, limit_below_clamp_floor_is_raised)
+TEST(AccountOffersSpec, limit_is_not_clamped_by_the_spec)
 {
-    auto const result = parse(req(R"JSON(, "limit": 5)JSON"));
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_EQ(result->limit, kLimitMin);
+    auto const low = parse(req(R"JSON(, "limit": 5)JSON"));
+    ASSERT_TRUE(low.has_value()) << "error: " << low.error().error
+                                 << " msg: " << low.error().message;
+    EXPECT_EQ(low->limit, 5u);
+
+    auto const high = parse(req(R"JSON(, "limit": 100000)JSON"));
+    ASSERT_TRUE(high.has_value());
+    EXPECT_EQ(high->limit, 100000u);
 }
 
-TEST(AccountOffersSpec, limit_above_max_is_clamped)
+TEST(AccountOffersSpec, null_limit_is_the_default)
 {
-    auto const result = parse(req(R"JSON(, "limit": 100000)JSON"));
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->limit, kLimitMax);
+    auto const result = parse(req(R"JSON(, "limit": null)JSON"));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, kLimitDefault);
 }
 
 TEST(AccountOffersSpec, limit_zero_is_rejected)
 {
-    EXPECT_FALSE(parse(req(R"JSON(, "limit": 0)JSON")).has_value());
+    auto const result = parse(req(R"JSON(, "limit": 0)JSON"));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'limit'.");
+}
+
+TEST(AccountOffersSpec, non_integer_limit_is_rejected)
+{
+    for (auto const* bad : {R"JSON("0")JSON", "-1", "1.5", "true"})
+    {
+        auto const result = parse(req(std::format(R"JSON(, "limit": {})JSON", bad)));
+        ASSERT_FALSE(result.has_value()) << "limit=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "limit=" << bad;
+        EXPECT_EQ(result.error().message, "Invalid field 'limit', not unsigned integer.")
+            << "limit=" << bad;
+    }
 }
 
 // --- AccountMarkerStrConverter ---------------------------------------------
@@ -126,7 +159,7 @@ TEST(AccountOffersSpec, non_string_marker_names_the_field)
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "markerNotString");
+    EXPECT_EQ(result.error().message, "Invalid field 'marker', not string.");
 }
 
 TEST(AccountOffersSpec, marker_without_comma_is_malformed_cursor)
@@ -170,9 +203,32 @@ TEST(AccountOffersSpec, marker_with_negative_hint_is_malformed_cursor)
     EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
 }
 
+TEST(AccountOffersSpec, marker_hint_may_have_a_leading_plus)
+{
+    auto const result = parse(withMarker(std::format("{},+7", kHex1)));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+}
+
+TEST(AccountOffersSpec, marker_text_after_a_second_comma_is_ignored)
+{
+    auto const marker = std::format("{},7,anything", kHex1);
+    auto const result = parse(withMarker(marker));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->marker.has_value());
+    EXPECT_EQ(*result->marker, marker);
+}
+
 TEST(AccountOffersSpec, deprecated_fields_do_not_fail_the_request)
 {
     auto const result = parse(req(R"JSON(, "ledger": 5, "strict": true)JSON"));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
+}
+
+TEST(AccountOffersSpec, deprecated_fields_do_not_warn)
+{
+    auto const request = boost::json::parse(req(R"JSON(, "ledger": 5, "strict": true)JSON"));
+    EXPECT_TRUE(kInputSpecV1.check(request).empty());
 }

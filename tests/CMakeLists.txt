@@ -10,7 +10,9 @@ add_executable(
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
+    SpecAccountCurrenciesTests.cpp
     SpecAccountLinesTests.cpp
+    SpecAccountNftsTests.cpp
     SpecAccountObjectsTests.cpp
     SpecAccountOffersTests.cpp
     SpecAccountTxDelegateTests.cpp

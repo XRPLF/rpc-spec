@@ -49,6 +49,7 @@ template <typename T>
 concept SomeFieldView = requires(T view, T const constView) {
     { constView.key() } -> std::convertible_to<std::string_view>;
     { constView.present() } -> std::convertible_to<bool>;
+    { constView.isNull() } -> std::convertible_to<bool>;
     { constView.isInt64() } -> std::convertible_to<bool>;
     { constView.asInt64() } -> std::convertible_to<int64_t>;
     { constView.isUint32() } -> std::convertible_to<bool>;
@@ -104,6 +105,14 @@ struct FieldViewArchetype
      */
     [[nodiscard]] bool
     present() const noexcept;
+
+    /**
+     * @brief Whether the field is present and holds JSON null.
+     *
+     * @return true when it does; false otherwise.
+     */
+    [[nodiscard]] bool
+    isNull() const noexcept;
 
     /**
      * @brief Whether the field holds a signed 64-bit integer.

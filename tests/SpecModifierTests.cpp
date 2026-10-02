@@ -214,7 +214,7 @@ TEST(RpcSpecDSLIfType, combined_with_other_validators)
     auto const result = kSpec.process(noLimit);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'limit' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'limit'.");
 
     auto strLimit = boost::json::parse(
         R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn", "limit": "max" })JSON");
@@ -269,7 +269,7 @@ TEST(RpcSpecDSLSection, missing_required_sub_field_fails)
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'currency' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'currency'.");
 }
 
 TEST(RpcSpecDSLSection, wrong_sub_field_type_fails)
@@ -356,7 +356,7 @@ TEST(RpcSpecDSLIfObject, runs_section_when_field_is_object)
     auto const result = kSpec.process(bad);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'a' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'a'.");
 }
 
 TEST(RpcSpecDSLIfObject, absent_field_skipped)

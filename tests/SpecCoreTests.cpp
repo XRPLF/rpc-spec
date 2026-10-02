@@ -57,7 +57,7 @@ TEST(RpcSpecDSL, missing_required_field_fails)
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(RpcSpecDSL, wrong_type_fails)
@@ -227,7 +227,7 @@ TEST(RpcSpecDSLOverride, override_can_add_required)
 
     auto const result = kSpecV2.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().message, "Required field 'x' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'x'.");
 }
 
 TEST(RpcSpecDSLOverride, override_preserves_position_of_first_occurrence)
@@ -243,7 +243,7 @@ TEST(RpcSpecDSLOverride, override_preserves_position_of_first_occurrence)
     auto missingBoth = boost::json::parse(R"JSON({})JSON");
     auto const result = kSpecV2.process(missingBoth);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().message, "Required field 'a' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'a'.");
 }
 
 TEST(RpcSpecDSLOverride, only_last_override_wins_across_three_versions)
@@ -388,7 +388,7 @@ TEST(RpcSpecDSL, non_object_root_with_required_field_fails)
     auto const result = kSpec.process(arr);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(RpcSpecDSL, empty_spec_accepts_everything)
@@ -421,7 +421,7 @@ TEST(RpcSpecDSLOrdering, stops_at_first_field_failure)
     auto request = boost::json::parse(R"JSON({})JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(RpcSpecDSLOrdering, later_field_failure_reported_when_earlier_passes)
@@ -435,7 +435,7 @@ TEST(RpcSpecDSLOrdering, later_field_failure_reported_when_earlier_passes)
         boost::json::parse(R"JSON({ "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" })JSON");
     auto const result = kSpec.process(request);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().message, "Required field 'limit' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'limit'.");
 }
 
 TEST(RpcSpecDSLOrdering, stops_at_first_item_failure_within_a_field)

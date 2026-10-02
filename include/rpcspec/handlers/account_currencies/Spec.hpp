@@ -1,6 +1,7 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Account.hpp>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
@@ -16,9 +17,9 @@ namespace rpc::spec::handlers::account_currencies {
  */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("account", &Input::account, required, accountId),
-    field("account_index", deprecated),
-    field("strict", deprecated));
+    accountOrIdent(&Input::account),
+    field("account_index", ifServerClio(deprecated)),
+    field("strict", ifServerClio(deprecated)));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

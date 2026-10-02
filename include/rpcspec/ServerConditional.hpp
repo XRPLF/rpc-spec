@@ -70,6 +70,11 @@ inline constexpr bool kIsXrpldBuild = not kIsClioBuild;
 template <bool Active, typename... Vs>
 struct ServerConditionalValidator
 {
+    static_assert(
+        not((SomeRequirement<Vs> or ...) and (SomeModifier<Vs> or ...)),
+        "rpcspec: a field runs only the requirements of a wrapper holding both requirements and "
+        "modifiers; wrap the modifiers in a separate ifServerClio/ifServerXrpld");
+
     /**
      * @brief Processors run only in the matching server build.
      */

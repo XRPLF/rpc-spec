@@ -16,6 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/handlers/account_currencies/Spec.hpp>
+#include <rpcspec/handlers/account_nfts/Spec.hpp>
+#include <rpcspec/handlers/account_offers/Spec.hpp>
 #include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
@@ -55,6 +58,27 @@ parseTransactionEntry(std::string const& json)
 {
     auto value = boost::json::parse(json);
     return handlers::transaction_entry::kInputSpec.parse(value);
+}
+
+auto
+parseAccountCurrencies(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::account_currencies::kInputSpec.parse(value);
+}
+
+auto
+parseAccountNfts(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::account_nfts::kInputSpec.parse(value);
+}
+
+auto
+parseAccountOffers(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::account_offers::kInputSpecV1.parse(value);
 }
 
 }  // namespace
@@ -199,4 +223,101 @@ TEST(TransactionEntrySpecClio, non_string_hash_is_not_string)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "tx_hashNotString");
+}
+
+TEST(AccountCurrenciesSpecClio, valid_account_parses)
+{
+    auto const result =
+        parseAccountCurrencies(std::format(R"JSON({{"account": "{}"}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_TRUE(result->account.has_value());
+}
+
+TEST(AccountCurrenciesSpecClio, missing_account_is_required)
+{
+    auto const result = parseAccountCurrencies(R"JSON({})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+}
+
+TEST(AccountCurrenciesSpecClio, ident_is_not_a_fallback)
+{
+    auto const result = parseAccountCurrencies(std::format(R"JSON({{"ident": "{}"}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Required field 'account' missing");
+}
+
+TEST(AccountCurrenciesSpecClio, malformed_account_is_rejected)
+{
+    auto const result = parseAccountCurrencies(R"JSON({"account": "notanaccount"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "accountMalformed");
+}
+
+TEST(AccountCurrenciesSpecClio, deprecated_fields_warn)
+{
+    auto const request = boost::json::parse(
+        std::format(R"JSON({{"account": "{}", "account_index": 1, "strict": true}})JSON", kAcct1));
+    EXPECT_EQ(handlers::account_currencies::kInputSpec.check(request).size(), 2u);
+}
+
+TEST(AccountNftsSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseAccountNfts(std::format(R"JSON({{"account": "{}", "limit": 1}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::account_nfts::kLimitMin);
+}
+
+TEST(AccountNftsSpecClio, limit_is_checked_before_marker)
+{
+    auto const result = parseAccountNfts(
+        std::format(R"JSON({{"account": "{}", "limit": "x", "marker": 5}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_TRUE(result.error().message.empty());
+}
+
+TEST(AccountOffersSpecClio, malformed_account_is_rejected)
+{
+    auto const result = parseAccountOffers(R"JSON({"account": "notanaccount"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "accountMalformed");
+}
+
+TEST(AccountOffersSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseAccountOffers(std::format(R"JSON({{"account": "{}", "limit": 1}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::account_offers::kLimitMin);
+}
+
+TEST(AccountOffersSpecClio, non_string_marker_is_not_string)
+{
+    auto const result =
+        parseAccountOffers(std::format(R"JSON({{"account": "{}", "marker": 5}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "markerNotString");
+}
+
+TEST(AccountOffersSpecClio, marker_text_after_a_second_comma_is_rejected)
+{
+    auto const result = parseAccountOffers(
+        std::format(R"JSON({{"account": "{}", "marker": "{},7,x"}})JSON", kAcct1, kHex1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "Malformed cursor.");
+}
+
+TEST(AccountOffersSpecClio, deprecated_fields_warn)
+{
+    auto const request = boost::json::parse(
+        std::format(R"JSON({{"account": "{}", "ledger": 5, "strict": true}})JSON", kAcct1));
+    EXPECT_EQ(handlers::account_offers::kInputSpecV1.check(request).size(), 2u);
 }

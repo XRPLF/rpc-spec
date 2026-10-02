@@ -1,8 +1,7 @@
 /** @file */
 #pragma once
 
-#include <xrpl/protocol/AccountID.h>
-
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
@@ -22,9 +21,9 @@ struct Input
     LedgerSpecifier ledger;
 
     /**
-     * @brief Value of the `account` request field.
+     * @brief Value of the `account` request field (or, on xrpld, of `ident` in its absence).
      */
-    xrpl::AccountID account;
+    DeferredAccountId account;
 };
 
 }  // namespace rpc::spec::handlers::account_currencies

@@ -14,6 +14,7 @@
 
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/JsonBool.hpp>
+#include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
@@ -66,15 +67,25 @@ struct AccountIdConverter
         if (not fieldView.isString())
         {
             return std::unexpected{rpc::Status{
-                rpc::XrpldError::RpcInvalidParams, std::string{fieldView.key()} + "NotString"}};
+                rpc::XrpldError::RpcInvalidParams, rpc::notStringFieldMessage(fieldView.key())}};
         }
-        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
-        if (not id.has_value())
+        if constexpr (kIsXrpldBuild)
         {
-            return std::unexpected{rpc::Status{
-                rpc::XrpldError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
+            auto id = xrpl::parseBase58<xrpl::AccountID>(std::string{fieldView.asString()});
+            if (not id.has_value())
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
+            return *id;
         }
-        return *id;
+        else
+        {
+            auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+            if (not id.has_value())
+            {
+                return std::unexpected{rpc::Status{
+                    rpc::XrpldError::RpcActMalformed, std::string{fieldView.key()} + "Malformed"}};
+            }
+            return *id;
+        }
     }
 };
 

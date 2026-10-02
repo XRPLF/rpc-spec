@@ -132,6 +132,17 @@ public:
     }
 
     /**
+     * @brief Whether the field is present and holds JSON null.
+     *
+     * @return true when it does; false otherwise.
+     */
+    [[nodiscard]] bool
+    isNull() const noexcept
+    {
+        return readValue_ != nullptr and readValue_->is_null();
+    }
+
+    /**
      * @brief Whether the field holds a signed 64-bit integer.
      *
      * @return true when it does; false otherwise.

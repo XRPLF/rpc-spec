@@ -158,6 +158,22 @@ inline constexpr CombinedError kFieldNotFoundTransaction = xrpl::RpcInvalidParam
 inline constexpr CombinedError kMalformedField = xrpl::RpcInvalidParams;
 
 /**
+ * @brief The message for a required field that is absent from the request.
+ *
+ * @param field The field name
+ * @return The message
+ */
+[[nodiscard]] inline std::string
+missingFieldMessage(std::string_view field)
+{
+#if defined(RPCSPEC_IS_CLIO)
+    return "Required field '" + std::string{field} + "' missing";
+#else
+    return "Missing field '" + std::string{field} + "'.";
+#endif
+}
+
+/**
  * @brief The message for a field whose value is not the expected JSON type.
  *
  * Mirrors xrpld's expectedFieldMessage, so a type error reads the same on either server.

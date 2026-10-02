@@ -824,7 +824,7 @@ TEST(RpcSpecDSLIntegration, ripple_state_pattern)
         R"JSON({ "ripple_state": { "account": "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn" } })JSON");
     auto const result = kSpec.process(missingCurrency);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().message, "Required field 'currency' missing");
+    EXPECT_EQ(result.error().message, "Missing field 'currency'.");
 }
 
 TEST(RpcSpecDSLIntegration, string_or_object_pattern)

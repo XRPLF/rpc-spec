@@ -77,7 +77,7 @@ TEST(DepositAuthorizedSpec, malformed_source_account_is_act_malformed)
             kAcct2));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
-    EXPECT_EQ(result.error().message, "source_accountMalformed");
+    EXPECT_TRUE(result.error().message.empty());
 }
 
 TEST(DepositAuthorizedSpec, non_string_destination_account_is_invalid_params)
@@ -86,7 +86,7 @@ TEST(DepositAuthorizedSpec, non_string_destination_account_is_invalid_params)
         std::format(R"JSON({{"source_account": "{}", "destination_account": 5}})JSON", kAcct1));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "destination_accountNotString");
+    EXPECT_EQ(result.error().message, "Invalid field 'destination_account'.");
 }
 
 // --- credentials ------------------------------------------------------------
