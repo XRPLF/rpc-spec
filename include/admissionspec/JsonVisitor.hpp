@@ -17,6 +17,14 @@
 
 namespace admission::spec {
 
+struct DefaultJsonVisitorOptions
+{
+    static constexpr std::size_t maxArraySize = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t maxObjectSize = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t maxStringSize = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t maxKeySize = std::numeric_limits<std::size_t>::max();
+};
+
 /**
  * @brief The `boost::json::basic_parser` handler behind @ref visitJson: translates each SAX
  *        callback into a @ref VisitEvent and hands it to the check.
@@ -28,14 +36,13 @@ namespace admission::spec {
  *
  * Returning `false` from a callback stops the parse; the check's decision is left in @c decision.
  */
-template <typename Check>
+template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
 struct JsonVisitor
 {
-    // TODO: Find "better" defaults for these limits.
-    static constexpr std::size_t max_array_size = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t max_object_size = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t max_string_size = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t max_key_size = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t max_array_size = VisitorOptions::maxArraySize;
+    static constexpr std::size_t max_object_size = VisitorOptions::maxObjectSize;
+    static constexpr std::size_t max_string_size = VisitorOptions::maxStringSize;
+    static constexpr std::size_t max_key_size = VisitorOptions::maxKeySize;
 
     JsonVisitor(Check& check, AdmissionDecision& decision) : check{check}, decision{decision}
     {
@@ -120,17 +127,17 @@ private:
     endContainer(EventKind kind, std::size_t n);
 };
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::emit(VisitEvent const& event)
+JsonVisitor<Check, VisitorOptions>::emit(VisitEvent const& event)
 {
     decision = check(event);
     return decision.admitted();
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::emitLeaf(VisitEvent event)
+JsonVisitor<Check, VisitorOptions>::emitLeaf(VisitEvent event)
 {
     event.key = pendingKey;
     event.depth = depth;
@@ -139,18 +146,18 @@ JsonVisitor<Check>::emitLeaf(VisitEvent event)
     return keepGoing;
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::beginContainer(EventKind kind)
+JsonVisitor<Check, VisitorOptions>::beginContainer(EventKind kind)
 {
     containerKeys.push_back(std::move(pendingKey));
     pendingKey.clear();
     return emit(VisitEvent{.kind = kind, .key = containerKeys.back(), .depth = depth++});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::endContainer(EventKind kind, std::size_t n)
+JsonVisitor<Check, VisitorOptions>::endContainer(EventKind kind, std::size_t n)
 {
     auto const keepGoing =
         emit(VisitEvent{.kind = kind, .key = containerKeys.back(), .size = n, .depth = --depth});
@@ -158,51 +165,54 @@ JsonVisitor<Check>::endContainer(EventKind kind, std::size_t n)
     return keepGoing;
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_document_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_document_begin(boost::system::error_code&)
 {
     return true;
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_document_end(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_document_end(boost::system::error_code&)
 {
     return true;
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_array_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_array_begin(boost::system::error_code&)
 {
     return beginContainer(EventKind::ArrayBegin);
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_array_end(std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_array_end(std::size_t n, boost::system::error_code&)
 {
     return endContainer(EventKind::ArrayEnd, n);
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_object_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_object_begin(boost::system::error_code&)
 {
     return beginContainer(EventKind::ObjectBegin);
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_object_end(std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_object_end(std::size_t n, boost::system::error_code&)
 {
     return endContainer(EventKind::ObjectEnd, n);
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_string_part(std::string_view s, std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_string_part(
+    std::string_view s,
+    std::size_t n,
+    boost::system::error_code&)
 {
     // A partial piece does not consume the key: the final on_string still needs it.
     return emit(
@@ -214,82 +224,100 @@ JsonVisitor<Check>::on_string_part(std::string_view s, std::size_t n, boost::sys
             .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_string(std::string_view s, std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_string(
+    std::string_view s,
+    std::size_t n,
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::String, .size = n, .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_key_part(std::string_view s, std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_key_part(
+    std::string_view s,
+    std::size_t n,
+    boost::system::error_code&)
 {
     pendingKey += s;
     return emit(VisitEvent{.kind = EventKind::KeyPart, .size = n, .depth = depth, .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_key(std::string_view s, std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_key(
+    std::string_view s,
+    std::size_t n,
+    boost::system::error_code&)
 {
     pendingKey += s;
     return emit(VisitEvent{.kind = EventKind::Key, .size = n, .depth = depth, .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_number_part(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_number_part(std::string_view s, boost::system::error_code&)
 {
     return emit(
         VisitEvent{.kind = EventKind::NumberPart, .key = pendingKey, .depth = depth, .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_int64(int64_t i, std::string_view, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_int64(
+    int64_t i,
+    std::string_view,
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Int64, .value = i});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_uint64(uint64_t u, std::string_view, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_uint64(
+    uint64_t u,
+    std::string_view,
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Uint64, .value = u});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_double(double d, std::string_view, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_double(
+    double d,
+    std::string_view,
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Double, .value = d});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_bool(bool b, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_bool(bool b, boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Bool, .value = b});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_null(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_null(boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Null});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_comment_part(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_comment_part(std::string_view s, boost::system::error_code&)
 {
     return emit(VisitEvent{.kind = EventKind::CommentPart, .depth = depth, .value = s});
 }
 
-template <typename Check>
+template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check>::on_comment(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_comment(std::string_view s, boost::system::error_code&)
 {
     return emit(VisitEvent{.kind = EventKind::Comment, .depth = depth, .value = s});
 }
