@@ -39,6 +39,9 @@ struct DefaultJsonVisitorOptions
 template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
 struct JsonVisitor
 {
+    // boost::json::basic_parser requires these exact names for its handler's limits and
+    // callbacks.
+    // NOLINTBEGIN(readability-identifier-naming)
     static constexpr std::size_t max_array_size = VisitorOptions::maxArraySize;
     static constexpr std::size_t max_object_size = VisitorOptions::maxObjectSize;
     static constexpr std::size_t max_string_size = VisitorOptions::maxStringSize;
@@ -110,6 +113,7 @@ struct JsonVisitor
 
     bool
     on_comment(std::string_view s, boost::system::error_code& ec);
+    // NOLINTEND(readability-identifier-naming)
 
 private:
     /// Hand @p event to the check, recording its decision. @return Whether to keep parsing.
@@ -165,6 +169,8 @@ JsonVisitor<Check, VisitorOptions>::endContainer(EventKind kind, std::size_t n)
     return keepGoing;
 }
 
+// boost::json::basic_parser calls its handler's members by these exact names.
+// NOLINTBEGIN(readability-identifier-naming)
 template <typename Check, typename VisitorOptions>
 bool
 JsonVisitor<Check, VisitorOptions>::on_document_begin(boost::system::error_code&)
@@ -321,6 +327,7 @@ JsonVisitor<Check, VisitorOptions>::on_comment(std::string_view s, boost::system
 {
     return emit(VisitEvent{.kind = EventKind::Comment, .depth = depth, .value = s});
 }
+// NOLINTEND(readability-identifier-naming)
 
 struct VisitJsonOptions
 {

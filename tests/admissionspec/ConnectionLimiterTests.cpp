@@ -532,7 +532,11 @@ TEST(JsonVisitor, emits_keyed_events_with_depth_and_size)
 
     auto events = std::vector<RecordedEvent>{};
     auto record = [&](VisitEvent const& event) {
-        events.push_back({event.kind, std::string{event.key}, event.size, event.depth});
+        events.push_back(
+            {.kind = event.kind,
+             .key = std::string{event.key},
+             .size = event.size,
+             .depth = event.depth});
         return AdmissionDecision::admit();
     };
 
