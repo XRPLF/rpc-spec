@@ -146,27 +146,43 @@ enum class EventKind : uint8_t {
  */
 struct VisitEvent
 {
-    /// The kind of node: a typed leaf, a partial piece, or the begin/end of a container.
+    /**
+     * @brief The kind of node: a typed leaf, a partial piece, or the begin/end of a container.
+     */
     EventKind kind{EventKind::Null};
 
-    /// JSON key of this node; empty for protobuf and for array elements.
+    /**
+     * @brief JSON key of this node; empty for protobuf and for array elements.
+     */
     std::string_view key;
 
-    /// The number of elements in a container (object or array) or the total length of a string in
-    /// bytes.
+    /**
+     * @brief The size of this node.
+     *
+     * The member or element count on @c ObjectEnd / @c ArrayEnd; the length in bytes, so far or in
+     * total, of a string or key.
+     */
     std::size_t size{};
 
-    /// Nesting depth of this node in the message; 0 for the top-level message.
+    /**
+     * @brief Nesting depth of this node in the message; 0 for the top-level message.
+     */
     std::uint32_t depth{};
 
-    /// Protobuf field number of this node; max uint64_t for JSON.
+    /**
+     * @brief Protobuf field number of this node; max uint64_t for JSON.
+     */
     uint64_t fieldNumber{std::numeric_limits<uint64_t>::max()};
 
-    /// Leaf payload; @c monostate for containers and @c Null, a @c string_view for the (partial)
-    /// text of a string, key, number, or comment. A length-delimited protobuf field (string /
-    /// packed list / sub-message) is reported as @c Bytes: a span over exactly that field's bytes —
-    /// the spec author, who has the schema, picks a walker (`visitProtobuf` / `visitPackedVarint`)
-    /// to re-enter over it, or reads it as a scalar.
+    /**
+     * @brief The leaf payload.
+     *
+     * @c monostate for containers and @c Null; a @c string_view for the (partial) text of a
+     * string, key, number, or comment. A length-delimited protobuf field (string / packed list /
+     * sub-message) is reported as @c Bytes: a span over exactly that field's bytes — the spec
+     * author, who has the schema, picks a walker (`visitProtobuf` / `visitPackedVarint`) to
+     * re-enter over it, or reads it as a scalar.
+     */
     std::variant<
         std::monostate,
         bool,
@@ -177,7 +193,12 @@ struct VisitEvent
         std::span<uint8_t const>>
         value;
 
-    /// @return Pointer to the scalar value if it holds a @p U, else nullptr.
+    /**
+     * @brief Access the leaf payload as a @p U.
+     *
+     * @tparam U The alternative of @c value to read.
+     * @return Pointer to the value if it holds a @p U, else nullptr.
+     */
     template <typename U>
     [[nodiscard]] constexpr U const*
     as() const noexcept
@@ -238,8 +259,15 @@ FixedString(char const (&)[N]) -> FixedString<N>;
  */
 struct SizeTier
 {
-    uint64_t upToBytes{};  ///< inclusive upper bound, in bytes, for this tier
-    double cost{};         ///< tokens charged for a payload whose size falls in this tier
+    /**
+     * @brief Inclusive upper bound, in bytes, for this tier.
+     */
+    uint64_t upToBytes{};
+
+    /**
+     * @brief Tokens charged for a payload whose size falls in this tier.
+     */
+    double cost{};
 
     /**
      * @brief Compare two values of this type.
@@ -447,6 +475,8 @@ tunableIndex() noexcept
 template <typename... Tunables>
 class ResolvedTunables
 {
+    std::tuple<ResolvedTypeOfT<typename Tunables::ValueType>...> values_;
+
 public:
     /**
      * @brief Construct a @ref ResolvedTunables.
@@ -485,9 +515,6 @@ public:
     {
         return detail::tunableIndex<Name, Tunables...>() < sizeof...(Tunables);
     }
-
-private:
-    std::tuple<ResolvedTypeOfT<typename Tunables::ValueType>...> values_;
 };
 
 /**

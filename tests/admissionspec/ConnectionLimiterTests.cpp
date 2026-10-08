@@ -390,11 +390,13 @@ TEST(ConnectionLimiterTests, protobuf_message_admission_over_json)
             1, [&](auto check) { return admission::spec::visitJson(bytes, check); }, now);
     };
 
-    EXPECT_TRUE(admit(R"({"id":"abc","items":[1,2,3],"meta":{"priority":4}})").admitted());
-    EXPECT_EQ(admit(R"({"id":"abcdefghi","items":[1]})").reason, "id too long");
-    EXPECT_EQ(admit(R"({"id":"abc","items":[1,2,3,4]})").reason, "too many items");
+    EXPECT_TRUE(
+        admit(R"JSON({"id": "abc", "items": [1, 2, 3], "meta": {"priority": 4}})JSON").admitted());
+    EXPECT_EQ(admit(R"JSON({"id": "abcdefghi", "items": [1]})JSON").reason, "id too long");
+    EXPECT_EQ(admit(R"JSON({"id": "abc", "items": [1, 2, 3, 4]})JSON").reason, "too many items");
     EXPECT_EQ(
-        admit(R"({"id":"abc","items":[1],"meta":{"priority":9}})").reason, "priority too high");
+        admit(R"JSON({"id": "abc", "items": [1], "meta": {"priority": 9}})JSON").reason,
+        "priority too high");
 }
 
 // The packed fixed-width visitor: a tagless run of 4- or 8-byte little-endian elements, emitted as
@@ -541,7 +543,7 @@ TEST(JsonVisitor, emits_keyed_events_with_depth_and_size)
     };
 
     auto const decision =
-        visitJson(asBytes(R"({"id":"abc","items":[1,-2],"m":{"p":true}})"), record);
+        visitJson(asBytes(R"JSON({"id": "abc", "items": [1, -2], "m": {"p": true}})JSON"), record);
     EXPECT_TRUE(decision.admitted());
     EXPECT_EQ(
         events,
@@ -597,7 +599,7 @@ TEST(JsonVisitor, carries_typed_values)
     };
 
     auto const decision =
-        visitJson(asBytes(R"(["s", -1, 18446744073709551615, 1.5, null])"), record);
+        visitJson(asBytes(R"JSON(["s", -1, 18446744073709551615, 1.5, null])JSON"), record);
     EXPECT_TRUE(decision.admitted());
     EXPECT_EQ(strings, (std::vector<std::string>{"s"}));
     EXPECT_EQ(ints, (std::vector<int64_t>{-1}));
@@ -618,7 +620,8 @@ TEST(JsonVisitor, stops_on_first_drop)
                                     : AdmissionDecision::admit();
     };
 
-    auto const decision = visitJson(asBytes(R"({"items":[1,2,3],"after":1})"), dropOnItems);
+    auto const decision =
+        visitJson(asBytes(R"JSON({"items": [1, 2, 3], "after": 1})JSON"), dropOnItems);
     EXPECT_TRUE(decision.dropped());
     EXPECT_EQ(decision.reason, "no items");
     EXPECT_EQ(decision.tokenCost, 3.0);
@@ -634,10 +637,10 @@ TEST(JsonVisitor, drops_malformed_payloads)
     auto const options = VisitJsonOptions{.costForInvalidPayload = 7.0, .maxDepth = 2};
 
     for (auto const json : {
-             R"({"id":"abc",)",      // truncated
-             R"({"a":1} trailing)",  // data after the document
-             R"({"a":[[1]]})",       // deeper than maxDepth
-             R"({'a':1})",           // not JSON
+             R"JSON({"id": "abc",)JSON",      // truncated
+             R"JSON({"a": 1} trailing)JSON",  // data after the document
+             R"JSON({"a": [[1]]})JSON",       // deeper than maxDepth
+             R"JSON({'a': 1})JSON",           // not JSON
          })
     {
         auto const decision = visitJson(asBytes(json), admitAll, options);
@@ -647,5 +650,5 @@ TEST(JsonVisitor, drops_malformed_payloads)
     }
 
     // Trailing whitespace is not trailing data.
-    EXPECT_TRUE(visitJson(asBytes("{\"a\":1} \n\t"), admitAll, options).admitted());
+    EXPECT_TRUE(visitJson(asBytes("{\"a\": 1} \n\t"), admitAll, options).admitted());
 }

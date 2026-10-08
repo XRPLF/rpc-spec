@@ -91,7 +91,12 @@ enum class WireType {
 };
 
 /**
- * Read a base-128 varint from @p bytes at @p pos, advancing it. Returns false if truncated.
+ * @brief Read a base-128 varint from @p bytes at @p pos, advancing it.
+ *
+ * @param bytes The buffer to read from.
+ * @param pos The offset of the varint; advanced past it.
+ * @param out Receives the decoded value on success.
+ * @return False if the varint is truncated.
  */
 [[nodiscard]] inline bool
 readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
@@ -114,8 +119,14 @@ readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
 
 }  // namespace detail
 
+/**
+ * @brief Run-time options for @ref visitProtobuf and @ref visitPackedVarint.
+ */
 struct ProtobufVisitorOptions
 {
+    /**
+     * @brief Token cost of the drop returned for a payload that is not a valid protobuf encoding.
+     */
     double costForInvalidPayload{10};
 };
 
@@ -128,6 +139,12 @@ struct ProtobufVisitorOptions
  * author, who has the schema, decides what to do with it: read it as a scalar, or re-enter over the
  * span with `visitProtobuf` (sub-message), `visitPackedVarint`, or `visitPackedFixed` (packed
  * list). Stops and returns on the first drop.
+ *
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
+ * @param bytes The serialized message.
+ * @param check The per-message check to invoke.
+ * @param options The cost of a malformed payload.
+ * @return The check's drop, a drop for a malformed payload, or admit.
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
@@ -230,6 +247,13 @@ visitProtobuf(
  * the matching visitor. This is a flat scan of one level (not a recursive descent): each element is
  * a sibling, so to the check the stream is identical to an *unpacked* repeated field. Use for
  * packed varint types (int32/64, uint32/64, bool, enum, sint via zigzag). Stops on the first drop.
+ *
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
+ * @param body The packed field's bytes (the @c Bytes value of its event).
+ * @param field The packed field's number, reported on every element.
+ * @param check The per-message check to invoke.
+ * @param options The cost of a malformed payload.
+ * @return The check's drop, a drop for a truncated varint, or admit.
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
@@ -264,6 +288,15 @@ visitPackedVarint(
 /**
  * @brief Packed visitor for 32-bit or 64-bit fixed elements (fixed32 / sfixed32 / float / fixed64 /
  * sfixed64 / double).
+ *
+ * Trailing bytes too short to hold a whole element are ignored.
+ *
+ * @tparam T The schema's element type, which fixes the element width and signedness.
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
+ * @param body The packed field's bytes (the @c Bytes value of its event).
+ * @param field The packed field's number, reported on every element.
+ * @param check The per-message check to invoke.
+ * @return The check's drop, or admit.
  * @see visitPackedVarint
  */
 template <typename T, typename Check>

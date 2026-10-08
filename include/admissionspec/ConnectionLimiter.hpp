@@ -21,6 +21,22 @@ namespace admission::spec {
 template <typename ConnId>
 class ConnectionLimiter
 {
+    struct BucketEntry
+    {
+        TokenBucket bucket;
+        TokenBucket::TimePoint lastSeen;
+    };
+
+    struct State
+    {
+        std::unordered_map<ConnId, BucketEntry> buckets;
+    };
+
+    BucketSettings settings_;
+    size_t maxConnections_{};
+    mutable std::mutex mutex_;
+    State state_;
+
 public:
     /**
      * @brief The clock the bucket measures refill against.
@@ -129,17 +145,6 @@ public:
     }
 
 private:
-    struct BucketEntry
-    {
-        TokenBucket bucket;
-        TimePoint lastSeen;
-    };
-
-    struct State
-    {
-        std::unordered_map<ConnId, BucketEntry> buckets;
-    };
-
     /**
      * @brief Find @p conn's bucket, creating it (evicting the oldest if at capacity) if absent,
      * and stamp it as seen at @p now. Caller must hold @p buckets' lock.
@@ -212,11 +217,6 @@ private:
             buckets.erase(oldest);
         }
     }
-
-    BucketSettings settings_;
-    size_t maxConnections_{};
-    mutable std::mutex mutex_;
-    State state_;
 };
 
 }  // namespace admission::spec

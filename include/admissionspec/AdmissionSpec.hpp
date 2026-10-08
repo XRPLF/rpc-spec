@@ -119,6 +119,9 @@ struct NoHook
 template <typename T, typename TunablesTuple, typename Check = NoHook>
 class AdmissionSpec
 {
+    TunablesTuple tunables_;
+    Check check_;
+
 public:
     /**
      * @brief The message type this spec governs.
@@ -219,10 +222,6 @@ public:
             };
         }
     }
-
-private:
-    TunablesTuple tunables_;
-    Check check_;
 };
 
 /**

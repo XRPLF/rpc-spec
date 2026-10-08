@@ -15,6 +15,7 @@ namespace admission::spec {
  * and no field number (`VisitEvent::fieldNumber` keeps its "not applicable" default). Use it
  * for opaque payloads whose only admission criterion is their bytes.
  *
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
  * @param bytes The raw message payload.
  * @param check The per-message check to invoke.
  * @return Whatever @p check decides.

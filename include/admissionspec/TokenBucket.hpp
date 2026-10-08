@@ -29,6 +29,8 @@ namespace admission::spec {
  */
 class TokenBucket
 {
+    folly::TokenBucket bucket_;
+
 public:
     /**
      * @brief The clock the bucket measures refill against.
@@ -126,8 +128,6 @@ private:
         }
         return nowSeconds - (capacity / refillRatePerSecond);
     }
-
-    folly::TokenBucket bucket_;
 };
 
 }  // namespace admission::spec

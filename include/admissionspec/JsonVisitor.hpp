@@ -17,12 +17,34 @@
 
 namespace admission::spec {
 
+/**
+ * @brief Compile-time size limits for a @ref JsonVisitor; the default imposes none.
+ *
+ * Supply a type with the same four members as the @c VisitorOptions argument of
+ * @ref JsonVisitor / @ref visitJson to have the parser reject oversize containers, strings, or keys
+ * as malformed JSON before any further event is emitted.
+ */
 struct DefaultJsonVisitorOptions
 {
-    static constexpr std::size_t maxArraySize = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t maxObjectSize = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t maxStringSize = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t maxKeySize = std::numeric_limits<std::size_t>::max();
+    /**
+     * @brief Maximum number of elements in an array.
+     */
+    static constexpr std::size_t kMaxArraySize = std::numeric_limits<std::size_t>::max();
+
+    /**
+     * @brief Maximum number of members in an object.
+     */
+    static constexpr std::size_t kMaxObjectSize = std::numeric_limits<std::size_t>::max();
+
+    /**
+     * @brief Maximum length of a string value, in bytes.
+     */
+    static constexpr std::size_t kMaxStringSize = std::numeric_limits<std::size_t>::max();
+
+    /**
+     * @brief Maximum length of an object key, in bytes.
+     */
+    static constexpr std::size_t kMaxKeySize = std::numeric_limits<std::size_t>::max();
 };
 
 /**
@@ -34,93 +56,288 @@ struct DefaultJsonVisitorOptions
  * reports it too. Array elements have no key. String, number, and comment text is never buffered:
  * each piece is reported as it arrives, with @c size carrying the running total.
  *
- * Returning `false` from a callback stops the parse; the check's decision is left in @c decision.
+ * Every callback returns whether to keep parsing; `false` stops the parse, leaving the check's
+ * decision in the @c AdmissionDecision passed at construction. The @c ec parameters are part of
+ * the handler interface and are never set: a drop is reported through that decision instead.
+ *
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
+ * @tparam VisitorOptions The size limits; see @ref DefaultJsonVisitorOptions.
  */
 template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
-struct JsonVisitor
+class JsonVisitor
 {
+    Check& check_;
+    AdmissionDecision& decision_;
+    std::uint32_t depth_{0};
+    std::vector<std::string> containerKeys_;
+    std::string pendingKey_;
+
+public:
+    JsonVisitor(JsonVisitor const&) = delete;
+    JsonVisitor&
+    operator=(JsonVisitor const&) = delete;
+    JsonVisitor(JsonVisitor&&) = delete;
+    JsonVisitor&
+    operator=(JsonVisitor&&) = delete;
+
     // boost::json::basic_parser requires these exact names for its handler's limits and
     // callbacks.
-    // NOLINTBEGIN(readability-identifier-naming)
-    static constexpr std::size_t max_array_size = VisitorOptions::maxArraySize;
-    static constexpr std::size_t max_object_size = VisitorOptions::maxObjectSize;
-    static constexpr std::size_t max_string_size = VisitorOptions::maxStringSize;
-    static constexpr std::size_t max_key_size = VisitorOptions::maxKeySize;
 
-    JsonVisitor(Check& check, AdmissionDecision& decision) : check{check}, decision{decision}
+    /**
+     * @brief Maximum number of elements in an array; from @p VisitorOptions.
+     */
+    static constexpr std::size_t max_array_size =  // NOLINT(readability-identifier-naming)
+        VisitorOptions::kMaxArraySize;
+
+    /**
+     * @brief Maximum number of members in an object; from @p VisitorOptions.
+     */
+    static constexpr std::size_t max_object_size =  // NOLINT(readability-identifier-naming)
+        VisitorOptions::kMaxObjectSize;
+
+    /**
+     * @brief Maximum length of a string value, in bytes; from @p VisitorOptions.
+     */
+    static constexpr std::size_t max_string_size =  // NOLINT(readability-identifier-naming)
+        VisitorOptions::kMaxStringSize;
+
+    /**
+     * @brief Maximum length of an object key, in bytes; from @p VisitorOptions.
+     */
+    static constexpr std::size_t max_key_size =  // NOLINT(readability-identifier-naming)
+        VisitorOptions::kMaxKeySize;
+
+    /**
+     * @brief Construct a @ref JsonVisitor.
+     *
+     * @param check The check to hand each event to; must outlive the visitor.
+     * @param decision Receives the check's most recent decision; must outlive the visitor.
+     */
+    JsonVisitor(Check& check, AdmissionDecision& decision) : check_{check}, decision_{decision}
     {
     }
 
-    Check& check;
-    AdmissionDecision& decision;
-    /// Number of currently open containers.
-    std::uint32_t depth{0};
-    /// The key of each open container, innermost last.
-    std::vector<std::string> containerKeys;
-    /// The key naming the next value; empty inside arrays.
-    std::string pendingKey;
-
+    /**
+     * @brief Start of the document; emits nothing.
+     *
+     * @param ec Unused.
+     * @return Always true.
+     */
     bool
-    on_document_begin(boost::system::error_code& ec);
+    on_document_begin(boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief End of the document; emits nothing.
+     *
+     * @param ec Unused.
+     * @return Always true.
+     */
     bool
-    on_document_end(boost::system::error_code& ec);
+    on_document_end(boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief Emit @c ArrayBegin, keyed by the pending key, and open a container.
+     *
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_array_begin(boost::system::error_code& ec);
+    on_array_begin(boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief Close the innermost container and emit @c ArrayEnd with its key.
+     *
+     * @param n The number of elements in the array.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_array_end(std::size_t n, boost::system::error_code& ec);
+    on_array_end(  // NOLINT(readability-identifier-naming)
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c ObjectBegin, keyed by the pending key, and open a container.
+     *
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_object_begin(boost::system::error_code& ec);
+    on_object_begin(boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief Close the innermost container and emit @c ObjectEnd with its key.
+     *
+     * @param n The number of members in the object.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_object_end(std::size_t n, boost::system::error_code& ec);
+    on_object_end(  // NOLINT(readability-identifier-naming)
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c StringPart for a piece of a string value; the pending key is kept for the
+     *        final piece.
+     *
+     * @param s This piece of the string.
+     * @param n The length of the string so far, including @p s.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_string_part(std::string_view s, std::size_t n, boost::system::error_code& ec);
+    on_string_part(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c String for the final piece of a string value, consuming the pending key.
+     *
+     * @param s The final piece of the string.
+     * @param n The total length of the string.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_string(std::string_view s, std::size_t n, boost::system::error_code& ec);
+    on_string(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c KeyPart for a piece of an object key and append it to the pending key.
+     *
+     * @param s This piece of the key.
+     * @param n The length of the key so far, including @p s.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_key_part(std::string_view s, std::size_t n, boost::system::error_code& ec);
+    on_key_part(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Key for the final piece of an object key, completing the pending key that
+     *        names the next value.
+     *
+     * @param s The final piece of the key.
+     * @param n The total length of the key.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_key(std::string_view s, std::size_t n, boost::system::error_code& ec);
+    on_key(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        std::size_t n,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c NumberPart for a piece of a number's source text; the pending key is kept for
+     *        the final value.
+     *
+     * @param s This piece of the number's text.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_number_part(std::string_view s, boost::system::error_code& ec);
+    on_number_part(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Int64, consuming the pending key.
+     *
+     * @param i The parsed value.
+     * @param s The number's source text; unused.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_int64(int64_t i, std::string_view s, boost::system::error_code& ec);
+    on_int64(  // NOLINT(readability-identifier-naming)
+        int64_t i,
+        std::string_view s,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Uint64 (a value too large for @c int64_t), consuming the pending key.
+     *
+     * @param u The parsed value.
+     * @param s The number's source text; unused.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_uint64(uint64_t u, std::string_view s, boost::system::error_code& ec);
+    on_uint64(  // NOLINT(readability-identifier-naming)
+        uint64_t u,
+        std::string_view s,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Double, consuming the pending key.
+     *
+     * @param d The parsed value.
+     * @param s The number's source text; unused.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_double(double d, std::string_view s, boost::system::error_code& ec);
+    on_double(  // NOLINT(readability-identifier-naming)
+        double d,
+        std::string_view s,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Bool, consuming the pending key.
+     *
+     * @param b The parsed value.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_bool(bool b, boost::system::error_code& ec);
+    on_bool(bool b, boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief Emit @c Null, consuming the pending key.
+     *
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_null(boost::system::error_code& ec);
+    on_null(boost::system::error_code& ec);  // NOLINT(readability-identifier-naming)
 
+    /**
+     * @brief Emit @c CommentPart for a piece of a comment (only when the parser allows comments).
+     *
+     * @param s This piece of the comment.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_comment_part(std::string_view s, boost::system::error_code& ec);
+    on_comment_part(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        boost::system::error_code& ec);
 
+    /**
+     * @brief Emit @c Comment for the final piece of a comment (only when the parser allows
+     *        comments).
+     *
+     * @param s The final piece of the comment.
+     * @param ec Unused.
+     * @return Whether the check admitted the event.
+     */
     bool
-    on_comment(std::string_view s, boost::system::error_code& ec);
-    // NOLINTEND(readability-identifier-naming)
+    on_comment(  // NOLINT(readability-identifier-naming)
+        std::string_view s,
+        boost::system::error_code& ec);
 
 private:
-    /// Hand @p event to the check, recording its decision. @return Whether to keep parsing.
     bool
     emit(VisitEvent const& event);
 
-    /// Emit a leaf named by the pending key, which it consumes.
     bool
     emitLeaf(VisitEvent event);
 
@@ -135,18 +352,18 @@ template <typename Check, typename VisitorOptions>
 bool
 JsonVisitor<Check, VisitorOptions>::emit(VisitEvent const& event)
 {
-    decision = check(event);
-    return decision.admitted();
+    decision_ = check_(event);
+    return decision_.admitted();
 }
 
 template <typename Check, typename VisitorOptions>
 bool
 JsonVisitor<Check, VisitorOptions>::emitLeaf(VisitEvent event)
 {
-    event.key = pendingKey;
-    event.depth = depth;
+    event.key = pendingKey_;
+    event.depth = depth_;
     auto const keepGoing = emit(event);
-    pendingKey.clear();
+    pendingKey_.clear();
     return keepGoing;
 }
 
@@ -154,9 +371,9 @@ template <typename Check, typename VisitorOptions>
 bool
 JsonVisitor<Check, VisitorOptions>::beginContainer(EventKind kind)
 {
-    containerKeys.push_back(std::move(pendingKey));
-    pendingKey.clear();
-    return emit(VisitEvent{.kind = kind, .key = containerKeys.back(), .depth = depth++});
+    containerKeys_.push_back(std::move(pendingKey_));
+    pendingKey_.clear();
+    return emit(VisitEvent{.kind = kind, .key = containerKeys_.back(), .depth = depth_++});
 }
 
 template <typename Check, typename VisitorOptions>
@@ -164,58 +381,65 @@ bool
 JsonVisitor<Check, VisitorOptions>::endContainer(EventKind kind, std::size_t n)
 {
     auto const keepGoing =
-        emit(VisitEvent{.kind = kind, .key = containerKeys.back(), .size = n, .depth = --depth});
-    containerKeys.pop_back();
+        emit(VisitEvent{.kind = kind, .key = containerKeys_.back(), .size = n, .depth = --depth_});
+    containerKeys_.pop_back();
     return keepGoing;
 }
 
 // boost::json::basic_parser calls its handler's members by these exact names.
-// NOLINTBEGIN(readability-identifier-naming)
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_document_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_document_begin(  // NOLINT(readability-identifier-naming)
+    boost::system::error_code&)
 {
     return true;
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_document_end(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_document_end(  // NOLINT(readability-identifier-naming)
+    boost::system::error_code&)
 {
     return true;
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_array_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_array_begin(  // NOLINT(readability-identifier-naming)
+    boost::system::error_code&)
 {
     return beginContainer(EventKind::ArrayBegin);
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_array_end(std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_array_end(  // NOLINT(readability-identifier-naming)
+    std::size_t n,
+    boost::system::error_code&)
 {
     return endContainer(EventKind::ArrayEnd, n);
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_object_begin(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_object_begin(  // NOLINT(readability-identifier-naming)
+    boost::system::error_code&)
 {
     return beginContainer(EventKind::ObjectBegin);
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_object_end(std::size_t n, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_object_end(  // NOLINT(readability-identifier-naming)
+    std::size_t n,
+    boost::system::error_code&)
 {
     return endContainer(EventKind::ObjectEnd, n);
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_string_part(
+JsonVisitor<Check, VisitorOptions>::on_string_part(  // NOLINT(readability-identifier-naming)
     std::string_view s,
     std::size_t n,
     boost::system::error_code&)
@@ -224,15 +448,15 @@ JsonVisitor<Check, VisitorOptions>::on_string_part(
     return emit(
         VisitEvent{
             .kind = EventKind::StringPart,
-            .key = pendingKey,
+            .key = pendingKey_,
             .size = n,
-            .depth = depth,
+            .depth = depth_,
             .value = s});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_string(
+JsonVisitor<Check, VisitorOptions>::on_string(  // NOLINT(readability-identifier-naming)
     std::string_view s,
     std::size_t n,
     boost::system::error_code&)
@@ -242,37 +466,39 @@ JsonVisitor<Check, VisitorOptions>::on_string(
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_key_part(
+JsonVisitor<Check, VisitorOptions>::on_key_part(  // NOLINT(readability-identifier-naming)
     std::string_view s,
     std::size_t n,
     boost::system::error_code&)
 {
-    pendingKey += s;
-    return emit(VisitEvent{.kind = EventKind::KeyPart, .size = n, .depth = depth, .value = s});
+    pendingKey_ += s;
+    return emit(VisitEvent{.kind = EventKind::KeyPart, .size = n, .depth = depth_, .value = s});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_key(
+JsonVisitor<Check, VisitorOptions>::on_key(  // NOLINT(readability-identifier-naming)
     std::string_view s,
     std::size_t n,
     boost::system::error_code&)
 {
-    pendingKey += s;
-    return emit(VisitEvent{.kind = EventKind::Key, .size = n, .depth = depth, .value = s});
+    pendingKey_ += s;
+    return emit(VisitEvent{.kind = EventKind::Key, .size = n, .depth = depth_, .value = s});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_number_part(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_number_part(  // NOLINT(readability-identifier-naming)
+    std::string_view s,
+    boost::system::error_code&)
 {
     return emit(
-        VisitEvent{.kind = EventKind::NumberPart, .key = pendingKey, .depth = depth, .value = s});
+        VisitEvent{.kind = EventKind::NumberPart, .key = pendingKey_, .depth = depth_, .value = s});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_int64(
+JsonVisitor<Check, VisitorOptions>::on_int64(  // NOLINT(readability-identifier-naming)
     int64_t i,
     std::string_view,
     boost::system::error_code&)
@@ -282,7 +508,7 @@ JsonVisitor<Check, VisitorOptions>::on_int64(
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_uint64(
+JsonVisitor<Check, VisitorOptions>::on_uint64(  // NOLINT(readability-identifier-naming)
     uint64_t u,
     std::string_view,
     boost::system::error_code&)
@@ -292,7 +518,7 @@ JsonVisitor<Check, VisitorOptions>::on_uint64(
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_double(
+JsonVisitor<Check, VisitorOptions>::on_double(  // NOLINT(readability-identifier-naming)
     double d,
     std::string_view,
     boost::system::error_code&)
@@ -302,36 +528,52 @@ JsonVisitor<Check, VisitorOptions>::on_double(
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_bool(bool b, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_bool(  // NOLINT(readability-identifier-naming)
+    bool b,
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Bool, .value = b});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_null(boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_null(  // NOLINT(readability-identifier-naming)
+    boost::system::error_code&)
 {
     return emitLeaf(VisitEvent{.kind = EventKind::Null});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_comment_part(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_comment_part(  // NOLINT(readability-identifier-naming)
+    std::string_view s,
+    boost::system::error_code&)
 {
-    return emit(VisitEvent{.kind = EventKind::CommentPart, .depth = depth, .value = s});
+    return emit(VisitEvent{.kind = EventKind::CommentPart, .depth = depth_, .value = s});
 }
 
 template <typename Check, typename VisitorOptions>
 bool
-JsonVisitor<Check, VisitorOptions>::on_comment(std::string_view s, boost::system::error_code&)
+JsonVisitor<Check, VisitorOptions>::on_comment(  // NOLINT(readability-identifier-naming)
+    std::string_view s,
+    boost::system::error_code&)
 {
-    return emit(VisitEvent{.kind = EventKind::Comment, .depth = depth, .value = s});
+    return emit(VisitEvent{.kind = EventKind::Comment, .depth = depth_, .value = s});
 }
-// NOLINTEND(readability-identifier-naming)
 
+/**
+ * @brief Run-time options for @ref visitJson.
+ */
 struct VisitJsonOptions
 {
+    /**
+     * @brief Token cost of the drop returned for a payload that is not valid JSON.
+     */
     double costForInvalidPayload{10};
+
+    /**
+     * @brief Maximum nesting depth of arrays and objects; deeper input is treated as invalid JSON.
+     */
     uint32_t maxDepth{std::numeric_limits<uint32_t>::max()};
 };
 
@@ -341,12 +583,15 @@ struct VisitJsonOptions
  *
  * Streams the payload through `boost::json::basic_parser` without building a DOM; see
  * @ref JsonVisitor for how keys, depth, and sizes are reported. Stops and returns on the first
- * drop.
+ * drop. Malformed JSON, input exceeding a limit, and data after the end of the document are all
+ * dropped as invalid.
  *
+ * @tparam Check The per-message check, invoked as `AdmissionDecision(VisitEvent const&)`.
+ * @tparam VisitorOptions The compile-time size limits; see @ref DefaultJsonVisitorOptions.
  * @param bytes The raw message payload.
  * @param check The per-message check to invoke.
- * @param options Parser limits and the cost of a malformed payload.
- * @return The check's drop, a drop for malformed JSON, or admit.
+ * @param options The nesting limit and the cost of a malformed payload.
+ * @return The check's drop, a drop for invalid JSON, or admit.
  */
 template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
 [[nodiscard]] AdmissionDecision
@@ -354,7 +599,7 @@ visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& 
 {
     auto decision = AdmissionDecision::admit();
     auto parserOptions = boost::json::parse_options{.max_depth = options.maxDepth};
-    auto parser = boost::json::basic_parser<JsonVisitor<Check, DefaultJsonVisitorOptions>>{
+    auto parser = boost::json::basic_parser<JsonVisitor<Check, VisitorOptions>>{
         parserOptions, check, decision};
     auto ec = boost::system::error_code{};
     try
