@@ -1,5 +1,6 @@
 #include <admissionspec/AdmissionSpec.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/JsonVisitor.hpp>
 #include <admissionspec/PassthroughVisitor.hpp>
 #include <admissionspec/ProtobufVisitor.hpp>
 #include <admissionspec/Types.hpp>
@@ -7,12 +8,12 @@
 
 #include <algorithm>
 #include <array>
-#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -41,7 +42,7 @@ admissionSpec(std::type_identity<FooMessage>)
         .withCheck([](VisitEvent const& event, auto const& cfg) -> AdmissionDecision {
             if (event.fieldNumber == 2)  // `foo`
             {
-                if (event.kind != EventKind::Scalar)
+                if (event.kind != EventKind::Int64)
                 {
                     return AdmissionDecision::drop("foo value is invalid", 25.0);
                 }
@@ -59,7 +60,7 @@ admissionSpec(std::type_identity<FooMessage>)
 fooVisitor(int64_t fooValue)
 {
     return [fooValue](auto check) -> AdmissionDecision {
-        return check(VisitEvent{.kind = EventKind::Scalar, .fieldNumber = 2, .value = fooValue});
+        return check(VisitEvent{.kind = EventKind::Int64, .fieldNumber = 2, .value = fooValue});
     };
 }
 
@@ -67,8 +68,8 @@ struct ProtobufMessage
 {
 };
 
-// Drives PROTOBUF only. Every field arrives as a Scalar keyed by field number; a length-delimited
-// field's `value` carries a byte span, which the check re-enters with the matching walker
+// Drives PROTOBUF only. Every field arrives keyed by field number; a length-delimited field
+// arrives as Bytes, its `value` a byte span, which the check re-enters with the matching walker
 // (visitProtobuf for the sub-message, visitPackedVarint for the packed list). `inMeta`
 // distinguishes the top-level field 1 (id) from `meta`'s field 1 (priority).
 //   message Bar { string id = 1; repeated int32 items = 2 [packed]; Meta meta = 3; }
@@ -176,36 +177,36 @@ struct JsonChecker
         switch (event.kind)
         {
             using enum EventKind;
-            case BeginArray:
-                if (event.name == "items")
+            case ArrayBegin:
+                if (event.key == "items")
                 {
                     inItems = true;
                     items = 0;
                 }
                 return AdmissionDecision::admit();
-            case EndArray:
-                if (event.name == "items")
+            case ArrayEnd:
+                if (event.key == "items")
                 {
                     inItems = false;
                 }
                 return AdmissionDecision::admit();
-            case BeginObject:
-                if (event.name == "meta")
+            case ObjectBegin:
+                if (event.key == "meta")
                 {
                     inMeta = true;
                 }
                 return AdmissionDecision::admit();
-            case EndObject:
-                if (event.name == "meta")
+            case ObjectEnd:
+                if (event.key == "meta")
                 {
                     inMeta = false;
                 }
                 return AdmissionDecision::admit();
-            case Scalar:
-                if (event.name == "id")
+            case String:
+            case Int64:
+                if (event.key == "id")
                 {
-                    if (auto const* text = event.as<std::string_view>();
-                        text != nullptr and text->size() > cfg.template get<"max_id_len">())
+                    if (event.kind == String and event.size > cfg.template get<"max_id_len">())
                     {
                         return AdmissionDecision::drop("id too long", 2.0);
                     }
@@ -219,7 +220,7 @@ struct JsonChecker
                     }
                     return AdmissionDecision::admit();
                 }
-                if (inMeta and event.name == "priority")
+                if (inMeta and event.key == "priority")
                 {
                     if (auto const* value = event.as<int64_t>();
                         value != nullptr and *value > cfg.template get<"max_priority">())
@@ -248,178 +249,6 @@ admissionSpec(std::type_identity<JsonMessage>)
                tunable<"max_items">(size_t{3}, "admission.json_message.max_items"),
                tunable<"max_priority">(int64_t{5}, "admission.json_message.max_priority"))
         .withCheck(JsonChecker{});
-}
-
-/**
- * @brief A sax like parser just for testing purposes in this test harness.  This
- *        is not a true sax parser.
- */
-template <typename Check>
-struct JsonVisitor
-{
-    std::string_view text;
-    size_t i{};
-    Check& check;
-
-    void
-    skipWs()
-    {
-        while (i < text.size() and
-               (text[i] == ' ' or text[i] == '\n' or text[i] == '\t' or text[i] == '\r'))
-        {
-            ++i;
-        }
-    }
-
-    std::string_view
-    parseString()  // s[i] == '"'
-    {
-        ++i;
-        auto const start = i;
-        while (i < text.size() and text[i] != '"')
-        {
-            ++i;
-        }
-        auto const result = text.substr(start, i - start);
-        if (i < text.size())
-        {
-            ++i;
-        }
-        return result;
-    }
-
-    int64_t
-    parseInt()
-    {
-        auto const start = i;
-        if (i < text.size() and (text[i] == '-' or text[i] == '+'))
-        {
-            ++i;
-        }
-        while (i < text.size() and text[i] >= '0' and text[i] <= '9')
-        {
-            ++i;
-        }
-        auto value = int64_t{};
-        std::from_chars(text.data() + start, text.data() + i, value);
-        return value;
-    }
-
-    AdmissionDecision
-    value(std::string_view name, bool topLevel)
-    {
-        skipWs();
-        if (i >= text.size())
-        {
-            return AdmissionDecision::admit();
-        }
-        auto const chr = text[i];
-        if (chr == '{')
-        {
-            return object(name, topLevel);
-        }
-        if (chr == '[')
-        {
-            return array(name);
-        }
-        auto event = VisitEvent{.kind = EventKind::Scalar, .name = name};
-        if (chr == '"')
-        {
-            event.value = parseString();
-        }
-        else
-        {
-            event.value = parseInt();
-        }
-        return check(event);
-    }
-
-    AdmissionDecision
-    object(std::string_view name, bool topLevel)
-    {
-        ++i;               // '{'
-        if (not topLevel)  // the top-level object is the message itself — no wrapper event
-        {
-            if (auto const decision =
-                    check(VisitEvent{.kind = EventKind::BeginObject, .name = name});
-                decision.dropped())
-            {
-                return decision;
-            }
-        }
-        skipWs();
-        while (i < text.size() and text[i] != '}')
-        {
-            skipWs();
-            auto const key = parseString();
-            skipWs();
-            if (i < text.size() and text[i] == ':')
-            {
-                ++i;
-            }
-            if (auto const decision = value(key, false); decision.dropped())
-            {
-                return decision;
-            }
-            skipWs();
-            if (i < text.size() and text[i] == ',')
-            {
-                ++i;
-            }
-            skipWs();
-        }
-        if (i < text.size())
-        {
-            ++i;  // '}'
-        }
-        if (not topLevel)
-        {
-            if (auto const decision = check(VisitEvent{.kind = EventKind::EndObject, .name = name});
-                decision.dropped())
-            {
-                return decision;
-            }
-        }
-        return AdmissionDecision::admit();
-    }
-
-    AdmissionDecision
-    array(std::string_view name)
-    {
-        ++i;  // '['
-        if (auto const decision = check(VisitEvent{.kind = EventKind::BeginArray, .name = name});
-            decision.dropped())
-        {
-            return decision;
-        }
-        skipWs();
-        while (i < text.size() and text[i] != ']')
-        {
-            if (auto const decision = value({}, false); decision.dropped())
-            {
-                return decision;
-            }
-            skipWs();
-            if (i < text.size() and text[i] == ',')
-            {
-                ++i;
-            }
-            skipWs();
-        }
-        if (i < text.size())
-        {
-            ++i;  // ']'
-        }
-        return check(VisitEvent{.kind = EventKind::EndArray, .name = name});
-    }
-};
-
-template <typename Check>
-[[nodiscard]] AdmissionDecision
-visitJson(std::string_view json, Check& check)
-{
-    auto visitor = JsonVisitor<Check>{json, 0, check};
-    return visitor.value({}, true);
 }
 
 }  // namespace
@@ -555,15 +384,19 @@ TEST(ConnectionLimiterTests, protobuf_message_admission_over_json)
     auto const now = decltype(limiter)::Clock::now();
 
     auto admit = [&](std::string_view json) {
+        auto const bytes =
+            std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(json.data()), json.size()};
         return limiter.admit<JsonMessage>(
-            1, [&](auto check) { return visitJson(json, check); }, now);
+            1, [&](auto check) { return admission::spec::visitJson(bytes, check); }, now);
     };
 
-    EXPECT_TRUE(admit(R"({"id":"abc","items":[1,2,3],"meta":{"priority":4}})").admitted());
-    EXPECT_EQ(admit(R"({"id":"abcdefghi","items":[1]})").reason, "id too long");
-    EXPECT_EQ(admit(R"({"id":"abc","items":[1,2,3,4]})").reason, "too many items");
+    EXPECT_TRUE(
+        admit(R"JSON({"id": "abc", "items": [1, 2, 3], "meta": {"priority": 4}})JSON").admitted());
+    EXPECT_EQ(admit(R"JSON({"id": "abcdefghi", "items": [1]})JSON").reason, "id too long");
+    EXPECT_EQ(admit(R"JSON({"id": "abc", "items": [1, 2, 3, 4]})JSON").reason, "too many items");
     EXPECT_EQ(
-        admit(R"({"id":"abc","items":[1],"meta":{"priority":9}})").reason, "priority too high");
+        admit(R"JSON({"id": "abc", "items": [1], "meta": {"priority": 9}})JSON").reason,
+        "priority too high");
 }
 
 // The packed fixed-width visitor: a tagless run of 4- or 8-byte little-endian elements, emitted as
@@ -649,7 +482,7 @@ TEST(ProtobufVisitor, packed_fixed)
     }
 }
 
-// The degenerate visitor: no decoding at all, the payload arrives as one opaque scalar event.
+// The degenerate visitor: no decoding at all, the payload arrives as one opaque Bytes event.
 TEST(PassthroughVisitor, emits_whole_payload_as_one_scalar)
 {
     using admission::spec::visitPassthrough;
@@ -658,8 +491,8 @@ TEST(PassthroughVisitor, emits_whole_payload_as_one_scalar)
     auto seen = 0;
     auto record = [&](VisitEvent const& event) {
         ++seen;
-        EXPECT_EQ(event.kind, EventKind::Scalar);
-        EXPECT_TRUE(event.name.empty());
+        EXPECT_EQ(event.kind, EventKind::Bytes);
+        EXPECT_TRUE(event.key.empty());
         EXPECT_EQ(event.fieldNumber, std::numeric_limits<uint64_t>::max());
         auto const* value = event.as<std::span<uint8_t const>>();
         EXPECT_NE(value, nullptr);
@@ -671,4 +504,151 @@ TEST(PassthroughVisitor, emits_whole_payload_as_one_scalar)
     EXPECT_EQ(seen, 1);
     EXPECT_FALSE(decision.admitted());
     EXPECT_EQ(decision.reason, "nope");
+}
+
+namespace {
+
+std::span<uint8_t const>
+asBytes(std::string_view json)
+{
+    return {reinterpret_cast<uint8_t const*>(json.data()), json.size()};
+}
+
+struct RecordedEvent
+{
+    EventKind kind{};
+    std::string key;
+    size_t size{};
+    uint32_t depth{};
+
+    bool
+    operator==(RecordedEvent const&) const = default;
+};
+
+}  // namespace
+
+TEST(JsonVisitor, emits_keyed_events_with_depth_and_size)
+{
+    using admission::spec::visitJson;
+    using enum EventKind;
+
+    auto events = std::vector<RecordedEvent>{};
+    auto record = [&](VisitEvent const& event) {
+        events.push_back(
+            {.kind = event.kind,
+             .key = std::string{event.key},
+             .size = event.size,
+             .depth = event.depth});
+        return AdmissionDecision::admit();
+    };
+
+    auto const decision =
+        visitJson(asBytes(R"JSON({"id": "abc", "items": [1, -2], "m": {"p": true}})JSON"), record);
+    EXPECT_TRUE(decision.admitted());
+    EXPECT_EQ(
+        events,
+        (std::vector<RecordedEvent>{
+            {ObjectBegin, "", 0, 0},
+            {Key, "", 2, 1},
+            {String, "id", 3, 1},
+            {Key, "", 5, 1},
+            {ArrayBegin, "items", 0, 1},
+            {Int64, "", 0, 2},
+            {Int64, "", 0, 2},
+            {ArrayEnd, "items", 2, 1},
+            {Key, "", 1, 1},
+            {ObjectBegin, "m", 0, 1},
+            {Key, "", 1, 2},
+            {Bool, "p", 0, 2},
+            {ObjectEnd, "m", 1, 1},
+            {ObjectEnd, "", 3, 0},
+        }));
+}
+
+TEST(JsonVisitor, carries_typed_values)
+{
+    using admission::spec::visitJson;
+
+    auto strings = std::vector<std::string>{};
+    auto ints = std::vector<int64_t>{};
+    auto uints = std::vector<uint64_t>{};
+    auto doubles = std::vector<double>{};
+    auto nulls = 0;
+    auto record = [&](VisitEvent const& event) {
+        if (event.kind == EventKind::String)
+        {
+            strings.emplace_back(*event.as<std::string_view>());
+        }
+        else if (auto const* i = event.as<int64_t>(); i != nullptr)
+        {
+            ints.push_back(*i);
+        }
+        else if (auto const* u = event.as<uint64_t>(); u != nullptr)
+        {
+            uints.push_back(*u);
+        }
+        else if (auto const* d = event.as<double>(); d != nullptr)
+        {
+            doubles.push_back(*d);
+        }
+        else if (event.kind == EventKind::Null)
+        {
+            ++nulls;
+        }
+        return AdmissionDecision::admit();
+    };
+
+    auto const decision =
+        visitJson(asBytes(R"JSON(["s", -1, 18446744073709551615, 1.5, null])JSON"), record);
+    EXPECT_TRUE(decision.admitted());
+    EXPECT_EQ(strings, (std::vector<std::string>{"s"}));
+    EXPECT_EQ(ints, (std::vector<int64_t>{-1}));
+    EXPECT_EQ(uints, (std::vector<uint64_t>{18446744073709551615u}));
+    EXPECT_EQ(doubles, (std::vector<double>{1.5}));
+    EXPECT_EQ(nulls, 1);
+}
+
+// A drop stops the parse at that event and is returned as-is — not masked as invalid JSON.
+TEST(JsonVisitor, stops_on_first_drop)
+{
+    using admission::spec::visitJson;
+
+    auto seen = 0;
+    auto dropOnItems = [&](VisitEvent const& event) {
+        ++seen;
+        return event.key == "items" ? AdmissionDecision::drop("no items", 3.0)
+                                    : AdmissionDecision::admit();
+    };
+
+    auto const decision =
+        visitJson(asBytes(R"JSON({"items": [1, 2, 3], "after": 1})JSON"), dropOnItems);
+    EXPECT_TRUE(decision.dropped());
+    EXPECT_EQ(decision.reason, "no items");
+    EXPECT_EQ(decision.tokenCost, 3.0);
+    EXPECT_EQ(seen, 3);  // ObjectBegin, Key, ArrayBegin (drop) — nothing after
+}
+
+TEST(JsonVisitor, drops_malformed_payloads)
+{
+    using admission::spec::visitJson;
+    using admission::spec::VisitJsonOptions;
+
+    auto admitAll = [](VisitEvent const&) { return AdmissionDecision::admit(); };
+    auto const options = VisitJsonOptions{.costForInvalidPayload = 7.0, .maxDepth = 2};
+
+    for (auto const json : {
+             R"JSON({"id": "abc",)JSON",      // truncated
+             R"JSON({"a": 1} trailing)JSON",  // data after the document
+             R"JSON({"a": [[1]]})JSON",       // deeper than maxDepth
+             R"JSON({'a': 1})JSON",           // not JSON
+         })
+    {
+        auto const decision = visitJson(asBytes(json), admitAll, options);
+        EXPECT_TRUE(decision.dropped()) << json;
+        EXPECT_EQ(decision.reason, "Invalid JSON payload") << json;
+        EXPECT_EQ(decision.tokenCost, 7.0) << json;
+    }
+
+    // Trailing whitespace is not trailing data.
+    EXPECT_TRUE(visitJson(asBytes("{\"a\": 1} \n\t"), admitAll, options).admitted());
 }
