@@ -346,8 +346,7 @@ template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
 visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& options = {})
 {
     auto decision = AdmissionDecision::admit();
-    auto parserOptions = boost::json::parse_options{};
-    parserOptions.max_depth = options.maxDepth;
+    auto parserOptions = boost::json::parse_options{.max_depth = options.maxDepth};
     auto parser = boost::json::basic_parser<JsonVisitor<Check, DefaultJsonVisitorOptions>>{
         parserOptions, check, decision};
     auto ec = boost::system::error_code{};
