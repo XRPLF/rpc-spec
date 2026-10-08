@@ -322,7 +322,7 @@ JsonVisitor<Check, VisitorOptions>::on_comment(std::string_view s, boost::system
     return emit(VisitEvent{.kind = EventKind::Comment, .depth = depth, .value = s});
 }
 
-struct JsonVisitorOptions
+struct VisitJsonOptions
 {
     double costForInvalidPayload{10};
     uint32_t maxDepth{std::numeric_limits<uint32_t>::max()};
@@ -341,14 +341,15 @@ struct JsonVisitorOptions
  * @param options Parser limits and the cost of a malformed payload.
  * @return The check's drop, a drop for malformed JSON, or admit.
  */
-template <typename Check>
+template <typename Check, typename VisitorOptions = DefaultJsonVisitorOptions>
 [[nodiscard]] AdmissionDecision
-visitJson(std::span<uint8_t const> bytes, Check& check, JsonVisitorOptions const& options = {})
+visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& options = {})
 {
     auto decision = AdmissionDecision::admit();
     auto parserOptions = boost::json::parse_options{};
     parserOptions.max_depth = options.maxDepth;
-    auto parser = boost::json::basic_parser<JsonVisitor<Check>>{parserOptions, check, decision};
+    auto parser = boost::json::basic_parser<JsonVisitor<Check, DefaultJsonVisitorOptions>>{
+        parserOptions, check, decision};
     auto ec = boost::system::error_code{};
     try
     {
