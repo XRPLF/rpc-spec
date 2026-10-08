@@ -1,3 +1,4 @@
+/** @file */
 #pragma once
 
 #include <admissionspec/Types.hpp>
@@ -60,16 +61,16 @@ struct NoHook
  *     bool inEntries{};
  *     size_t count{};
  *     AdmissionDecision operator()(VisitEvent const& e, auto const& cfg) {
- *         if (e.kind == EventKind::BeginArray && e.fieldNumber == 3)
+ *         if (e.kind == EventKind::ArrayBegin && e.fieldNumber == 3)
  *         {
  *           inEntries = true;
  *           count = 0;
  *         }
- *         else if (e.kind == EventKind::EndArray && e.fieldNumber == 3)
+ *         else if (e.kind == EventKind::ArrayEnd && e.fieldNumber == 3)
  *         {
  *           inEntries = false;
  *         }
- *         else if (inEntries && e.kind == EventKind::Scalar &&
+ *         else if (inEntries && e.kind == EventKind::Int64 &&
  *                  ++count > cfg.template get<"max_entries">())
  *         {
  *             // penalize an amplification attempt harder than a benign reject

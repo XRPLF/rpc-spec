@@ -1,3 +1,4 @@
+/** @file */
 #pragma once
 
 #include <admissionspec/Types.hpp>
@@ -113,19 +114,27 @@ readVarint(std::span<uint8_t const> bytes, size_t& pos, uint64_t& out)
 
 }  // namespace detail
 
+struct ProtobufVisitorOptions
+{
+    double costForInvalidPayload{10};
+};
+
 /**
  * @brief Visit a serialized protobuf message, emitting one @ref VisitEvent per field into @p check.
  *
- * Scalars (varint / 32- / 64-bit) are reported with their value. A length-delimited field is
- * ambiguous on the wire — string, packed list, or sub-message — so the visitor does not guess: it
- * reports the field's @c value as a span over exactly that field's bytes. The spec author, who has
- * the schema, decides what to do with it: read it as a scalar, or re-enter over the span with
- * `visitProtobuf` (sub-message), `visitPackedVarint`, or `visitPackedFixed` (packed list).
- * Stops and returns on the first drop.
+ * Scalars (varint / 32- / 64-bit) are reported as @c Int64 with their value. A length-delimited
+ * field is ambiguous on the wire — string, packed list, or sub-message — so the visitor does not
+ * guess: it reports it as @c Bytes, with @c value a span over exactly that field's bytes. The spec
+ * author, who has the schema, decides what to do with it: read it as a scalar, or re-enter over the
+ * span with `visitProtobuf` (sub-message), `visitPackedVarint`, or `visitPackedFixed` (packed
+ * list). Stops and returns on the first drop.
  */
 template <typename Check>
 [[nodiscard]] AdmissionDecision
-visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvalidPayload = 10)
+visitProtobuf(
+    std::span<uint8_t const> bytes,
+    Check& check,
+    ProtobufVisitorOptions const& options = {})
 {
     auto pos = size_t{};
     while (pos < bytes.size())
@@ -133,20 +142,22 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
         auto tag = uint64_t{};
         if (not detail::readVarint(bytes, pos, tag))
         {
-            return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
+            return AdmissionDecision::drop(
+                "Invalid protobuf payload", options.costForInvalidPayload);
         }
         auto const field = static_cast<uint64_t>(tag >> 3);
         auto const wireType = static_cast<uint64_t>(tag & 0x07);
 
         auto scalar = [&](int64_t scalarValue) {
             return check(
-                VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = scalarValue});
+                VisitEvent{.kind = EventKind::Int64, .fieldNumber = field, .value = scalarValue});
         };
 
         auto handleInt = [&](auto size) {
             if (pos + size > bytes.size())
             {
-                return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
+                return AdmissionDecision::drop(
+                    "Invalid protobuf payload", options.costForInvalidPayload);
             }
             auto value = uint64_t{};
             std::memcpy(&value, &bytes[pos], size);
@@ -162,7 +173,7 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
                 if (not detail::readVarint(bytes, pos, value))
                 {
                     return AdmissionDecision::drop(
-                        "Invalid protobuf payload", costForInvalidPayload);
+                        "Invalid protobuf payload", options.costForInvalidPayload);
                 }
                 if (auto const decision = scalar(static_cast<int64_t>(value)); decision.dropped())
                 {
@@ -189,7 +200,7 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
                 if (not detail::readVarint(bytes, pos, len) or pos + len > bytes.size())
                 {
                     return AdmissionDecision::drop(
-                        "Invalid protobuf payload", costForInvalidPayload);
+                        "Invalid protobuf payload", options.costForInvalidPayload);
                 }
                 auto const body = bytes.subspan(pos, static_cast<size_t>(len));
                 pos += static_cast<size_t>(len);
@@ -198,7 +209,7 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
                 // so the author decides: read it as a scalar, or re-enter with visitProtobuf /
                 // visitPackedVarint / visitPackedFixed over these bytes.
                 if (auto const decision = check(
-                        VisitEvent{.kind = EventKind::Scalar, .fieldNumber = field, .value = body});
+                        VisitEvent{.kind = EventKind::Bytes, .fieldNumber = field, .value = body});
                     decision.dropped())
                 {
                     return decision;
@@ -211,7 +222,7 @@ visitProtobuf(std::span<uint8_t const> bytes, Check& check, double costForInvali
 }
 
 /**
- * @brief Re-enter over a packed @c repeated payload, emitting each element as a @c Scalar of @p
+ * @brief Re-enter over a packed @c repeated payload, emitting each element as an @c Int64 of @p
  * field.
  *
  * A packed field's bytes are the element values concatenated with no tags, so the message visitor
@@ -226,7 +237,7 @@ visitPackedVarint(
     std::span<uint8_t const> body,
     uint64_t field,
     Check& check,
-    double costForInvalidPayload = 10)
+    ProtobufVisitorOptions const& options = {})
 {
     auto pos = size_t{};
     while (pos < body.size())
@@ -234,11 +245,12 @@ visitPackedVarint(
         auto varint = uint64_t{};
         if (not detail::readVarint(body, pos, varint))
         {
-            return AdmissionDecision::drop("Invalid protobuf payload", costForInvalidPayload);
+            return AdmissionDecision::drop(
+                "Invalid protobuf payload", options.costForInvalidPayload);
         }
         if (auto const decision = check(
                 VisitEvent{
-                    .kind = EventKind::Scalar,
+                    .kind = EventKind::Int64,
                     .fieldNumber = field,
                     .value = static_cast<int64_t>(varint)});
             decision.dropped())
@@ -271,7 +283,7 @@ visitPackedFixed(std::span<uint8_t const> body, uint64_t field, Check& check)
         // int64_t leaf so the check reads it the same way as any other scalar.
         if (auto const decision = check(
                 VisitEvent{
-                    .kind = EventKind::Scalar,
+                    .kind = EventKind::Int64,
                     .fieldNumber = field,
                     .value = static_cast<int64_t>(static_cast<WriteType>(element))});
             decision.dropped())

@@ -1,3 +1,4 @@
+/** @file */
 #pragma once
 
 #include <array>
@@ -108,23 +109,31 @@ struct AdmissionDecision
 /**
  * @brief The shape of one event in a streaming visit of a not-yet-hydrated payload.
  *
- * A visit is a flat stream of SAX-style events: a @c Scalar leaf, or the @c Begin/@c End of a
- * container. The framework deliberately reports nothing more — no path, index, or child count. A
- * check that needs structural context (nesting depth, list length, "the value under key X") keeps
- * its own state across the events of a single message; see @ref AdmissionSpec::withCheck.
+ * A visit is a flat stream of SAX-style events mirroring `boost::json::basic_parser`'s handler: a
+ * typed leaf (@c String, @c Int64, @c Bool, ...), the @c Begin/@c End of a container, or a partial
+ * piece of a string, key, number, or comment. Protobuf adds @c Bytes for a length-delimited field.
+ * The framework reports no path or index; a check that needs more structural context ("the value
+ * under key X inside object Y") keeps its own state across the events of a single message; see
+ * @ref AdmissionSpec::withCheck.
  */
 enum class EventKind : uint8_t {
-    Scalar = 0,       ///< a leaf value (see @ref VisitEvent::value)
-    BeginArray = 1,   ///< start of a list / protobuf `repeated` field
-    EndArray = 2,     ///< end of the current list
-    BeginMap = 3,     ///< start of a map (e.g. JSON object used as a map, protobuf `map<>`)
-    EndMap = 4,       ///< end of the current map
-    BeginObject = 5,  ///< start of an object / protobuf sub-message
-    EndObject = 6,    ///< end of the current object
-    BeginKey = 7,     ///< start of a map key
-    EndKey = 8,       ///< end of a map key
-    BeginValue = 9,   ///< start of a map value
-    EndValue = 10,    ///< end of a map value
+    ObjectBegin,  ///< on_object_begin
+    ObjectEnd,    ///< on_object_end      (size = member count)
+    ArrayBegin,   ///< on_array_begin
+    ArrayEnd,     ///< on_array_end       (size = element count)
+    KeyPart,      ///< on_key_part        (value = piece, size = running total)
+    Key,          ///< on_key             (value = final piece, size = total)
+    StringPart,   ///< on_string_part     (value = piece, size = running total)
+    String,       ///< on_string          (value = final piece, size = total)
+    NumberPart,   ///< on_number_part     (value = piece)
+    Int64,        ///< on_int64           (value = int64_t)
+    Uint64,       ///< on_uint64          (value = uint64_t)
+    Double,       ///< on_double          (value = double)
+    Bool,         ///< on_bool            (value = bool)
+    Null,         ///< on_null
+    CommentPart,  ///< on_comment_part    (value = piece)
+    Comment,      ///< on_comment         (value = final piece)
+    Bytes,        ///< protobuf length-delimited field (value = span); no JSON equivalent
 };
 
 /**
@@ -137,19 +146,27 @@ enum class EventKind : uint8_t {
  */
 struct VisitEvent
 {
-    /// Scalar, or the begin/end of a container.
-    EventKind kind{EventKind::Scalar};
+    /// The kind of node: a typed leaf, a partial piece, or the begin/end of a container.
+    EventKind kind{EventKind::Null};
 
     /// JSON key of this node; empty for protobuf and for array elements.
-    std::string_view name;
+    std::string_view key;
+
+    /// The number of elements in a container (object or array) or the total length of a string in
+    /// bytes.
+    std::size_t size{};
+
+    /// Nesting depth of this node in the message; 0 for the top-level message.
+    std::uint32_t depth{};
 
     /// Protobuf field number of this node; max uint64_t for JSON.
     uint64_t fieldNumber{std::numeric_limits<uint64_t>::max()};
 
-    /// Leaf payload; @c monostate unless @c kind is @c Scalar. A length-delimited protobuf field
-    /// (string / packed list / sub-message) is reported as a span over exactly that field's bytes —
-    /// the spec author, who has the schema, picks a walker (`visitProtobuf` /
-    /// `visitPackedVarint`) to re-enter over it, or reads it as a scalar.
+    /// Leaf payload; @c monostate for containers and @c Null, a @c string_view for the (partial)
+    /// text of a string, key, number, or comment. A length-delimited protobuf field (string /
+    /// packed list / sub-message) is reported as @c Bytes: a span over exactly that field's bytes —
+    /// the spec author, who has the schema, picks a walker (`visitProtobuf` / `visitPackedVarint`)
+    /// to re-enter over it, or reads it as a scalar.
     std::variant<
         std::monostate,
         bool,
