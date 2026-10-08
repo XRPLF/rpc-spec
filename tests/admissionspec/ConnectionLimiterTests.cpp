@@ -623,11 +623,11 @@ TEST(JsonVisitor, stops_on_first_drop)
 
 TEST(JsonVisitor, drops_malformed_payloads)
 {
-    using admission::spec::JsonVisitorOptions;
+    using admission::spec::VisitJsonOptions;
     using admission::spec::visitJson;
 
     auto admitAll = [](VisitEvent const&) { return AdmissionDecision::admit(); };
-    auto const options = JsonVisitorOptions{.costForInvalidPayload = 7.0, .maxDepth = 2};
+    auto const options = VisitJsonOptions{.costForInvalidPayload = 7.0, .maxDepth = 2};
 
     for (auto const json : {
              R"({"id":"abc",)",      // truncated
