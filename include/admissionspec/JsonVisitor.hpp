@@ -354,7 +354,7 @@ visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& 
     {
         auto const consumed =
             parser.write_some(false, reinterpret_cast<char const*>(bytes.data()), bytes.size(), ec);
-        if (!ec and consumed != bytes.size())
+        if (!ec && consumed != bytes.size())
         {
             ec = boost::json::error::extra_data;
         }
