@@ -16,7 +16,12 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/Errors.hpp>
+#include <rpcspec/handlers/account_channels/Spec.hpp>
+#include <rpcspec/handlers/account_channels/Types.hpp>
 #include <rpcspec/handlers/account_currencies/Spec.hpp>
+#include <rpcspec/handlers/account_info/Spec.hpp>
+#include <rpcspec/handlers/account_lines/Spec.hpp>
+#include <rpcspec/handlers/account_lines/Types.hpp>
 #include <rpcspec/handlers/account_nfts/Spec.hpp>
 #include <rpcspec/handlers/account_nfts/Types.hpp>
 #include <rpcspec/handlers/account_offers/Spec.hpp>
@@ -81,6 +86,28 @@ parseAccountOffers(std::string const& json)
 {
     auto value = boost::json::parse(json);
     return handlers::account_offers::kInputSpecV1.parse(value);
+}
+
+auto
+parseAccountLines(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::account_lines::kInputSpecV1.parse(value);
+}
+
+auto
+parseAccountChannels(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::account_channels::kInputSpec.parse(value);
+}
+
+auto
+parseAccountInfo(std::string const& json, unsigned apiVersion = 1)
+{
+    auto value = boost::json::parse(json);
+    return apiVersion == 1 ? handlers::account_info::kInputSpecV1.parse(value)
+                           : handlers::account_info::kInputSpecV2.parse(value);
 }
 
 }  // namespace
@@ -322,4 +349,143 @@ TEST(AccountOffersSpecClio, deprecated_fields_warn)
     auto const request = boost::json::parse(
         std::format(R"JSON({{"account": "{}", "ledger": 5, "strict": true}})JSON", kAcct1));
     EXPECT_EQ(handlers::account_offers::kInputSpecV1.check(request).size(), 2u);
+}
+
+TEST(AccountLinesSpecClio, non_string_account_is_act_malformed)
+{
+    auto const result = parseAccountLines(R"JSON({"account": 5})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+}
+
+TEST(AccountLinesSpecClio, empty_peer_is_act_malformed)
+{
+    auto const result =
+        parseAccountLines(std::format(R"JSON({{"account": "{}", "peer": ""}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+}
+
+TEST(AccountLinesSpecClio, ignore_default_must_be_bool)
+{
+    auto const result = parseAccountLines(
+        std::format(R"JSON({{"account": "{}", "ignore_default": 1}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+}
+
+TEST(AccountLinesSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseAccountLines(std::format(R"JSON({{"account": "{}", "limit": 1}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::account_lines::kLimitMin);
+}
+
+TEST(AccountLinesSpecClio, malformed_marker_is_malformed_cursor)
+{
+    auto const notString =
+        parseAccountLines(std::format(R"JSON({{"account": "{}", "marker": 5}})JSON", kAcct1));
+    ASSERT_FALSE(notString.has_value());
+    EXPECT_EQ(notString.error().message, "markerNotString");
+
+    auto const malformed = parseAccountLines(
+        std::format(R"JSON({{"account": "{}", "marker": "{},7,x"}})JSON", kAcct1, kHex1));
+    ASSERT_FALSE(malformed.has_value());
+    EXPECT_EQ(malformed.error().message, "Malformed cursor.");
+}
+
+TEST(AccountLinesSpecClio, deprecated_fields_warn)
+{
+    auto const request = boost::json::parse(
+        std::format(R"JSON({{"account": "{}", "ledger": 5, "peer_index": 3}})JSON", kAcct1));
+    EXPECT_EQ(handlers::account_lines::kInputSpecV1.check(request).size(), 2u);
+}
+
+TEST(AccountChannelsSpecClio, non_string_destination_account_is_invalid_params)
+{
+    auto const result = parseAccountChannels(
+        std::format(R"JSON({{"account": "{}", "destination_account": 5}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+}
+
+TEST(AccountChannelsSpecClio, empty_destination_account_is_malformed)
+{
+    auto const result = parseAccountChannels(
+        std::format(R"JSON({{"account": "{}", "destination_account": ""}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "destination_accountMalformed");
+}
+
+TEST(AccountChannelsSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseAccountChannels(std::format(R"JSON({{"account": "{}", "limit": 1}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::account_channels::kLimitMin);
+}
+
+TEST(AccountInfoSpecClio, account_and_ident_are_optional)
+{
+    auto const result = parseAccountInfo(R"JSON({})JSON");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_FALSE(result->account.has_value());
+    EXPECT_FALSE(result->ident.has_value());
+}
+
+TEST(AccountInfoSpecClio, ident_is_parsed_beside_account)
+{
+    auto const result = parseAccountInfo(
+        std::format(R"JSON({{"account": "{}", "ident": "{}"}})JSON", kAcct1, kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_TRUE(result->account.has_value());
+    EXPECT_TRUE(result->ident.has_value());
+}
+
+TEST(AccountInfoSpecClio, malformed_ident_is_rejected_beside_account)
+{
+    auto const result = parseAccountInfo(
+        std::format(R"JSON({{"account": "{}", "ident": "notanaccount"}})JSON", kAcct1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "identMalformed");
+}
+
+TEST(AccountInfoSpecClio, ident_is_parsed_without_account)
+{
+    auto const result = parseAccountInfo(R"JSON({"ident": "notanaccount"})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    EXPECT_EQ(result.error().message, "identMalformed");
+}
+
+TEST(AccountInfoSpecClio, signer_lists_must_be_bool_on_v2)
+{
+    auto const request =
+        std::format(R"JSON({{"account": "{}", "signer_lists": "yes"}})JSON", kAcct1);
+    EXPECT_TRUE(parseAccountInfo(request, 1).has_value());
+
+    auto const v2 = parseAccountInfo(request, 2);
+    ASSERT_FALSE(v2.has_value());
+    EXPECT_EQ(v2.error(), rpc::XrpldError::RpcInvalidParams);
+}
+
+TEST(AccountInfoSpecClio, deprecated_fields_warn)
+{
+    auto const request = boost::json::parse(
+        std::format(R"JSON({{"ident": "{}", "ledger": 5, "strict": true}})JSON", kAcct1));
+    EXPECT_EQ(handlers::account_info::kInputSpecV1.check(request).size(), 3u);
+}
+
+TEST(AccountInfoSpecClio, ident_warns_beside_account)
+{
+    auto const request = boost::json::parse(
+        std::format(R"JSON({{"account": "{}", "ident": "{}"}})JSON", kAcct1, kAcct1));
+    EXPECT_EQ(handlers::account_info::kInputSpecV1.check(request).size(), 1u);
 }

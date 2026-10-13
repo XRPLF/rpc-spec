@@ -3,9 +3,9 @@
  *  GTest coverage for the `account_offers` typed spec.
  *  Compiled under RPCSPEC_IS_XRPLD.
  *
- *  `AccountMarkerStrConverter` re-implements the shared `accountMarker`
- *  validator's parse inside a converter (it returns the string rather than
- *  merely accepting it), so its arms are pinned independently here.
+ *  `accountMarkerStr` re-implements the shared `accountMarker` validator's
+ *  parse inside a converter (it returns the string rather than merely
+ *  accepting it), so its arms are pinned independently here.
  */
 
 #include <boost/json/parse.hpp>
@@ -136,7 +136,7 @@ TEST(AccountOffersSpec, non_integer_limit_is_rejected)
     }
 }
 
-// --- AccountMarkerStrConverter ---------------------------------------------
+// --- accountMarkerStr ------------------------------------------------------
 
 TEST(AccountOffersSpec, well_formed_marker_round_trips_as_string)
 {

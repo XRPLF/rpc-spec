@@ -403,6 +403,19 @@ concept SomeCheck = requires(T const item, detail::FieldViewArchetype const& fie
 };
 
 /**
+ * @brief A type that decides, from the request root, whether a bound field is processed at all.
+ *
+ * Must expose a `skips(Root const&) -> bool` method. When any guard of a bound field skips, the
+ * field is neither read, validated nor checked (e.g. `ifAbsent`).
+ *
+ * @tparam T The candidate type to check.
+ */
+template <typename T>
+concept SomeGuard = requires(T const item, detail::ObjectViewArchetype const& root) {
+    { item.skips(root) } -> std::same_as<bool>;
+};
+
+/**
  * @brief A type that is either a SomeRequirement or a SomeModifier.
  *
  * @tparam T The candidate type to check.
@@ -427,12 +440,12 @@ concept SomeDefault = requires {
 };
 
 /**
- * @brief A type that is a SomeProcessor, SomeCheck, or SomeDefault — any item attachable to a
- * FieldSpec.
+ * @brief A type that is a SomeProcessor, SomeCheck, SomeDefault or SomeGuard — any item
+ * attachable to a field. Guards are accepted only by bound fields.
  *
  * @tparam T The candidate type to check.
  */
 template <typename T>
-concept SomeFieldItem = SomeProcessor<T> or SomeCheck<T> or SomeDefault<T>;
+concept SomeFieldItem = SomeProcessor<T> or SomeCheck<T> or SomeDefault<T> or SomeGuard<T>;
 
 }  // namespace rpc::spec

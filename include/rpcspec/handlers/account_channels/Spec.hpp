@@ -19,14 +19,29 @@ namespace rpc::spec::handlers::account_channels {
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field("account", &Input::account, required, accountId),
-    field("destination_account", &Input::destinationAccount, type<std::string>, accountId),
-    field("limit", &Input::limit)                          //
-        | type<uint32_t>                                   //
-        | min(uint32_t{1})                                 //
-        | defaultTo(kLimitDefault)                         //
-        | clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})  //
-        | asUint32,
-    field("marker", &Input::marker, accountMarker, asString));
+    field(
+        "destination_account",
+        &Input::destinationAccount,
+        ifServerClio(type<std::string>),
+        emptyAsAbsent(accountId)),
+    field(
+        "limit",
+        &Input::limit,
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
+        defaultTo(kLimitDefault),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
+        asUint32),
+    field("marker", &Input::marker, accountMarkerStrInvalidParams));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

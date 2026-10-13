@@ -1,8 +1,7 @@
 /** @file */
 #pragma once
 
-#include <xrpl/protocol/AccountID.h>
-
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
@@ -37,14 +36,16 @@ struct Input
     LedgerSpecifier ledger;
 
     /**
-     * @brief Value of the `account` request field.
+     * @brief Value of the `account` request field; on xrpld a malformed one is reported by the
+     * handler.
      */
-    xrpl::AccountID account;
+    DeferredAccountId account;
 
     /**
-     * @brief Value of the `peer` request field.
+     * @brief Value of the `peer` request field; on xrpld a malformed one is reported by the
+     * handler, and an empty one reads as absent.
      */
-    std::optional<xrpl::AccountID> peer;
+    std::optional<DeferredAccountId> peer;
 
     /**
      * @brief Value of the `ignore_default` request field.
@@ -57,9 +58,7 @@ struct Input
     uint32_t limit;
 
     /**
-     * @brief Opaque pagination cursor; may encode an account plus a hint, not a single id.
-     *
-     * Re-parsed by traverseOwnedNodes downstream, so kept as a validated string.
+     * @brief Pagination cursor, `"<uint256hex>,<uint64>"`, kept as the validated string.
      */
     std::optional<std::string> marker;
 };
