@@ -1,36 +1,37 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Account.hpp>
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/VersionedSpec.hpp>
-#include <rpcspec/detail/XrplParse.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
 
 #include <cstdint>
 #include <expected>
-#include <string>
 #include <string_view>
+#include <utility>
 
 namespace rpc::spec::handlers::account_lines {
 
 /**
- * @brief Converts the account id act malformed field into its strongly-typed value.
+ * @brief Converts an account field: deferred on xrpld, `actMalformed` for any failure on Clio.
  */
-struct AccountIdActMalformedConverter
+struct LinesAccountConverter
 {
     /**
-     * @brief Identifier for this item in the schema dump ("accountActMalformed").
+     * @brief Identifier for this item in the schema dump ("account").
      */
-    static constexpr std::string_view kName = "accountActMalformed";
+    static constexpr std::string_view kName = "account";
 
     /**
-     * @brief The value this converter produces (`xrpl::AccountID`).
+     * @brief The value this converter produces (`DeferredAccountId`).
      */
-    using ValueType = xrpl::AccountID;
+    using ValueType = DeferredAccountId;
 
     /**
      * @brief Validate the field and produce its strongly-typed value.
@@ -43,17 +44,22 @@ struct AccountIdActMalformedConverter
     [[nodiscard]] Parsed<ValueType>
     parse(View const& fieldView) const
     {
-        if (not fieldView.isString())
-            return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
-        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
-        if (not id.has_value())
-            return std::unexpected{rpc::Status{rpc::XrpldError::RpcActMalformed}};
-        return *id;
+        if constexpr (kIsXrpldBuild)
+        {
+            return deferredAccountId.parse(fieldView);
+        }
+        else
+        {
+            auto id = accountIdActMalformed.parse(fieldView);
+            if (not id.has_value())
+                return std::unexpected{std::move(id).error()};
+            return ValueType{*id};
+        }
     }
 };
 
 /**
- * @brief Converts the as bool field into its strongly-typed value.
+ * @brief Converts the `ignore_default` field: any value coerced to bool on xrpld, a bool on Clio.
  */
 struct AsBoolConverter
 {
@@ -78,43 +84,60 @@ struct AsBoolConverter
     [[nodiscard]] Parsed<ValueType>
     parse(View const& fieldView) const
     {
-        if (not fieldView.isBool())
-            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
-        return fieldView.asBool();
+        if constexpr (kIsXrpldBuild)
+        {
+            auto const coerced = jsonBool.parse(fieldView);
+            return coerced.has_value() and coerced->value;
+        }
+        else
+        {
+            if (not fieldView.isBool())
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+            return fieldView.asBool();
+        }
     }
 };
 
 // NOLINTBEGIN(readability-identifier-naming)
 /**
- * @brief Converter instance: account id act malformed.
+ * @brief Converter instance: the `account` and `peer` fields.
  */
-inline constexpr auto accountIdActMalformed = AccountIdActMalformedConverter{};
+inline constexpr auto linesAccount = LinesAccountConverter{};
 
 /**
- * @brief Converter instance: as bool.
+ * @brief Converter instance: the `ignore_default` field.
  */
 inline constexpr auto asBool = AsBoolConverter{};
 // NOLINTEND(readability-identifier-naming)
 
 /**
- * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.
+ * @brief The spec that validates a request and parses it into `Input`.
  */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("account", &Input::account, required, accountIdActMalformed),
-    field("peer", &Input::peer, accountIdActMalformed),
-    field("ignore_default", &Input::ignoreDefault, type<bool>, asBool),
+    field("account", &Input::account, required, linesAccount),
+    field("peer", &Input::peer, emptyAsAbsent(linesAccount)),
+    field("ignore_default", &Input::ignoreDefault, ifServerClio(type<bool>), asBool),
     field(
         "limit",
         &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
         defaultTo(kLimitDefault),
         asUint32),
-    field("marker", &Input::marker, accountMarker, asString),
-    field("ledger", deprecated),
-    field("peer_index", deprecated));
+    field("marker", &Input::marker, accountMarkerStrInvalidParams),
+    field("ledger", ifServerClio(deprecated)),
+    field("peer_index", ifServerClio(deprecated)));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

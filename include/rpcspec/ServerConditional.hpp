@@ -13,10 +13,12 @@
 //   SomeRequirement<IfServerClioValidator<Vs...>> iff (SomeRequirement<Vs> || ...)
 //   SomeCheck<IfServerClioValidator<Vs...>>       iff (SomeCheck<Vs> || ...)
 //   SomeModifier<IfServerClioValidator<Vs...>>    iff (SomeModifier<Vs> || ...)
+//   SomeGuard<IfServerClioValidator<Vs...>>       iff (SomeGuard<Vs> || ...)
 //
 // Multiple validators may be passed; they are applied in order:
 //   field("full", ifServerClio(notSupportedIf(true), deprecated))
 //   field("diff", ifServerClio(type<bool>))
+//   field("ident", &Input::ident, ifServerXrpld(ifAbsent("account")), accountId)
 
 #if !defined(RPCSPEC_IS_CLIO) && !defined(RPCSPEC_IS_XRPLD)
 #error \
@@ -58,7 +60,8 @@ inline constexpr bool kIsXrpldBuild = not kIsClioBuild;
  *
  * When @p Active is false every member function is a no-op returning success, so the inner
  * validators are entirely elided. The struct satisfies whichever of `SomeRequirement`,
- * `SomeCheck`, and `SomeModifier` are satisfied by at least one of the inner validators @p Vs,
+ * `SomeCheck`, `SomeModifier` and `SomeGuard` are satisfied by at least one of the inner
+ * validators @p Vs,
  * regardless of @p Active — the wrapper must present the same interface in both builds so a
  * spec literal compiles identically for either server.
  *
@@ -179,6 +182,36 @@ struct ServerConditionalValidator
                 inners);
         }
         return result;
+    }
+
+    /**
+     * @brief Runs the inner guards in the matching build; never skips otherwise.
+     *
+     * @param root Const view of the request root.
+     * @return   Whether any inner guard skips the field.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] bool
+    skips([[maybe_unused]] Root const& root) const
+        requires(SomeGuard<Vs> or ...)
+    {
+        if constexpr (Active)
+        {
+            return std::apply(
+                [&](auto const&... vs) {
+                    auto trySkip = [&](auto const& validator) -> bool {
+                        if constexpr (SomeGuard<std::remove_cvref_t<decltype(validator)>>)
+                            return validator.skips(root);
+                        return false;
+                    };
+                    return (trySkip(vs) or ...);
+                },
+                inners);
+        }
+        else
+        {
+            return false;
+        }
     }
 };
 

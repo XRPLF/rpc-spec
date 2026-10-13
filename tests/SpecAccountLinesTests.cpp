@@ -3,14 +3,15 @@
  *  GTest coverage for the `account_lines` typed spec.
  *  Compiled under RPCSPEC_IS_XRPLD.
  *
- *  Covers the handler's two local converters (`AccountIdActMalformedConverter`,
- *  `AsBoolConverter`), the shared `accountMarker` cursor validator, and the
- *  min/clamp/default interaction on `limit`.
+ *  xrpld decodes `account` and `peer` only after it has resolved the ledger, so a
+ *  malformed one reaches the handler as an `AccountError`; an empty `peer` is no
+ *  filter at all. The Clio arm is pinned by SpecClioHandlerErrorsTests.
  */
 
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_lines/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
@@ -18,6 +19,7 @@
 #include <Backend.hpp>  // IWYU pragma: keep
 
 #include <format>
+#include <initializer_list>
 #include <string>
 
 using namespace rpc::spec;
@@ -28,6 +30,7 @@ namespace {
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
+constexpr auto kPublicKeyHex = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
 
 auto
 parse(std::string const& json)
@@ -42,11 +45,20 @@ req(std::string const& extra = {})
     return std::format(R"JSON({{"account": "{}"{}}})JSON", kAcct1, extra);
 }
 
+std::string
+withMarker(std::string const& marker)
+{
+    return req(std::format(R"JSON(, "marker": "{}")JSON", marker));
+}
+
 }  // namespace
 
 TEST(AccountLinesSpec, account_required)
 {
-    EXPECT_FALSE(parse(R"JSON({})JSON").has_value());
+    auto const result = parse(R"JSON({})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Missing field 'account'.");
 }
 
 TEST(AccountLinesSpec, minimal_request_parses)
@@ -54,29 +66,36 @@ TEST(AccountLinesSpec, minimal_request_parses)
     auto const result = parse(req());
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_TRUE(result->account.has_value());
     EXPECT_FALSE(result->peer.has_value());
     EXPECT_FALSE(result->ignoreDefault);
     EXPECT_EQ(result->limit, kLimitDefault);
     EXPECT_FALSE(result->marker.has_value());
 }
 
-// --- AccountIdActMalformedConverter ----------------------------------------
-// Note this handler's local converter reports RpcActMalformed for *both* a
-// wrong JSON type and an unparseable string, unlike the shared accountId
-// converter which distinguishes them.
+// --- account / peer ---------------------------------------------------------
 
-TEST(AccountLinesSpec, malformed_account_is_act_malformed)
+TEST(AccountLinesSpec, non_string_account_is_invalid_params)
 {
-    auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    for (auto const* bad : {"1", "1.1", "true", "null", "{}", "[]"})
+    {
+        auto const result = parse(std::format(R"JSON({{"account": {}}})JSON", bad));
+        ASSERT_FALSE(result.has_value()) << "account=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "account=" << bad;
+        EXPECT_EQ(result.error().message, "Invalid field 'account'.") << "account=" << bad;
+    }
 }
 
-TEST(AccountLinesSpec, non_string_account_is_also_act_malformed)
+TEST(AccountLinesSpec, malformed_account_is_left_to_the_handler)
 {
-    auto const result = parse(R"JSON({"account": 5})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    for (auto const* bad : {"notanaccount", kPublicKeyHex})
+    {
+        auto const result = parse(std::format(R"JSON({{"account": "{}"}})JSON", bad));
+        ASSERT_TRUE(result.has_value())
+            << "error: " << result.error().error << " msg: " << result.error().message;
+        ASSERT_FALSE(result->account.has_value()) << "account=" << bad;
+        EXPECT_EQ(result->account.error(), AccountError::Malformed) << "account=" << bad;
+    }
 }
 
 TEST(AccountLinesSpec, peer_parses)
@@ -85,66 +104,108 @@ TEST(AccountLinesSpec, peer_parses)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->peer.has_value());
+    EXPECT_TRUE(result->peer->has_value());
 }
 
-TEST(AccountLinesSpec, malformed_peer_is_act_malformed)
+TEST(AccountLinesSpec, empty_peer_is_no_peer)
 {
-    auto const result = parse(req(R"JSON(, "peer": "notanaccount")JSON"));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
-}
-
-// --- AsBoolConverter --------------------------------------------------------
-
-TEST(AccountLinesSpec, ignore_default_bool_parses)
-{
-    auto const result = parse(req(R"JSON(, "ignore_default": true)JSON"));
+    auto const result = parse(req(R"JSON(, "peer": "")JSON"));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_TRUE(result->ignoreDefault);
+    EXPECT_FALSE(result->peer.has_value());
 }
 
-TEST(AccountLinesSpec, ignore_default_non_bool_is_rejected)
+TEST(AccountLinesSpec, non_string_peer_is_invalid_params)
 {
-    for (auto const* bad : {"1", R"("true")", "{}"})
+    for (auto const* bad : {"1", "true", "null", "{}", "[]"})
     {
-        auto const result = parse(req(std::format(R"JSON(, "ignore_default": {})JSON", bad)));
-        ASSERT_FALSE(result.has_value()) << "ignore_default=" << bad << " unexpectedly accepted";
+        auto const result = parse(req(std::format(R"JSON(, "peer": {})JSON", bad)));
+        ASSERT_FALSE(result.has_value()) << "peer=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "peer=" << bad;
+        EXPECT_EQ(result.error().message, "Invalid field 'peer'.") << "peer=" << bad;
+    }
+}
+
+TEST(AccountLinesSpec, malformed_peer_is_left_to_the_handler)
+{
+    auto const result = parse(req(R"JSON(, "peer": "notanaccount")JSON"));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->peer.has_value());
+    ASSERT_FALSE(result->peer->has_value());
+    EXPECT_EQ(result->peer->error(), AccountError::Malformed);
+}
+
+// --- ignore_default ---------------------------------------------------------
+
+TEST(AccountLinesSpec, ignore_default_is_coerced_to_bool)
+{
+    for (auto const* truthy : {"true", "1", R"JSON("false")JSON", "[0]"})
+    {
+        auto const result = parse(req(std::format(R"JSON(, "ignore_default": {})JSON", truthy)));
+        ASSERT_TRUE(result.has_value()) << "ignore_default=" << truthy;
+        EXPECT_TRUE(result->ignoreDefault) << "ignore_default=" << truthy;
+    }
+    for (auto const* falsy : {"false", "0", R"JSON("")JSON", "null", "{}"})
+    {
+        auto const result = parse(req(std::format(R"JSON(, "ignore_default": {})JSON", falsy)));
+        ASSERT_TRUE(result.has_value()) << "ignore_default=" << falsy;
+        EXPECT_FALSE(result->ignoreDefault) << "ignore_default=" << falsy;
     }
 }
 
 // --- limit ------------------------------------------------------------------
 
-TEST(AccountLinesSpec, limit_below_clamp_floor_is_raised)
+TEST(AccountLinesSpec, limit_is_not_clamped_by_the_spec)
 {
-    // min(1) admits it, then clamp(10, 400) raises it to the floor.
-    auto const result = parse(req(R"JSON(, "limit": 5)JSON"));
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_EQ(result->limit, kLimitMin);
+    auto const low = parse(req(R"JSON(, "limit": 1)JSON"));
+    ASSERT_TRUE(low.has_value()) << "error: " << low.error().error
+                                 << " msg: " << low.error().message;
+    EXPECT_EQ(low->limit, 1u);
+
+    auto const high = parse(req(R"JSON(, "limit": 100000)JSON"));
+    ASSERT_TRUE(high.has_value());
+    EXPECT_EQ(high->limit, 100000u);
 }
 
-TEST(AccountLinesSpec, limit_above_max_is_clamped)
+TEST(AccountLinesSpec, null_limit_is_the_default)
 {
-    auto const result = parse(req(R"JSON(, "limit": 100000)JSON"));
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result->limit, kLimitMax);
+    auto const result = parse(req(R"JSON(, "limit": null)JSON"));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, kLimitDefault);
 }
 
 TEST(AccountLinesSpec, limit_zero_is_rejected)
 {
     auto const result = parse(req(R"JSON(, "limit": 0)JSON"));
     ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'limit'.");
 }
 
-// --- accountMarker ----------------------------------------------------------
-
-TEST(AccountLinesSpec, well_formed_marker_parses)
+TEST(AccountLinesSpec, non_integer_limit_is_rejected)
 {
-    auto const result = parse(req(std::format(R"JSON(, "marker": "{},7")JSON", kHex1)));
+    for (auto const* bad : {R"JSON("0")JSON", "-1", "1.5", "true"})
+    {
+        auto const result = parse(req(std::format(R"JSON(, "limit": {})JSON", bad)));
+        ASSERT_FALSE(result.has_value()) << "limit=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "limit=" << bad;
+        EXPECT_EQ(result.error().message, "Invalid field 'limit', not unsigned integer.")
+            << "limit=" << bad;
+    }
+}
+
+// --- marker -----------------------------------------------------------------
+
+TEST(AccountLinesSpec, well_formed_marker_round_trips_as_string)
+{
+    auto const marker = std::format("{},7", kHex1);
+    auto const result = parse(withMarker(marker));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_TRUE(result->marker.has_value());
+    EXPECT_EQ(*result->marker, marker);
 }
 
 TEST(AccountLinesSpec, non_string_marker_names_the_field)
@@ -152,39 +213,39 @@ TEST(AccountLinesSpec, non_string_marker_names_the_field)
     auto const result = parse(req(R"JSON(, "marker": 5)JSON"));
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "markerNotString");
+    EXPECT_EQ(result.error().message, "Invalid field 'marker', not string.");
 }
 
-TEST(AccountLinesSpec, marker_without_comma_is_malformed_cursor)
+TEST(AccountLinesSpec, malformed_marker_is_invalid_params)
 {
-    auto const result = parse(req(std::format(R"JSON(, "marker": "{}")JSON", kHex1)));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
+    for (auto const& bad : {
+             std::string{kHex1},
+             std::string{"NOTHEX,7"},
+             std::format("{},", kHex1),
+             std::format("{},abc", kHex1),
+             std::format("{},7x", kHex1),
+             std::format("{},-1", kHex1),
+         })
+    {
+        auto const result = parse(withMarker(bad));
+        ASSERT_FALSE(result.has_value()) << "marker=" << bad;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << "marker=" << bad;
+        EXPECT_TRUE(result.error().message.empty()) << "marker=" << bad;
+    }
 }
 
-TEST(AccountLinesSpec, marker_with_bad_hex_is_malformed_cursor)
+TEST(AccountLinesSpec, marker_hint_may_have_a_leading_plus)
 {
-    auto const result = parse(req(R"JSON(, "marker": "NOTHEX,7")JSON"));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
+    auto const result = parse(withMarker(std::format("{},+7", kHex1)));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
-TEST(AccountLinesSpec, marker_with_non_numeric_hint_is_malformed_cursor)
+TEST(AccountLinesSpec, marker_text_after_a_second_comma_is_ignored)
 {
-    auto const result = parse(req(std::format(R"JSON(, "marker": "{},abc")JSON", kHex1)));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
-}
-
-TEST(AccountLinesSpec, marker_with_trailing_garbage_after_hint_is_malformed_cursor)
-{
-    auto const result = parse(req(std::format(R"JSON(, "marker": "{},7x")JSON", kHex1)));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
-    EXPECT_EQ(result.error().message, "Invalid field 'marker'.");
+    auto const result = parse(withMarker(std::format("{},7,junk", kHex1)));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
 }
 
 // --- deprecated fields ------------------------------------------------------
@@ -194,4 +255,10 @@ TEST(AccountLinesSpec, deprecated_fields_do_not_fail_the_request)
     auto const result = parse(req(R"JSON(, "ledger": 5, "peer_index": 3)JSON"));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
+}
+
+TEST(AccountLinesSpec, deprecated_fields_do_not_warn)
+{
+    auto const request = boost::json::parse(req(R"JSON(, "ledger": 5, "peer_index": 3)JSON"));
+    EXPECT_TRUE(kInputSpecV1.check(request).empty());
 }

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace rpc::spec {
@@ -107,6 +108,33 @@ runChecks(std::tuple<Items...> const& items, View const& fieldView, Warnings& ou
 }
 
 /**
+ * @brief Whether any guard in @p items skips its field for the request @p root.
+ *
+ * Guards are evaluated before every other item, wherever they appear in @p items.
+ *
+ * @tparam Items The item tuple's element types.
+ * @tparam Root A const object-view type.
+ * @param items The items to inspect.
+ * @param root Const view of the request root.
+ * @return true if a guard skips the field; false otherwise.
+ */
+template <typename... Items, typename Root>
+[[nodiscard]] bool
+skipsField(std::tuple<Items...> const& items, Root const& root)
+{
+    return std::apply(
+        [&](auto const&... item) {
+            auto skips = [&](auto const& it) {
+                if constexpr (SomeGuard<std::remove_cvref_t<decltype(it)>>)
+                    return it.skips(root);
+                return false;
+            };
+            return (skips(item) or ...);
+        },
+        items);
+}
+
+/**
  * @brief A single named field in an @ref RpcSpec, paired with its validation items.
  *
  * Holds a JSON key and an ordered tuple of requirements, modifiers, and checks.
@@ -119,6 +147,10 @@ runChecks(std::tuple<Items...> const& items, View const& fieldView, Warnings& ou
 template <SomeFieldItem... Items>
 struct FieldSpec
 {
+    static_assert(
+        not(SomeGuard<Items> or ...),
+        "rpcspec: guards such as ifAbsent apply only to bound fields");
+
     /**
      * @brief The JSON key this field reads.
      */

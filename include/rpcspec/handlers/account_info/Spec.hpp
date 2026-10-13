@@ -1,6 +1,7 @@
 /** @file */
 #pragma once
 
+#include <rpcspec/Account.hpp>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
@@ -16,17 +17,32 @@ namespace rpc::spec::handlers::account_info {
  */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("account", &Input::account, accountId),
-    field("ident", &Input::ident) | deprecated | accountId,
+    field("account", &Input::account, deferredAccountId),
+    field(
+        "ident",
+        &Input::ident,
+        ifServerXrpld(
+            ifAbsent("account"),
+            withCustomError(
+                required,
+                rpc::XrpldError::RpcInvalidParams,
+                "Missing field 'account'.")),
+        ifServerClio(deprecated),
+        deferredAccountId),
     field("signer_lists", &Input::signerLists, jsonBool),
-    field("ledger", deprecated),
-    field("strict", deprecated));
+    field("queue", &Input::queue, jsonBool),
+    field("ledger", ifServerClio(deprecated)),
+    field("strict", ifServerClio(deprecated)));
 
 /**
  * @brief The API v2 spec, derived from `kInputSpecV1`.
+ *
+ * Clio requires a bool `signer_lists`. xrpld checks that in its handler, after the account is
+ * found, so its v2 spec is v1's.
  */
-inline constexpr auto kInputSpecV2 =
-    extend(kInputSpecV1, field("signer_lists", &Input::signerLists, jsonBoolStrict));
+inline constexpr auto kInputSpecV2 = extend(
+    kInputSpecV1,
+    field("signer_lists", &Input::signerLists, JsonBoolConverterT<kIsClioBuild>{}));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).
