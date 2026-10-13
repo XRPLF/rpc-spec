@@ -341,7 +341,7 @@ TEST(SubscribeSpec, books_domain_not_hex_is_domain_malformed)
 }
 
 // ---------------------------------------------------------------------------
-// `mpt_issuances` / MptIssuanceIdArrayValidator
+// `mpt_issuances` / Uint192ArrayValidator
 //
 // Mirrors xrpld: every malformed shape is a bare RpcInvalidParams.
 // ---------------------------------------------------------------------------

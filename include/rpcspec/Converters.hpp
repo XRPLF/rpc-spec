@@ -399,7 +399,7 @@ struct AccountIdVecConverter
  * @brief Converts an array of `uint192` hex strings into a vector of xrpl::uint192.
  *
  * Expects the elements to have been checked already - pair it with a validator such as
- * @ref MptIssuanceIdArrayValidator on the same field.
+ * @ref Uint192ArrayValidator on the same field.
  */
 struct Uint192VecConverter
 {

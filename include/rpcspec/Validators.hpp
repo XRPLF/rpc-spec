@@ -1602,19 +1602,18 @@ struct Hex256ArrayValidator
 };
 
 /**
- * @brief Validates a non-empty array of MPT issuance IDs (`uint192` hex strings).
+ * @brief Validates a non-empty array of `uint192` hex strings.
  *
- * Absent fields pass. Mirrors xrpld's `subscribe`/`unsubscribe` handling of
- * `mpt_issuances`: a non-array, an empty array, a non-string element or an element that
- * fails `xrpl::uint192::parseHex` are all rejected with a plain `RpcInvalidParams`
+ * A non-array, an empty array, a non-string element or an element that fails
+ * `xrpl::uint192::parseHex` are all rejected with a plain `RpcInvalidParams`
  * ("Invalid parameters.").
  */
-struct MptIssuanceIdArrayValidator
+struct Uint192ArrayValidator
 {
     /**
-     * @brief Identifier for this item in the schema dump ("mptIssuanceIdArray").
+     * @brief Identifier for this item in the schema dump ("uint192Array").
      */
-    static constexpr std::string_view kName = "mptIssuanceIdArray";
+    static constexpr std::string_view kName = "uint192Array";
 
     /**
      * @brief Validate the field.
