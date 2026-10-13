@@ -253,6 +253,11 @@ inline constexpr auto toLower = ToLowerModifier{};
 inline constexpr auto hex256Array = Hex256ArrayValidator{};
 
 /**
+ * @brief Validates that a field contains a non-empty JSON array of MPT issuance IDs.
+ */
+inline constexpr auto mptIssuanceIdArray = MptIssuanceIdArrayValidator{};
+
+/**
  * @brief Validator instance: a non-empty array of at most @c MaxSize base58 account IDs.
  */
 template <std::size_t MaxSize>

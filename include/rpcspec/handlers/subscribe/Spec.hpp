@@ -569,6 +569,7 @@ inline constexpr auto kInputSpec = spec<Input>(
         kSubscribeAccountsValidator,
         asAccountIdVec),
     field("books", &Input::books, kBooksValidator, subscribeBooksConv),
+    field("mpt_issuances", &Input::mptIssuances, mptIssuanceIdArray, asUint192Vec),
     field("user") | deprecated,
     field("password") | deprecated,
     field("rt_accounts") | deprecated);

@@ -17,6 +17,7 @@
 
 #include <Backend.hpp>  // IWYU pragma: keep
 
+#include <format>
 #include <sstream>
 #include <string>
 
@@ -26,6 +27,8 @@ namespace {
 
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr auto kMptIssuance1 = "00000001A407AF5856CCF3C42619DAA925813FC955C72983";
+constexpr auto kMptIssuance2 = "00000002A407AF5856CCF3C42619DAA925813FC955C72983";
 
 auto
 parseSub(std::string const& json)
@@ -337,6 +340,50 @@ TEST(SubscribeSpec, books_domain_not_hex_is_domain_malformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcDomainMalformed);
 }
 
+// ---------------------------------------------------------------------------
+// `mpt_issuances` / MptIssuanceIdArrayValidator
+//
+// Mirrors xrpld: every malformed shape is a bare RpcInvalidParams.
+// ---------------------------------------------------------------------------
+
+TEST(SubscribeSpec, mpt_issuances_two_elements)
+{
+    auto const result = parseSub(
+        std::format(R"JSON({{"mpt_issuances": ["{}", "{}"]}})JSON", kMptIssuance1, kMptIssuance2));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->mptIssuances.has_value());
+    ASSERT_EQ(result->mptIssuances->size(), 2u);
+    EXPECT_EQ((*result->mptIssuances)[0], rpc::spec::detail::uint192FromValidated(kMptIssuance1));
+    EXPECT_EQ((*result->mptIssuances)[1], rpc::spec::detail::uint192FromValidated(kMptIssuance2));
+}
+
+TEST(SubscribeSpec, mpt_issuances_absent_is_nullopt)
+{
+    auto const result = parseSub(R"JSON({"streams": ["ledger"]})JSON");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->mptIssuances.has_value());
+}
+
+TEST(SubscribeSpec, mpt_issuances_malformed_is_invalid_params)
+{
+    for (
+        auto const* json : {
+            R"JSON({"mpt_issuances": "00000001A407AF5856CCF3C42619DAA925813FC955C72983"})JSON",
+            R"JSON({"mpt_issuances": []})JSON",
+            R"JSON({"mpt_issuances": [1]})JSON",
+            R"JSON({"mpt_issuances": ["xyz"]})JSON",
+            // A uint256-sized hex string is not an MPT issuance ID.
+            R"JSON({"mpt_issuances": ["00000001A407AF5856CCF3C42619DAA925813FC955C729830000000000000000"]})JSON",
+        })
+    {
+        auto const result = parseSub(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+        EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
+    }
+}
+
 TEST(SubscribeDump, field_keys_and_stream_values_present)
 {
     std::ostringstream oss;
@@ -348,6 +395,7 @@ TEST(SubscribeDump, field_keys_and_stream_values_present)
     EXPECT_TRUE(text.contains("streams")) << "missing: streams";
     EXPECT_TRUE(text.contains("accounts_proposed")) << "missing: accounts_proposed";
     EXPECT_TRUE(text.contains("books")) << "missing: books";
+    EXPECT_TRUE(text.contains("mpt_issuances")) << "missing: mpt_issuances";
     EXPECT_TRUE(text.contains("ledger")) << "missing: ledger";
     EXPECT_TRUE(text.contains("transactions_proposed")) << "missing: transactions_proposed";
     EXPECT_TRUE(text.contains("validations")) << "missing: validations";
@@ -427,6 +475,34 @@ TEST(UnsubscribeSpec, books_missing_taker_gets)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'taker_gets'");
+}
+
+TEST(UnsubscribeSpec, mpt_issuances_two_elements)
+{
+    auto const result = parseUnsub(
+        std::format(R"JSON({{"mpt_issuances": ["{}", "{}"]}})JSON", kMptIssuance1, kMptIssuance2));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->mptIssuances.has_value());
+    ASSERT_EQ(result->mptIssuances->size(), 2u);
+    EXPECT_EQ((*result->mptIssuances)[0], rpc::spec::detail::uint192FromValidated(kMptIssuance1));
+    EXPECT_EQ((*result->mptIssuances)[1], rpc::spec::detail::uint192FromValidated(kMptIssuance2));
+}
+
+TEST(UnsubscribeSpec, mpt_issuances_malformed_is_invalid_params)
+{
+    for (auto const* json : {
+             R"JSON({"mpt_issuances": {}})JSON",
+             R"JSON({"mpt_issuances": []})JSON",
+             R"JSON({"mpt_issuances": [null]})JSON",
+             R"JSON({"mpt_issuances": ["not-hex"]})JSON",
+         })
+    {
+        auto const result = parseUnsub(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+        EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
+    }
 }
 
 TEST(UnsubscribeDump, stream_values_present)
