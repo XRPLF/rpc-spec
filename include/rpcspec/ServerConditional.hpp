@@ -195,21 +195,23 @@ struct ServerConditionalValidator
     skips([[maybe_unused]] Root const& root) const
         requires(SomeGuard<Vs> or ...)
     {
-        bool result = false;
         if constexpr (Active)
         {
-            std::apply(
+            return std::apply(
                 [&](auto const&... vs) {
                     auto trySkip = [&](auto const& validator) -> bool {
                         if constexpr (SomeGuard<std::remove_cvref_t<decltype(validator)>>)
                             return validator.skips(root);
                         return false;
                     };
-                    result = (trySkip(vs) or ...);
+                    return (trySkip(vs) or ...);
                 },
                 inners);
         }
-        return result;
+        else
+        {
+            return false;
+        }
     }
 };
 

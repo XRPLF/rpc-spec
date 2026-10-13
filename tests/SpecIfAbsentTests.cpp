@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Concepts.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/SpecDumpWriter.hpp>
