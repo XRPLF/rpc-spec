@@ -10,7 +10,9 @@ add_executable(
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
+    SpecAccountChannelsTests.cpp
     SpecAccountCurrenciesTests.cpp
+    SpecAccountInfoTests.cpp
     SpecAccountLinesTests.cpp
     SpecAccountNftsTests.cpp
     SpecAccountObjectsTests.cpp
@@ -25,6 +27,7 @@ add_executable(
     SpecFieldViewTests.cpp
     SpecGatewayBalancesTests.cpp
     SpecGetAggregatePriceTests.cpp
+    SpecIfAbsentTests.cpp
     SpecJsonBoolTests.cpp
     SpecLedgerDataTests.cpp
     SpecLedgerEntryTests.cpp

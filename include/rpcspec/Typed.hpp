@@ -56,6 +56,36 @@ concept SomeConverter = requires(C const converter, detail::FieldViewArchetype c
     } -> std::same_as<std::expected<typename C::ValueType, rpc::Status>>;
 };
 
+namespace detail {
+
+/**
+ * @brief Whether @p item is, or server-conditionally holds, a guard on the root key @p key.
+ *
+ * @param item The field item to inspect.
+ * @param key The root key to look for.
+ * @return true if a guard in @p item inspects @p key.
+ */
+template <typename Item>
+[[nodiscard]] constexpr bool
+guardsKey(Item const& item, std::string_view key)
+{
+    if constexpr (requires { item.guardKey; })
+    {
+        return item.guardKey == key;
+    }
+    else if constexpr (requires { item.inners; })
+    {
+        return std::apply(
+            [&](auto const&... inner) { return (guardsKey(inner, key) or ...); }, item.inners);
+    }
+    else
+    {
+        return false;
+    }
+}
+
+}  // namespace detail
+
 /**
  * @brief A spec field bound to an Input member, with a converter producing it.
  *
@@ -69,6 +99,9 @@ concept SomeConverter = requires(C const converter, detail::FieldViewArchetype c
  * converter validate the (possibly modified) value and transform it into the
  * strong member type. So a field can clamp a number and then convert it, exactly
  * as the legacy validate+modify pipeline allowed.
+ *
+ * Guard items (e.g. `ifAbsent`) are evaluated before everything else: when one skips, the field
+ * is neither read, validated nor checked, and its member keeps its value-initialised state.
  */
 template <typename InputT, typename Member, SomeConverter Conv, SomeFieldItem... Items>
 struct BoundField
@@ -109,6 +142,8 @@ struct BoundField
     consteval BoundField(std::string_view key, Member InputT::* member, Conv conv, Items... items)
         : key{key}, member{member}, conv{conv}, items{items...}
     {
+        if ((detail::guardsKey(items, key) or ...))
+            throw "rpcspec: a field cannot be guarded on its own key";
     }
 
     static_assert(
@@ -120,7 +155,8 @@ struct BoundField
      *
      * Items execute in declaration order (requirements then modifiers), then the
      * converter transforms the (possibly modified) value into the member type and
-     * assigns it through the pointer-to-member. An absent optional field is a no-op.
+     * assigns it through the pointer-to-member. An absent optional field, or one skipped by a
+     * guard, is a no-op.
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
      * @param root Mutable root object view (modifiers may write back into it).
@@ -131,6 +167,9 @@ struct BoundField
     [[nodiscard]] MaybeError
     parseInto(Root& root, InputT& out) const
     {
+        if (skipsField(items, std::as_const(root)))
+            return {};
+
         auto fieldView = root.child(key);  // mutable view so modifiers can write in place
 
         if (auto const pre = runProcessors(items, fieldView); not pre.has_value())
@@ -156,12 +195,15 @@ struct BoundField
      *
      * @tparam Root An object-view type satisfying `SomeObjectView`.
      * @param root Const root object view.
-     * @return All warnings emitted by check items for this field.
+     * @return All warnings emitted by check items for this field; none if a guard skips it.
      */
     template <SomeObjectView Root>
     [[nodiscard]] Warnings
     check(Root const& root) const
     {
+        if (skipsField(items, root))
+            return {};
+
         auto const fieldView = root.child(key);
         Warnings out;
         runChecks(items, fieldView, out);
@@ -434,6 +476,73 @@ template <typename Field>
 alias(std::string_view alternateKey, Field field)
 {
     return AliasedField<Field>{alternateKey, field};
+}
+
+/**
+ * @brief A guard that skips its bound field while another root key is present.
+ *
+ * While @c guardKey is present the field is ignored entirely: it is neither read, validated nor
+ * checked, and its member keeps its value-initialised state. Only presence is tested, so a null
+ * or falsy value still counts. Use the `ifAbsent()` factory.
+ */
+struct IfAbsent
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("ifAbsent").
+     */
+    static constexpr std::string_view kName = "ifAbsent";
+
+    /**
+     * @brief The root key whose presence skips the field.
+     */
+    std::string_view guardKey;
+
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The writer receiving the parameters.
+     */
+    template <typename Writer>
+    void
+    describeParams(Writer& writer) const
+    {
+        writer.param("key", guardKey);
+    }
+
+    /**
+     * @brief Whether the field is skipped for this request.
+     *
+     * @param root Const view of the request root.
+     * @return true while @c guardKey is present.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] bool
+    skips(Root const& root) const
+    {
+        return root.child(guardKey).present();
+    }
+};
+
+static_assert(SomeGuard<IfAbsent>);
+
+/**
+ * @brief Process a bound field only when @p guardKey is absent from the request root.
+ *
+ * Composes with `ifServerClio()` / `ifServerXrpld()` to guard on one server only:
+ *
+ * @code
+ * field("account", &Input::account, deferredAccountId),
+ * field("ident", &Input::ident, ifServerXrpld(ifAbsent("account")), deferredAccountId)
+ * @endcode
+ *
+ * @param guardKey The root key whose presence skips the field.
+ * @return The guard item.
+ */
+[[nodiscard]] consteval auto
+ifAbsent(std::string_view guardKey)
+{
+    return IfAbsent{guardKey};
 }
 
 /**

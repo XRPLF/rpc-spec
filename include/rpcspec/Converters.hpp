@@ -18,13 +18,16 @@
 #include <rpcspec/Types.hpp>
 #include <rpcspec/detail/XrplParse.hpp>
 
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace rpc::spec {
@@ -434,6 +437,153 @@ struct Uint192VecConverter
     }
 };
 
+/**
+ * @brief How xrpld reports an account marker that is a string but does not parse.
+ */
+enum class MalformedMarker : std::uint8_t {
+    NamesField,     ///< `invalidParams`, "Invalid field '<key>'."
+    InvalidParams,  ///< `invalidParams` with no message, so xrpld's "Invalid parameters."
+};
+
+/**
+ * @brief Validates an account-pagination marker (`"<uint256hex>,<uint64>"`) and yields its text.
+ *
+ * On xrpld the hint is read the way xrpld's handlers read it: up to the next comma, with an
+ * optional leading `+`.
+ *
+ * @tparam OnXrpld How xrpld reports a marker that does not parse.
+ */
+template <MalformedMarker OnXrpld>
+struct AccountMarkerStrConverterT
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("accountMarker").
+     */
+    static constexpr std::string_view kName = "accountMarker";
+
+    /**
+     * @brief The value this converter produces (`std::string`).
+     */
+    using ValueType = std::string;
+
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] Parsed<ValueType>
+    parse(View const& fieldView) const
+    {
+        if (not fieldView.isString())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::XrpldError::RpcInvalidParams,
+                kIsXrpldBuild ? rpc::expectedFieldMessage(fieldView.key(), "string")
+                              : rpc::notStringFieldMessage(fieldView.key()),
+            }};
+        }
+        auto const sv = fieldView.asString();
+        auto const malformed = [&] {
+            if constexpr (kIsXrpldBuild and OnXrpld == MalformedMarker::InvalidParams)
+            {
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+            }
+            else
+            {
+                return std::unexpected{rpc::Status{
+                    rpc::kMalformedField,
+                    rpc::malformedCursorMessage(fieldView.key()),
+                }};
+            }
+        };
+        auto const commaPos = sv.find(',');
+        if (commaPos == std::string_view::npos)
+            return malformed();
+        auto const hexPart = std::string{sv.substr(0, commaPos)};
+        auto hintPart = sv.substr(commaPos + 1);
+        xrpl::uint256 index;
+        if (not index.parseHex(hexPart.c_str()))
+            return malformed();
+        if constexpr (kIsXrpldBuild)
+        {
+            hintPart = hintPart.substr(0, hintPart.find(','));
+            if (hintPart.starts_with('+'))
+                hintPart.remove_prefix(1);
+        }
+        uint64_t hint = 0;
+        auto const [ptr, ec] =
+            std::from_chars(hintPart.data(), hintPart.data() + hintPart.size(), hint);
+        if (ec != std::errc() or ptr != hintPart.data() + hintPart.size())
+            return malformed();
+        return std::string{sv};
+    }
+};
+
+/**
+ * @brief Wraps a converter so that, on xrpld, an empty string reads as an absent field.
+ *
+ * xrpld treats an empty optional account filter (`peer`, `destination_account`) as no filter.
+ * On Clio the wrapped converter sees every value, as before.
+ *
+ * @tparam Conv The converter applied to any other value.
+ */
+template <typename Conv>
+struct EmptyAsAbsentConverter
+{
+    /**
+     * @brief Identifier for this item in the schema dump; the wrapped converter's.
+     */
+    static constexpr std::string_view kName = Conv::kName;
+
+    /**
+     * @brief The value this converter produces: the wrapped value, or nullopt for `""`.
+     */
+    using ValueType = std::optional<typename Conv::ValueType>;
+
+    /**
+     * @brief The wrapped converter.
+     */
+    Conv conv;
+
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] Parsed<ValueType>
+    parse(View const& fieldView) const
+    {
+        if constexpr (kIsXrpldBuild)
+        {
+            if (fieldView.isString() and fieldView.asString().empty())
+                return ValueType{};
+        }
+        auto value = conv.parse(fieldView);
+        if (not value.has_value())
+            return std::unexpected{std::move(value).error()};
+        return ValueType{std::move(value).value()};
+    }
+};
+
+/**
+ * @brief Wrap @p conv so that, on xrpld, an empty string reads as an absent field.
+ *
+ * @param conv The converter applied to any other value.
+ * @return The wrapping converter.
+ */
+template <typename Conv>
+[[nodiscard]] consteval auto
+emptyAsAbsent(Conv conv)
+{
+    return EmptyAsAbsentConverter<Conv>{conv};
+}
+
 // NOLINTBEGIN(readability-identifier-naming)
 /**
  * @brief Converter instance: validates and decodes an account field into xrpl::AccountID with
@@ -494,6 +644,17 @@ inline constexpr auto jsonBool = JsonBoolConverterT<false>{};
  * @brief Converter instance: strict bool converter (field must be a JSON bool; V2 API semantics).
  */
 inline constexpr auto jsonBoolStrict = JsonBoolConverterT<true>{};
+
+/**
+ * @brief Converter instance: an account marker; on xrpld a malformed one names the field.
+ */
+inline constexpr auto accountMarkerStr = AccountMarkerStrConverterT<MalformedMarker::NamesField>{};
+
+/**
+ * @brief Converter instance: an account marker; on xrpld a malformed one is "Invalid parameters."
+ */
+inline constexpr auto accountMarkerStrInvalidParams =
+    AccountMarkerStrConverterT<MalformedMarker::InvalidParams>{};
 // NOLINTEND(readability-identifier-naming)
 
 }  // namespace rpc::spec

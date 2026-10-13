@@ -1,8 +1,6 @@
 /** @file */
 #pragma once
 
-#include <xrpl/basics/base_uint.h>
-
 #include <rpcspec/Account.hpp>
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
@@ -12,80 +10,9 @@
 #include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
 
-#include <charconv>
 #include <cstdint>
-#include <expected>
-#include <string>
-#include <string_view>
 
 namespace rpc::spec::handlers::account_offers {
-
-/**
- * @brief Converts the account marker str field into its strongly-typed value.
- */
-struct AccountMarkerStrConverter
-{
-    /**
-     * @brief Identifier for this item in the schema dump ("accountMarker").
-     */
-    static constexpr std::string_view kName = "accountMarker";
-
-    /**
-     * @brief The value this converter produces (`std::string`).
-     */
-    using ValueType = std::string;
-
-    /**
-     * @brief Validate the field and produce its strongly-typed value.
-     *
-     * @tparam View The field-view type supplied by the backend.
-     * @param fieldView The field to read.
-     * @return The converted value, or a Status describing the failure.
-     */
-    template <SomeFieldView View>
-    [[nodiscard]] Parsed<ValueType>
-    parse(View const& fieldView) const
-    {
-        if (not fieldView.isString())
-        {
-            return std::unexpected{rpc::Status{
-                rpc::XrpldError::RpcInvalidParams,
-                kIsXrpldBuild ? rpc::expectedFieldMessage(fieldView.key(), "string")
-                              : rpc::notStringFieldMessage(fieldView.key())}};
-        }
-        auto const sv = fieldView.asString();
-        auto const malformed = [&] {
-            return std::unexpected{
-                rpc::Status{rpc::kMalformedField, rpc::malformedCursorMessage(fieldView.key())}};
-        };
-        auto const commaPos = sv.find(',');
-        if (commaPos == std::string_view::npos)
-            return malformed();
-        auto const hexPart = std::string{sv.substr(0, commaPos)};
-        auto hintPart = sv.substr(commaPos + 1);
-        xrpl::uint256 index;
-        if (not index.parseHex(hexPart.c_str()))
-            return malformed();
-        if constexpr (kIsXrpldBuild)
-        {
-            hintPart = hintPart.substr(0, hintPart.find(','));
-            if (hintPart.starts_with('+'))
-                hintPart.remove_prefix(1);
-        }
-        uint64_t hint = 0;
-        auto const [ptr, ec] =
-            std::from_chars(hintPart.data(), hintPart.data() + hintPart.size(), hint);
-        if (ec != std::errc() or ptr != hintPart.data() + hintPart.size())
-            return malformed();
-        return std::string{sv};
-    }
-};
-
-// NOLINTNEXTLINE(readability-identifier-naming)
-/**
- * @brief Converter instance: account marker str.
- */
-inline constexpr auto accountMarkerStr = AccountMarkerStrConverter{};
 
 /**
  * @brief The API v1 spec; see `kInputSpecV2` for the v2 differences.

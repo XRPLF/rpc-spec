@@ -52,9 +52,7 @@ struct Input
     uint32_t limit;
 
     /**
-     * @brief Opaque pagination cursor; may encode an account plus a hint, not a single id.
-     *
-     * Re-parsed by traverseOwnedNodes downstream, so kept as a validated string.
+     * @brief Pagination cursor, `"<uint256hex>,<uint64>"`, kept as the validated string.
      */
     std::optional<std::string> marker;
 };
