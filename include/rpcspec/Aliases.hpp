@@ -9,6 +9,7 @@
 #include <rpcspec/WithCustomError.hpp>
 
 #include <array>
+#include <cstddef>
 #include <string>
 #include <string_view>
 
@@ -51,6 +52,30 @@ consteval auto
 min(T value)
 {
     return Min{value};
+}
+
+/**
+ * @brief Requires an array field to hold at least @p value elements.
+ *
+ * @param value The inclusive lower bound on the number of elements.
+ * @return   A `MinArrayLength` validator configured with @p value.
+ */
+consteval auto
+minArrayLength(std::size_t value)
+{
+    return MinArrayLength{value};
+}
+
+/**
+ * @brief Requires an array field to hold at most @p value elements.
+ *
+ * @param value The inclusive upper bound on the number of elements.
+ * @return   A `MaxArrayLength` validator configured with @p value.
+ */
+consteval auto
+maxArrayLength(std::size_t value)
+{
+    return MaxArrayLength{value};
 }
 
 /**

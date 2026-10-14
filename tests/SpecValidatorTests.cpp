@@ -201,6 +201,64 @@ TEST(RpcSpecDSLMin, uint32)
     EXPECT_TRUE(kSpec.process(good).has_value());
 }
 
+TEST(RpcSpecDSLMinArrayLength, rejects_shorter_arrays)
+{
+    static constexpr auto kSpec = RpcSpec{
+        field("ids", type<JsonArray>, minArrayLength(2)),
+    };
+
+    auto bad = boost::json::parse(R"JSON({ "ids": [1] })JSON");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_TRUE(result.error().message.empty());
+
+    auto good = boost::json::parse(R"JSON({ "ids": [1, 2] })JSON");
+    EXPECT_TRUE(kSpec.process(good).has_value());
+
+    auto absent = boost::json::parse(R"JSON({})JSON");
+    EXPECT_TRUE(kSpec.process(absent).has_value());
+}
+
+TEST(RpcSpecDSLMinArrayLength, ignores_non_arrays)
+{
+    static constexpr auto kSpec = RpcSpec{
+        field("ids", minArrayLength(2)),
+    };
+
+    auto request = boost::json::parse(R"JSON({ "ids": "x" })JSON");
+    EXPECT_TRUE(kSpec.process(request).has_value());
+}
+
+TEST(RpcSpecDSLMaxArrayLength, rejects_longer_arrays)
+{
+    static constexpr auto kSpec = RpcSpec{
+        field("ids", type<JsonArray>, maxArrayLength(2)),
+    };
+
+    auto bad = boost::json::parse(R"JSON({ "ids": [1, 2, 3] })JSON");
+    auto const result = kSpec.process(bad);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_TRUE(result.error().message.empty());
+
+    auto good = boost::json::parse(R"JSON({ "ids": [1, 2] })JSON");
+    EXPECT_TRUE(kSpec.process(good).has_value());
+
+    auto empty = boost::json::parse(R"JSON({ "ids": [] })JSON");
+    EXPECT_TRUE(kSpec.process(empty).has_value());
+}
+
+TEST(RpcSpecDSLMaxArrayLength, ignores_non_arrays)
+{
+    static constexpr auto kSpec = RpcSpec{
+        field("ids", maxArrayLength(0)),
+    };
+
+    auto request = boost::json::parse(R"JSON({ "ids": "x" })JSON");
+    EXPECT_TRUE(kSpec.process(request).has_value());
+}
+
 TEST(RpcSpecDSLBetween, uint32_in_range_passes)
 {
     static constexpr auto kSpec = RpcSpec{

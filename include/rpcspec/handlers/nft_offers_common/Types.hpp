@@ -40,7 +40,7 @@ struct Input
      */
     xrpl::uint256 nftID;
 
-    uint32_t limit;  ///< Clamped to [kLimitMin, kLimitMax]
+    uint32_t limit;  ///< Clamped to [kLimitMin, kLimitMax] on Clio; xrpld clamps by role
 
     /**
      * @brief Value of the `marker` request field.
