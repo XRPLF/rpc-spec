@@ -3,6 +3,7 @@
 
 #include <xrpl/protocol/AccountID.h>
 #include <xrpl/protocol/Book.h>
+#include <xrpl/protocol/UintTypes.h>
 
 #include <optional>
 #include <string>
@@ -78,6 +79,11 @@ struct Input
      * @brief Value of the `books` request field.
      */
     std::optional<std::vector<OrderBook>> books;
+
+    /**
+     * @brief Value of the `mpt_issuances` request field.
+     */
+    std::optional<std::vector<xrpl::MPTID>> mptIssuances;
 };
 
 }  // namespace rpc::spec::handlers::subscribe

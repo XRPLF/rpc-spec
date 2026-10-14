@@ -396,6 +396,48 @@ struct AccountIdVecConverter
 };
 
 /**
+ * @brief Converts an array of `uint192` hex strings into a vector of xrpl::uint192.
+ *
+ * Expects the elements to have been checked already - pair it with a validator such as
+ * @ref Uint192ArrayValidator on the same field.
+ */
+struct Uint192VecConverter
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("uint192Vec").
+     */
+    static constexpr std::string_view kName = "uint192Vec";
+
+    /**
+     * @brief The value this converter produces (`std::optional<std::vector<xrpl::uint192>>`).
+     */
+    using ValueType = std::optional<std::vector<xrpl::uint192>>;
+
+    /**
+     * @brief Validate the field and produce its strongly-typed value.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to read.
+     * @return The converted value, or a Status describing the failure.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] Parsed<ValueType>
+    parse(View const& fieldView) const
+    {
+        auto const size = fieldView.arraySize();
+        std::vector<xrpl::uint192> result;
+        result.reserve(size);
+        for (auto i = 0uz; i < size; ++i)
+        {
+            result.push_back(
+                detail::uint192FromValidated(std::string{fieldView.element(i).asString()}));
+        }
+
+        return ValueType{std::move(result)};
+    }
+};
+
+/**
  * @brief How xrpld reports an account marker that is a string but does not parse.
  */
 enum class MalformedMarker : std::uint8_t {
@@ -586,6 +628,11 @@ inline constexpr auto asUint192 = Uint192HexConverter{};
  * @brief Converter instance: decodes an array of base58 accounts into a vector of AccountID.
  */
 inline constexpr auto asAccountIdVec = AccountIdVecConverter{};
+
+/**
+ * @brief Converter instance: decodes an array of uint192 hex strings into a vector of uint192.
+ */
+inline constexpr auto asUint192Vec = Uint192VecConverter{};
 
 /**
  * @brief Converter instance: lenient bool converter (any JSON scalar coerced to bool; V1 API

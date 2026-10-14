@@ -1602,6 +1602,51 @@ struct Hex256ArrayValidator
 };
 
 /**
+ * @brief Validates a non-empty array of `uint192` hex strings.
+ *
+ * A non-array, an empty array, a non-string element or an element that fails
+ * `xrpl::uint192::parseHex` are all rejected with a plain `RpcInvalidParams`
+ * ("Invalid parameters.").
+ */
+struct Uint192ArrayValidator
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("uint192Array").
+     */
+    static constexpr std::string_view kName = "uint192Array";
+
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] static MaybeError
+    verify(View const& fieldView)
+    {
+        if (not fieldView.present())
+            return {};
+        if (not fieldView.isArray() or fieldView.arraySize() == 0)
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+
+        auto const size = fieldView.arraySize();
+        for (auto i = 0uz; i < size; ++i)
+        {
+            auto const elem = fieldView.element(i);
+            if (not elem.isString())
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+
+            xrpl::uint192 parsed;
+            if (not parsed.parseHex(std::string{elem.asString()}.c_str()))
+                return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+        }
+        return {};
+    }
+};
+
+/**
  * @brief Validates an account-pagination marker in the format `"<uint256hex>,<uint64>"`.
  *
  * The string must contain a comma separating a valid `uint256` hex prefix from a decimal
