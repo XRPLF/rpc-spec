@@ -19,6 +19,7 @@
 #include <rpcspec/handlers/account_channels/Spec.hpp>
 #include <rpcspec/handlers/account_channels/Types.hpp>
 #include <rpcspec/handlers/account_currencies/Spec.hpp>
+#include <rpcspec/handlers/account_currencies/Types.hpp>
 #include <rpcspec/handlers/account_info/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
