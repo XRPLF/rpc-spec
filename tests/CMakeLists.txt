@@ -38,6 +38,7 @@ add_executable(
     SpecMPTHoldersTests.cpp
     SpecMPTokenIssuanceHistoryTests.cpp
     SpecNftHistoryTests.cpp
+    SpecNftOffersTests.cpp
     SpecNoRippleCheckTests.cpp
     SpecSubscribeTests.cpp
     SpecTransactionEntryTests.cpp

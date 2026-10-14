@@ -26,9 +26,13 @@
 #include <rpcspec/handlers/account_nfts/Types.hpp>
 #include <rpcspec/handlers/account_offers/Spec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
+#include <rpcspec/handlers/deposit_authorized/Spec.hpp>
+#include <rpcspec/handlers/deposit_authorized/Types.hpp>
 #include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
+#include <rpcspec/handlers/nft_offers_common/Spec.hpp>
+#include <rpcspec/handlers/nft_offers_common/Types.hpp>
 #include <rpcspec/handlers/transaction_entry/Spec.hpp>
 #include <rpcspec/handlers/vault_info/Spec.hpp>
 
@@ -44,6 +48,7 @@ using namespace rpc::spec;
 namespace {
 
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
 
 auto
@@ -100,6 +105,20 @@ parseAccountChannels(std::string const& json)
 {
     auto value = boost::json::parse(json);
     return handlers::account_channels::kInputSpec.parse(value);
+}
+
+auto
+parseDepositAuthorized(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::deposit_authorized::kInputSpec.parse(value);
+}
+
+auto
+parseNftOffers(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::nft_offers_common::kInputSpec.parse(value);
 }
 
 auto
@@ -488,4 +507,77 @@ TEST(AccountInfoSpecClio, ident_warns_beside_account)
     auto const request = boost::json::parse(
         std::format(R"JSON({{"account": "{}", "ident": "{}"}})JSON", kAcct1, kAcct1));
     EXPECT_EQ(handlers::account_info::kInputSpecV1.check(request).size(), 1u);
+}
+
+TEST(DepositAuthorizedSpecClio, non_string_account_is_not_string)
+{
+    auto const result = parseDepositAuthorized(
+        std::format(R"JSON({{"source_account": 5, "destination_account": "{}"}})JSON", kAcct2));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "source_accountNotString");
+}
+
+TEST(DepositAuthorizedSpecClio, empty_credentials_parse)
+{
+    auto const result = parseDepositAuthorized(
+        std::format(
+            R"JSON({{"source_account": "{}", "destination_account": "{}", "credentials": []}})JSON",
+            kAcct1,
+            kAcct2));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->credentials.has_value());
+    EXPECT_TRUE(result->credentials->empty());
+}
+
+TEST(DepositAuthorizedSpecClio, non_array_credentials_is_bare_invalid_params)
+{
+    auto const result = parseDepositAuthorized(
+        std::format(
+            R"JSON({{"source_account": "{}", "destination_account": "{}", "credentials": "x"}})JSON",
+            kAcct1,
+            kAcct2));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_TRUE(result.error().message.empty()) << "unexpected: " << result.error().message;
+}
+
+TEST(DepositAuthorizedSpecClio, non_hex_credential_is_item_error)
+{
+    auto const result = parseDepositAuthorized(
+        std::format(
+            R"JSON({{"source_account": "{}", "destination_account": "{}", "credentials": ["x"]}})JSON",
+            kAcct1,
+            kAcct2));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Item is not a valid uint256 type.");
+}
+
+TEST(NftOffersSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseNftOffers(std::format(R"JSON({{"nft_id": "{}", "limit": 1}})JSON", kHex1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::nft_offers_common::kLimitMin);
+}
+
+TEST(NftOffersSpecClio, non_string_marker_is_not_string)
+{
+    auto const result =
+        parseNftOffers(std::format(R"JSON({{"nft_id": "{}", "marker": 5}})JSON", kHex1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "markerNotString");
+}
+
+TEST(NftOffersSpecClio, non_hex_marker_is_malformed)
+{
+    auto const result =
+        parseNftOffers(std::format(R"JSON({{"nft_id": "{}", "marker": "x"}})JSON", kHex1));
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "markerMalformed");
 }

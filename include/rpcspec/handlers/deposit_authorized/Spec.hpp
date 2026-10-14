@@ -2,10 +2,12 @@
 #pragma once
 
 #include <xrpl/basics/base_uint.h>
+#include <xrpl/protocol/Protocol.h>
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
@@ -17,6 +19,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace rpc::spec::handlers::deposit_authorized {
@@ -70,13 +73,56 @@ struct CredentialsArrayConverter
 inline constexpr auto credentialsArrayConv = CredentialsArrayConverter{};
 
 /**
+ * @brief xrpld's message for a `credentials` value that is not a non-empty array.
+ */
+inline constexpr std::string_view kCredentialsNotNonEmptyArray =
+    "Invalid field 'credentials', not is non-empty array of CredentialID(hash256).";
+
+/**
  * @brief The spec that validates a request and parses it into `Input`.
  */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("source_account", &Input::sourceAccount, required, accountId),
-    field("destination_account", &Input::destinationAccount, required, accountId),
-    field("credentials", &Input::credentials, hex256Array, credentialsArrayConv));
+    field(
+        "source_account",
+        &Input::sourceAccount,
+        required,
+        ifServerXrpld(withCustomError(
+            type<std::string>,
+            rpc::XrpldError::RpcInvalidParams,
+            "Invalid field 'source_account', not a string.")),
+        accountId),
+    field(
+        "destination_account",
+        &Input::destinationAccount,
+        required,
+        ifServerXrpld(withCustomError(
+            type<std::string>,
+            rpc::XrpldError::RpcInvalidParams,
+            "Invalid field 'destination_account', not a string.")),
+        accountId),
+    field(
+        "credentials",
+        &Input::credentials,
+        ifServerXrpld(
+            withCustomError(
+                type<JsonArray>,
+                rpc::XrpldError::RpcInvalidParams,
+                kCredentialsNotNonEmptyArray),
+            withCustomError(
+                minArrayLength(1),
+                rpc::XrpldError::RpcInvalidParams,
+                kCredentialsNotNonEmptyArray),
+            withCustomError(
+                maxArrayLength(xrpl::kMaxCredentialsArraySize),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'credentials', not array too long."),
+            withCustomError(
+                hex256Array,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'credentials', not an array of CredentialID(hash256).")),
+        ifServerClio(hex256Array),
+        credentialsArrayConv));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

@@ -6,6 +6,7 @@
 
 #include <rpcspec/Aliases.hpp>
 #include <rpcspec/Converters.hpp>
+#include <rpcspec/Errors.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
 #include <rpcspec/Typed.hpp>
@@ -13,6 +14,7 @@
 #include <rpcspec/handlers/nft_offers_common/Types.hpp>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace rpc::spec::handlers::nft_offers_common {
@@ -26,12 +28,30 @@ inline constexpr auto kInputSpec = spec<Input>(
     field(
         "limit",
         &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{1}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
         defaultTo(kLimitDefault),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
         asUint32),
-    field("marker", &Input::marker, asUint256));
+    field(
+        "marker",
+        &Input::marker,
+        ifServerXrpld(
+            withCustomError(
+                type<std::string>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'marker', not string."),
+            withCustomError(uint256Hex, rpc::XrpldError::RpcInvalidParams)),
+        asUint256));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

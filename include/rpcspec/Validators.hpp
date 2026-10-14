@@ -287,6 +287,120 @@ template <typename T>
 Min(T) -> Min<T>;
 
 /**
+ * @brief Validates that an array field holds at least `bound` elements.
+ *
+ * Silently passes if the field is absent or not an array (pair with `Type<JsonArray>`).
+ * Returns `RpcInvalidParams` when the array has fewer than `bound` elements.
+ */
+struct MinArrayLength
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("minArrayLength").
+     */
+    static constexpr std::string_view kName = "minArrayLength";
+
+    /**
+     * @brief Inclusive lower bound on the number of elements.
+     */
+    std::size_t bound;
+
+    /**
+     * @brief Construct a @ref MinArrayLength.
+     *
+     * @param value Inclusive lower bound on the number of elements.
+     */
+    consteval explicit MinArrayLength(std::size_t value) : bound{value}
+    {
+    }
+
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The dump writer.
+     */
+    template <typename Writer>
+    void
+    describeParams(Writer& writer) const
+    {
+        writer.param("bound", bound);
+    }
+
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] MaybeError
+    verify(View const& fieldView) const
+    {
+        if (fieldView.present() and fieldView.isArray() and fieldView.arraySize() < bound)
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+        return {};
+    }
+};
+
+/**
+ * @brief Validates that an array field holds at most `bound` elements.
+ *
+ * Silently passes if the field is absent or not an array (pair with `Type<JsonArray>`).
+ * Returns `RpcInvalidParams` when the array has more than `bound` elements.
+ */
+struct MaxArrayLength
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("maxArrayLength").
+     */
+    static constexpr std::string_view kName = "maxArrayLength";
+
+    /**
+     * @brief Inclusive upper bound on the number of elements.
+     */
+    std::size_t bound;
+
+    /**
+     * @brief Construct a @ref MaxArrayLength.
+     *
+     * @param value Inclusive upper bound on the number of elements.
+     */
+    consteval explicit MaxArrayLength(std::size_t value) : bound{value}
+    {
+    }
+
+    /**
+     * @brief Render this item's parameters into the schema dump.
+     *
+     * @tparam Writer The dump-writer type.
+     * @param writer The dump writer.
+     */
+    template <typename Writer>
+    void
+    describeParams(Writer& writer) const
+    {
+        writer.param("bound", bound);
+    }
+
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] MaybeError
+    verify(View const& fieldView) const
+    {
+        if (fieldView.present() and fieldView.isArray() and fieldView.arraySize() > bound)
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+        return {};
+    }
+};
+
+/**
  * @brief Modifier that clamps a numeric field's value to the closed interval `[lo, hi]`.
  *
  * Mutates the field in-place. Silently skips absent fields or type mismatches.
