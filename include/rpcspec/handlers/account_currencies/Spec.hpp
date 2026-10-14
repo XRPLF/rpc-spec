@@ -10,6 +10,8 @@
 #include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/account_currencies/Types.hpp>
 
+#include <cstdint>
+
 namespace rpc::spec::handlers::account_currencies {
 
 /**
@@ -18,6 +20,24 @@ namespace rpc::spec::handlers::account_currencies {
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     accountOrIdent(&Input::account),
+    field(
+        "limit",
+        &Input::limit,
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{1}),
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{1})),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
+        defaultTo(kLimitDefault),
+        asUint32),
+    field("marker", &Input::marker, accountMarkerStrInvalidParams),
     field("account_index", ifServerClio(deprecated)),
     field("strict", ifServerClio(deprecated)));
 
