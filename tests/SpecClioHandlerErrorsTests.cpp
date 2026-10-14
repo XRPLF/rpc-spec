@@ -305,6 +305,28 @@ TEST(AccountCurrenciesSpecClio, malformed_account_is_rejected)
     EXPECT_EQ(result.error().message, "accountMalformed");
 }
 
+TEST(AccountCurrenciesSpecClio, limit_is_clamped)
+{
+    auto const result =
+        parseAccountCurrencies(std::format(R"JSON({{"account": "{}", "limit": 1}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::account_currencies::kLimitMin);
+}
+
+TEST(AccountCurrenciesSpecClio, malformed_marker_is_malformed_cursor)
+{
+    auto const notString =
+        parseAccountCurrencies(std::format(R"JSON({{"account": "{}", "marker": 5}})JSON", kAcct1));
+    ASSERT_FALSE(notString.has_value());
+    EXPECT_EQ(notString.error().message, "markerNotString");
+
+    auto const malformed = parseAccountCurrencies(
+        std::format(R"JSON({{"account": "{}", "marker": "{},7,x"}})JSON", kAcct1, kHex1));
+    ASSERT_FALSE(malformed.has_value());
+    EXPECT_EQ(malformed.error().message, "Malformed cursor.");
+}
+
 TEST(AccountCurrenciesSpecClio, deprecated_fields_warn)
 {
     auto const request = boost::json::parse(
