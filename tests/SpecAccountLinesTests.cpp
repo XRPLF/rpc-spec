@@ -67,7 +67,8 @@ TEST(AccountLinesSpec, minimal_request_parses)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_TRUE(result->account.has_value());
-    EXPECT_FALSE(result->peer.has_value());
+    ASSERT_FALSE(result->peer.has_value());
+    EXPECT_EQ(result->peer.error(), AccountError::Missing);
     EXPECT_FALSE(result->ignoreDefault);
     EXPECT_EQ(result->limit, kLimitDefault);
     EXPECT_FALSE(result->marker.has_value());
@@ -103,8 +104,7 @@ TEST(AccountLinesSpec, peer_parses)
     auto const result = parse(req(std::format(R"JSON(, "peer": "{}")JSON", kAcct2)));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    ASSERT_TRUE(result->peer.has_value());
-    EXPECT_TRUE(result->peer->has_value());
+    EXPECT_TRUE(result->peer.has_value());
 }
 
 TEST(AccountLinesSpec, empty_peer_is_no_peer)
@@ -112,7 +112,8 @@ TEST(AccountLinesSpec, empty_peer_is_no_peer)
     auto const result = parse(req(R"JSON(, "peer": "")JSON"));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_FALSE(result->peer.has_value());
+    ASSERT_FALSE(result->peer.has_value());
+    EXPECT_EQ(result->peer.error(), AccountError::Missing);
 }
 
 TEST(AccountLinesSpec, non_string_peer_is_invalid_params)
@@ -131,9 +132,8 @@ TEST(AccountLinesSpec, malformed_peer_is_left_to_the_handler)
     auto const result = parse(req(R"JSON(, "peer": "notanaccount")JSON"));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    ASSERT_TRUE(result->peer.has_value());
-    ASSERT_FALSE(result->peer->has_value());
-    EXPECT_EQ(result->peer->error(), AccountError::Malformed);
+    ASSERT_FALSE(result->peer.has_value());
+    EXPECT_EQ(result->peer.error(), AccountError::Malformed);
 }
 
 // --- ignore_default ---------------------------------------------------------

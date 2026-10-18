@@ -5,15 +5,14 @@
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
 
-#include <optional>
+#include <expected>
 
 namespace rpc::spec::handlers::account_info {
 
 /**
  * @brief Input for the 'account_info' RPC command.
  *
- * `ident` is the fallback for a missing `account`, and is deprecated on Clio. `queue` is read
- * only on xrpld.
+ * `queue` is read only on xrpld.
  */
 struct Input
 {
@@ -23,15 +22,11 @@ struct Input
     LedgerSpecifier ledger;
 
     /**
-     * @brief Value of the `account` request field; on xrpld a malformed one is reported by the
-     * handler.
+     * @brief Value of the `account` request field, or of `ident` in its absence; on xrpld a
+     * malformed one is reported by the handler. `Missing` when neither is sent, which only Clio
+     * lets through.
      */
-    std::optional<DeferredAccountId> account;
-
-    /**
-     * @brief Value of the `ident` request field; on xrpld set only when `account` is absent.
-     */
-    std::optional<DeferredAccountId> ident;
+    DeferredAccountId account = std::unexpected{AccountError::Missing};
 
     /**
      * @brief Value of the `signer_lists` request field.

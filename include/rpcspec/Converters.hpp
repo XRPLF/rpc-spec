@@ -12,6 +12,7 @@
 #include <xrpl/basics/base_uint.h>
 #include <xrpl/protocol/AccountID.h>
 
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Concepts.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/ServerConditional.hpp>
@@ -522,11 +523,62 @@ struct AccountMarkerStrConverterT
     }
 };
 
+namespace detail {
+
+/**
+ * @brief How @ref EmptyAsAbsentConverter represents an absent value of type @p T.
+ */
+template <typename T>
+struct AbsentValue
+{
+    /**
+     * @brief The converter's value type: an optional @p T.
+     */
+    using Type = std::optional<T>;
+
+    /**
+     * @brief The absent value.
+     *
+     * @return nullopt.
+     */
+    [[nodiscard]] static constexpr Type
+    get()
+    {
+        return std::nullopt;
+    }
+};
+
+/**
+ * @brief A @ref DeferredAccountId already encodes absence, as @ref AccountError::Missing.
+ */
+template <>
+struct AbsentValue<DeferredAccountId>
+{
+    /**
+     * @brief The converter's value type: the DeferredAccountId itself.
+     */
+    using Type = DeferredAccountId;
+
+    /**
+     * @brief The absent value.
+     *
+     * @return `std::unexpected{AccountError::Missing}`.
+     */
+    [[nodiscard]] static constexpr Type
+    get()
+    {
+        return std::unexpected{AccountError::Missing};
+    }
+};
+
+}  // namespace detail
+
 /**
  * @brief Wraps a converter so that, on xrpld, an empty string reads as an absent field.
  *
  * xrpld treats an empty optional account filter (`peer`, `destination_account`) as no filter.
- * On Clio the wrapped converter sees every value, as before.
+ * On Clio the wrapped converter sees every value, as before. The value is an optional, except
+ * that a @ref DeferredAccountId is produced as-is, with `""` read as @ref AccountError::Missing.
  *
  * @tparam Conv The converter applied to any other value.
  */
@@ -539,9 +591,9 @@ struct EmptyAsAbsentConverter
     static constexpr std::string_view kName = Conv::kName;
 
     /**
-     * @brief The value this converter produces: the wrapped value, or nullopt for `""`.
+     * @brief The value this converter produces: the wrapped value, or its absent value for `""`.
      */
-    using ValueType = std::optional<typename Conv::ValueType>;
+    using ValueType = detail::AbsentValue<typename Conv::ValueType>::Type;
 
     /**
      * @brief The wrapped converter.
@@ -562,7 +614,7 @@ struct EmptyAsAbsentConverter
         if constexpr (kIsXrpldBuild)
         {
             if (fieldView.isString() and fieldView.asString().empty())
-                return ValueType{};
+                return detail::AbsentValue<typename Conv::ValueType>::get();
         }
         auto value = conv.parse(fieldView);
         if (not value.has_value())

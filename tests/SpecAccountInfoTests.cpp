@@ -49,9 +49,7 @@ TEST(AccountInfoSpec, account_parses)
     auto const result = parse(req());
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    ASSERT_TRUE(result->account.has_value());
-    EXPECT_TRUE(result->account->has_value());
-    EXPECT_FALSE(result->ident.has_value());
+    EXPECT_TRUE(result->account.has_value());
 }
 
 TEST(AccountInfoSpec, ident_is_read_when_account_is_absent)
@@ -59,9 +57,7 @@ TEST(AccountInfoSpec, ident_is_read_when_account_is_absent)
     auto const result = parse(std::format(R"JSON({{"ident": "{}"}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_FALSE(result->account.has_value());
-    ASSERT_TRUE(result->ident.has_value());
-    EXPECT_TRUE(result->ident->has_value());
+    EXPECT_TRUE(result->account.has_value());
 }
 
 TEST(AccountInfoSpec, ident_is_ignored_when_account_is_present)
@@ -71,7 +67,6 @@ TEST(AccountInfoSpec, ident_is_ignored_when_account_is_present)
         auto const result = parse(req(std::format(R"JSON(, "ident": {})JSON", ident)));
         ASSERT_TRUE(result.has_value()) << "ident=" << ident;
         EXPECT_TRUE(result->account.has_value()) << "ident=" << ident;
-        EXPECT_FALSE(result->ident.has_value()) << "ident=" << ident;
     }
 }
 
@@ -102,15 +97,13 @@ TEST(AccountInfoSpec, malformed_account_is_left_to_the_handler)
 {
     auto const fromAccount = parse(R"JSON({"account": "llIIOO"})JSON");
     ASSERT_TRUE(fromAccount.has_value());
-    ASSERT_TRUE(fromAccount->account.has_value());
-    ASSERT_FALSE(fromAccount->account->has_value());
-    EXPECT_EQ(fromAccount->account->error(), AccountError::Malformed);
+    ASSERT_FALSE(fromAccount->account.has_value());
+    EXPECT_EQ(fromAccount->account.error(), AccountError::Malformed);
 
     auto const fromIdent = parse(R"JSON({"ident": "llIIOO"})JSON");
     ASSERT_TRUE(fromIdent.has_value());
-    ASSERT_TRUE(fromIdent->ident.has_value());
-    ASSERT_FALSE(fromIdent->ident->has_value());
-    EXPECT_EQ(fromIdent->ident->error(), AccountError::Malformed);
+    ASSERT_FALSE(fromIdent->account.has_value());
+    EXPECT_EQ(fromIdent->account.error(), AccountError::Malformed);
 }
 
 // --- signer_lists / queue -----------------------------------------------------
