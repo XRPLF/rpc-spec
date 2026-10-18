@@ -1,7 +1,8 @@
 /**
  * @file
  * @brief Tests for the `ifAbsent(guardKey)` guard: a bound field processed only when
- * another root key is absent, on both servers or, via `ifServer*`, on one.
+ * another root key is absent, on both servers or, via `ifServer*`, on one. Also covers the
+ * `never` guard and two keys binding one member.
  */
 
 #include <boost/json/parse.hpp>
@@ -284,6 +285,72 @@ TEST(RpcSpecDSLIfAbsent, neither_primary_nor_fallback_reports_missing_primary)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "Missing field 'primary'.");
+}
+
+// --- two keys, one member -------------------------------------------------------
+
+namespace {
+
+struct SharedInput
+{
+    std::optional<std::string> value;
+};
+
+// The account/ident shape: `fallback` feeds the member only when `primary` is not sent.
+constexpr auto kSharedSpec = spec<SharedInput>(
+    field("fallback", &SharedInput::value, ifAbsent("primary"), asString),
+    field("primary", &SharedInput::value, asString));
+
+static_assert(
+    distinctBoundMemberCount(
+        field("fallback", &SharedInput::value, asString),
+        field("primary", &SharedInput::value, asString)) == 1);
+
+}  // namespace
+
+TEST(RpcSpecDSLIfAbsent, shared_member_is_read_from_the_primary_key)
+{
+    auto value = boost::json::parse(R"JSON({ "primary": "a", "fallback": "b" })JSON");
+    auto const result = kSharedSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->value, "a");
+}
+
+TEST(RpcSpecDSLIfAbsent, shared_member_is_read_from_the_fallback_key)
+{
+    auto value = boost::json::parse(R"JSON({ "fallback": "b" })JSON");
+    auto const result = kSharedSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->value, "b");
+}
+
+TEST(RpcSpecDSLIfAbsent, shared_member_stays_unset_when_neither_key_is_sent)
+{
+    auto value = boost::json::parse(R"JSON({})JSON");
+    auto const result = kSharedSpec.parse(value);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->value.has_value());
+}
+
+// --- never --------------------------------------------------------------------
+
+namespace {
+
+constexpr auto kNeverSpec = spec<Input>(field("value", &Input::value, never, deprecated, asUint32));
+
+}  // namespace
+
+TEST(RpcSpecDSLIfAbsent, never_skips_the_field)
+{
+    auto const result = parse(kNeverSpec, R"JSON({ "value": "not a number" })JSON");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->value.has_value());
+}
+
+TEST(RpcSpecDSLIfAbsent, never_suppresses_warnings)
+{
+    auto const request = boost::json::parse(R"JSON({ "value": 7 })JSON");
+    EXPECT_TRUE(kNeverSpec.check(request).empty());
 }
 
 // --- ordering -----------------------------------------------------------------

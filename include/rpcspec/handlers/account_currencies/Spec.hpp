@@ -19,7 +19,18 @@ namespace rpc::spec::handlers::account_currencies {
  */
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
-    accountOrIdent(&Input::account),
+    field(
+        "ident",
+        &Input::account,
+        ifServerXrpld(
+            ifAbsent("account"),
+            withCustomError(
+                required,
+                rpc::XrpldError::RpcInvalidParams,
+                "Missing field 'account'.")),
+        ifServerClio(never),
+        deferredAccountId),
+    field("account", &Input::account, ifServerClio(required), deferredAccountId),
     field(
         "limit",
         &Input::limit,

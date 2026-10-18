@@ -17,10 +17,9 @@ namespace rpc::spec::handlers::account_info {
  */
 inline constexpr auto kInputSpecV1 = spec<Input>(
     ledgerSelector(&Input::ledger),
-    field("account", &Input::account, deferredAccountId),
     field(
         "ident",
-        &Input::ident,
+        &Input::account,
         ifServerXrpld(
             ifAbsent("account"),
             withCustomError(
@@ -29,6 +28,7 @@ inline constexpr auto kInputSpecV1 = spec<Input>(
                 "Missing field 'account'.")),
         ifServerClio(deprecated),
         deferredAccountId),
+    field("account", &Input::account, deferredAccountId),
     field("signer_lists", &Input::signerLists, jsonBool),
     field("queue", &Input::queue, jsonBool),
     field("ledger", ifServerClio(deprecated)),

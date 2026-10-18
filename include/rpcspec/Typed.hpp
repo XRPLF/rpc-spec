@@ -546,49 +546,125 @@ ifAbsent(std::string_view guardKey)
 }
 
 /**
- * @brief Count the number of distinct keys among the bound fields.
+ * @brief A guard that always skips its bound field.
  *
- * A later field that re-binds an existing key (an override from `extend()`,
- * e.g. a V2 spec retightening a V1 field) is counted once, so the count
- * reflects how many `InputT` members are covered, not the raw number of
- * bindings written.
- *
- * @tparam Fields The field types in the spec.
- * @param fields The fields to inspect.
- * @return The number of distinct bound keys.
+ * The field is never read, validated nor checked, and its member keeps its value-initialised
+ * state. Meant for `ifServerClio()` / `ifServerXrpld()`, to bind a field on one server only.
+ * Use the `never` instance.
  */
-template <typename... Fields>
-[[nodiscard]] consteval std::size_t
-distinctBoundKeyCount(Fields const&... fields)
+struct Never
 {
-    constexpr std::size_t kN = sizeof...(Fields);
-    if constexpr (kN == 0)
+    /**
+     * @brief Identifier for this item in the schema dump ("never").
+     */
+    static constexpr std::string_view kName = "never";
+
+    /**
+     * @brief Whether the field is skipped for this request.
+     *
+     * @return Always true.
+     */
+    template <SomeObjectView Root>
+    [[nodiscard]] bool
+    skips(Root const&) const
     {
-        return 0;
+        return true;
+    }
+};
+
+static_assert(SomeGuard<Never>);
+
+/**
+ * @brief Guard instance: skip the bound field entirely.
+ *
+ * @code
+ * field("ident", &Input::account, ifServerClio(never), deferredAccountId)
+ * @endcode
+ */
+// NOLINTNEXTLINE(readability-identifier-naming)
+inline constexpr auto never = Never{};
+
+namespace detail {
+
+/**
+ * @brief Whether @p lhs and @p rhs are both bound fields binding the same Input member.
+ *
+ * @param lhs A field.
+ * @param rhs Another field.
+ * @return true when both bind the same member.
+ */
+template <typename Lhs, typename Rhs>
+[[nodiscard]] constexpr bool
+bindsSameMember(Lhs const& lhs, Rhs const& rhs)
+{
+    if constexpr (kIsBoundField<Lhs> and kIsBoundField<Rhs>)
+    {
+        if constexpr (std::is_same_v<decltype(lhs.member), decltype(rhs.member)>)
+        {
+            return lhs.member == rhs.member;
+        }
+        else
+        {
+            return false;
+        }
     }
     else
     {
-        std::array<std::string_view, kN> const keys{fields.key...};
-        std::array<bool, kN> const bound{detail::kIsBoundField<Fields>...};
-        std::size_t distinct = 0;
-        for (auto i = 0uz; i < kN; ++i)
-        {
-            if (not bound[i])
-                continue;
-            bool seen = false;
-            for (auto j = 0uz; j < i; ++j)
-            {
-                if (bound[j] and keys[j] == keys[i])
-                {
-                    seen = true;
-                    break;
-                }
-            }
-            if (not seen)
-                ++distinct;
-        }
-        return distinct;
+        return false;
     }
+}
+
+/**
+ * @brief Whether field @p I binds a member already bound by one of the fields before it.
+ *
+ * @param fields The spec's fields.
+ * @return true when an earlier field binds the same member.
+ */
+template <std::size_t I, typename Tuple, std::size_t... Js>
+[[nodiscard]] constexpr bool
+bindsEarlierMember(Tuple const& fields, std::index_sequence<Js...>)
+{
+    return (bindsSameMember(std::get<I>(fields), std::get<Js>(fields)) or ...);
+}
+
+/**
+ * @brief Count the distinct Input members bound by @p fields.
+ *
+ * @param fields The spec's fields.
+ * @return The number of distinct bound members.
+ */
+template <typename Tuple, std::size_t... Is>
+[[nodiscard]] constexpr std::size_t
+countDistinctBoundMembers(Tuple const& fields, std::index_sequence<Is...>)
+{
+    return (
+        0uz + ... +
+        (kIsBoundField<std::remove_cvref_t<std::tuple_element_t<Is, Tuple>>> and
+                 not bindsEarlierMember<Is>(fields, std::make_index_sequence<Is>{})
+             ? 1uz
+             : 0uz));
+}
+
+}  // namespace detail
+
+/**
+ * @brief Count the number of distinct Input members among the bound fields.
+ *
+ * Several fields may bind one member: an override from `extend()` (e.g. a V2 spec retightening
+ * a V1 field), or a second key feeding the same value (e.g. `ident` for `account`). Each member
+ * is counted once, so the count reflects how many `InputT` members are covered, not the raw
+ * number of bindings written.
+ *
+ * @tparam Fields The field types in the spec.
+ * @param fields The fields to inspect.
+ * @return The number of distinct bound members.
+ */
+template <typename... Fields>
+[[nodiscard]] consteval std::size_t
+distinctBoundMemberCount(Fields const&... fields)
+{
+    return detail::countDistinctBoundMembers(
+        std::tuple<Fields const&...>{fields...}, std::index_sequence_for<Fields...>{});
 }
 
 /**
@@ -607,14 +683,15 @@ struct TypedSpec
      */
     std::tuple<Fields...> fields;
 
-    // Every member of the Input aggregate must be bound by exactly one
-    // (distinct) field. Forgetting to bind a member would silently leave it
+    // Every member of the Input aggregate must be bound by at least one
+    // field. Forgetting to bind a member would silently leave it
     // default-constructed; binding the same number of distinct members as the
     // aggregate has is therefore enforced at compile time via boost::pfr (no
     // macros/reflection). The check lives in the consteval constructor — which
     // every spec()/extend() result runs through — so a failure makes that
-    // constexpr definition ill-formed. Counting distinct keys (not raw bindings)
-    // is what lets extend() override a field without tripping the guard.
+    // constexpr definition ill-formed. Counting distinct members (not raw bindings)
+    // is what lets extend() override a field, or a second key feed the same
+    // member, without tripping the guard.
     /**
      * @brief Construct a @ref TypedSpec.
      *
@@ -622,9 +699,9 @@ struct TypedSpec
      */
     consteval explicit TypedSpec(Fields... fields) : fields{fields...}
     {
-        if (distinctBoundKeyCount(fields...) != boost::pfr::tuple_size_v<InputT>)
+        if (distinctBoundMemberCount(fields...) != boost::pfr::tuple_size_v<InputT>)
         {
-            throw "rpcspec: every Input member must be bound by exactly one field "
+            throw "rpcspec: every Input member must be bound by a field "
                   "(an Input member is unbound, or the bound-member count disagrees with the Input)";
         }
     }
@@ -787,7 +864,7 @@ private:
  * @tparam InputT The handler Input struct the spec parses into.
  * @tparam Fields The field types making up the spec.
  * @param fields The fields, in declaration order.
- * @return The constructed spec; ill-formed unless every Input member is bound exactly once.
+ * @return The constructed spec; ill-formed unless every Input member is bound.
  */
 template <typename InputT, typename... Fields>
 consteval auto

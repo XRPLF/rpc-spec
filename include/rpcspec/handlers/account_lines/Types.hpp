@@ -5,6 +5,7 @@
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
+#include <expected>
 #include <optional>
 #include <string>
 
@@ -45,7 +46,7 @@ struct Input
      * @brief Value of the `peer` request field; on xrpld a malformed one is reported by the
      * handler, and an empty one reads as absent.
      */
-    std::optional<DeferredAccountId> peer;
+    DeferredAccountId peer = std::unexpected{AccountError::Missing};
 
     /**
      * @brief Value of the `ignore_default` request field.

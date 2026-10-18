@@ -12,7 +12,8 @@ namespace rpc::spec {
  * @brief Why a deferred account field holds no account.
  */
 enum class AccountError : std::uint8_t {
-    Malformed  ///< The value is a string that does not decode to an account.
+    Missing,    ///< The request did not send the field, or sent a value that reads as absent.
+    Malformed,  ///< The value is a string that does not decode to an account.
 };
 
 /**
@@ -20,7 +21,8 @@ enum class AccountError : std::uint8_t {
  *
  * xrpld raises `actMalformed` only after it has resolved the ledger, and with the ledger fields
  * in the response, so on xrpld a string that does not decode is carried here instead of failing
- * the parse. Clio rejects it in the spec, so on Clio this always holds an account.
+ * the parse. Clio rejects it in the spec, so on Clio a present field always holds an account.
+ * A field the request may omit defaults to `std::unexpected{AccountError::Missing}`.
  */
 using DeferredAccountId = std::expected<xrpl::AccountID, AccountError>;
 

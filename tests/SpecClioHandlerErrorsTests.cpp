@@ -15,6 +15,7 @@
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
+#include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_channels/Spec.hpp>
 #include <rpcspec/handlers/account_channels/Types.hpp>
@@ -298,6 +299,15 @@ TEST(AccountCurrenciesSpecClio, ident_is_not_a_fallback)
     EXPECT_EQ(result.error().message, "Required field 'account' missing");
 }
 
+TEST(AccountCurrenciesSpecClio, malformed_ident_is_ignored_beside_account)
+{
+    auto const result = parseAccountCurrencies(
+        std::format(R"JSON({{"account": "{}", "ident": "notanaccount"}})JSON", kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_TRUE(result->account.has_value());
+}
+
 TEST(AccountCurrenciesSpecClio, malformed_account_is_rejected)
 {
     auto const result = parseAccountCurrencies(R"JSON({"account": "notanaccount"})JSON");
@@ -408,6 +418,21 @@ TEST(AccountLinesSpecClio, empty_peer_is_act_malformed)
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
 }
 
+TEST(AccountLinesSpecClio, peer_is_missing_when_absent)
+{
+    auto const absent = parseAccountLines(std::format(R"JSON({{"account": "{}"}})JSON", kAcct1));
+    ASSERT_TRUE(absent.has_value())
+        << "error: " << absent.error().error << " msg: " << absent.error().message;
+    ASSERT_FALSE(absent->peer.has_value());
+    EXPECT_EQ(absent->peer.error(), AccountError::Missing);
+
+    auto const present = parseAccountLines(
+        std::format(R"JSON({{"account": "{}", "peer": "{}"}})JSON", kAcct1, kAcct2));
+    ASSERT_TRUE(present.has_value())
+        << "error: " << present.error().error << " msg: " << present.error().message;
+    EXPECT_TRUE(present->peer.has_value());
+}
+
 TEST(AccountLinesSpecClio, ignore_default_must_be_bool)
 {
     auto const result = parseAccountLines(
@@ -471,23 +496,33 @@ TEST(AccountChannelsSpecClio, limit_is_clamped)
     EXPECT_EQ(result->limit, handlers::account_channels::kLimitMin);
 }
 
-TEST(AccountInfoSpecClio, account_and_ident_are_optional)
+TEST(AccountInfoSpecClio, neither_leaves_account_missing)
 {
     auto const result = parseAccountInfo(R"JSON({})JSON");
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_FALSE(result->account.has_value());
-    EXPECT_FALSE(result->ident.has_value());
+    ASSERT_FALSE(result->account.has_value());
+    EXPECT_EQ(result->account.error(), AccountError::Missing);
 }
 
-TEST(AccountInfoSpecClio, ident_is_parsed_beside_account)
+TEST(AccountInfoSpecClio, ident_is_read_when_account_is_absent)
 {
-    auto const result = parseAccountInfo(
-        std::format(R"JSON({{"account": "{}", "ident": "{}"}})JSON", kAcct1, kAcct1));
+    auto const result = parseAccountInfo(std::format(R"JSON({{"ident": "{}"}})JSON", kAcct1));
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_TRUE(result->account.has_value());
-    EXPECT_TRUE(result->ident.has_value());
+}
+
+TEST(AccountInfoSpecClio, account_wins_over_ident)
+{
+    auto const result = parseAccountInfo(
+        std::format(R"JSON({{"account": "{}", "ident": "{}"}})JSON", kAcct1, kAcct2));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    auto const accountOnly =
+        parseAccountInfo(std::format(R"JSON({{"account": "{}"}})JSON", kAcct1));
+    ASSERT_TRUE(accountOnly.has_value());
+    EXPECT_EQ(result->account, accountOnly->account);
 }
 
 TEST(AccountInfoSpecClio, malformed_ident_is_rejected_beside_account)
