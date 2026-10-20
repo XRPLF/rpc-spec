@@ -19,8 +19,10 @@
 
 #include <Backend.hpp>  // IWYU pragma: keep
 
+#include <cstddef>
 #include <format>
 #include <string>
+#include <utility>
 
 using namespace rpc::spec;
 using namespace rpc::spec::handlers::get_aggregate_price;

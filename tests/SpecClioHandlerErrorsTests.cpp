@@ -49,6 +49,7 @@
 #include <Backend.hpp>  // IWYU pragma: keep
 #include <xrpl_mock.hpp>
 
+#include <expected>
 #include <format>
 #include <string>
 #include <variant>
