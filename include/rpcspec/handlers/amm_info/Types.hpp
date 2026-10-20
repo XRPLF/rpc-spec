@@ -1,19 +1,20 @@
 /** @file */
 #pragma once
 
-#include <xrpl/protocol/AccountID.h>
-#include <xrpl/protocol/Issue.h>
-
+#include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/AssetTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Ledger.hpp>
 
-#include <cstdint>
-#include <optional>
-#include <string>
+#include <expected>
 
 namespace rpc::spec::handlers::amm_info {
 
 /**
  * @brief Input for the 'amm_info' RPC command.
+ *
+ * On xrpld every field but the ledger is deferred: the handler reports a malformed one after it
+ * has resolved the ledger, in xrpld's order and with the ledger fields.
  */
 struct Input
 {
@@ -25,22 +26,22 @@ struct Input
     /**
      * @brief Value of the `account` request field.
      */
-    std::optional<xrpl::AccountID> accountID;
+    DeferredAccountId accountID = std::unexpected{DeferredError::Missing};
 
     /**
      * @brief Value of the `amm_account` request field.
      */
-    std::optional<xrpl::AccountID> ammAccount;
+    DeferredAccountId ammAccount = std::unexpected{DeferredError::Missing};
 
     /**
      * @brief Value of the `asset` request field.
      */
-    xrpl::Issue issue1 = xrpl::noIssue();
+    DeferredAsset asset1 = std::unexpected{DeferredError::Missing};
 
     /**
      * @brief Value of the `asset2` request field.
      */
-    xrpl::Issue issue2 = xrpl::noIssue();
+    DeferredAsset asset2 = std::unexpected{DeferredError::Missing};
 };
 
 }  // namespace rpc::spec::handlers::amm_info

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Ledger.hpp>
 
 #include <cstdint>
@@ -46,7 +47,7 @@ struct Input
      * @brief Value of the `peer` request field; on xrpld a malformed one is reported by the
      * handler, and an empty one reads as absent.
      */
-    DeferredAccountId peer = std::unexpected{AccountError::Missing};
+    DeferredAccountId peer = std::unexpected{DeferredError::Missing};
 
     /**
      * @brief Value of the `ignore_default` request field.

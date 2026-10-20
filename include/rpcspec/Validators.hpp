@@ -933,6 +933,44 @@ struct CurrencyValidator
 };
 
 /**
+ * @brief Validates a currency code as libxrpl's `currencyFromJson` does.
+ *
+ * Everything @ref CurrencyValidator accepts, except the codes libxrpl refuses as a currency:
+ * `badCurrency` (the ISO-style "XRP") and `noCurrency`, both of which only a hex spelling reaches.
+ */
+struct StrictCurrencyValidator
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("strictCurrency").
+     */
+    static constexpr std::string_view kName = "strictCurrency";
+
+    /**
+     * @brief Validate the field.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to check.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] static MaybeError
+    verify(View const& fieldView)
+    {
+        if (auto res = CurrencyValidator::verify(fieldView); not res.has_value())
+            return res;
+        if (not fieldView.present())
+            return {};
+        xrpl::Currency currency;
+        if (not xrpl::toCurrency(currency, std::string{fieldView.asString()}) or
+            currency == xrpl::badCurrency() or currency == xrpl::noCurrency())
+        {
+            return std::unexpected{rpc::Status{rpc::kMalformedCurrency, "malformedCurrency"}};
+        }
+        return {};
+    }
+};
+
+/**
  * @brief Validates that a string field is a valid, non-`noAccount` XRPL issuer address.
  *
  * Returns `RpcInvalidParams` if the field is not a string, cannot be parsed by
@@ -1090,6 +1128,63 @@ struct ToNumberModifier
             return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
         }
         fieldView.set(val);
+        return {};
+    }
+};
+
+namespace detail {
+
+/**
+ * @brief Parse a uint32 as `beast::lexicalCastChecked` does: an optional leading `+`, then digits.
+ *
+ * @param sv The text to parse.
+ * @return The number, or nullopt when @p sv is not exactly one uint32.
+ */
+[[nodiscard]] inline std::optional<uint32_t>
+lexicalUint32(std::string_view sv)
+{
+    if (sv.starts_with('+'))
+        sv.remove_prefix(1);
+    uint32_t val = 0;
+    auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), val);
+    if (ec != std::errc() or ptr != sv.data() + sv.size())
+        return std::nullopt;
+    return val;
+}
+
+}  // namespace detail
+
+/**
+ * @brief Modifier that converts a string field holding a uint32 to that number, as xrpld reads one.
+ *
+ * Only operates when the field is present and is a string. Accepts what @ref detail::lexicalUint32
+ * does — unlike @ref ToNumberModifier, a leading `+` is allowed and a `-` is not, even on `-0` —
+ * and returns `RpcInvalidParams` for anything else.
+ */
+struct LexicalUint32Modifier
+{
+    /**
+     * @brief Identifier for this item in the schema dump ("lexicalUint32").
+     */
+    static constexpr std::string_view kName = "lexicalUint32";
+
+    /**
+     * @brief Normalise the field in place.
+     *
+     * @tparam View The field-view type supplied by the backend.
+     * @param fieldView The field to rewrite.
+     * @return Empty on success; a Status describing the failure otherwise.
+     */
+    template <SomeFieldView View>
+    [[nodiscard]] static MaybeError
+    modify(View& fieldView)
+    {
+        if (not fieldView.present() or not fieldView.isString())
+            return {};
+        auto const val = detail::lexicalUint32(fieldView.asString());
+        if (not val.has_value())
+            return std::unexpected{rpc::Status{rpc::XrpldError::RpcInvalidParams}};
+        fieldView.set(*val);
         return {};
     }
 };

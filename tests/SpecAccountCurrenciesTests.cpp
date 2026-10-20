@@ -5,13 +5,14 @@
  *
  *  xrpld reads `ident` when `account` is absent, and decodes the account only
  *  after it has resolved the ledger, so a malformed one reaches the handler as
- *  an `AccountError`. The Clio arm is pinned by SpecClioHandlerErrorsTests.
+ *  a `DeferredError`. The Clio arm is pinned by SpecClioHandlerErrorsTests.
  */
 
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_currencies/Spec.hpp>
 #include <rpcspec/handlers/account_currencies/Types.hpp>
@@ -106,7 +107,7 @@ TEST(AccountCurrenciesSpec, malformed_account_is_left_to_the_handler)
         ASSERT_TRUE(result.has_value())
             << "error: " << result.error().error << " msg: " << result.error().message;
         ASSERT_FALSE(result->account.has_value()) << key;
-        EXPECT_EQ(result->account.error(), AccountError::Malformed) << key;
+        EXPECT_EQ(result->account.error(), DeferredError::Malformed) << key;
     }
 }
 

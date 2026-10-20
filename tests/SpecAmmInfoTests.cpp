@@ -3,21 +3,18 @@
  *  GTest coverage for the `amm_info` typed spec.
  *  Compiled under RPCSPEC_IS_XRPLD.
  *
- *  NOTE on the string form of `asset`/`asset2`: the string arm of
- *  `IssueConverter::parse` (and `kStringIssueValidator`) is driven entirely by
- *  `xrpl::issueFromJson`, which the test stub implements as "accept anything"
- *  (see tests/stubs/xrpl_mock.hpp) whereas real libxrpl throws
- *  `std::runtime_error` on malformed input. Asserting the rejection behaviour
- *  here would pin mock behaviour that contradicts production, so the string arm
- *  is deliberately left to Clio's handler tests, which link real libxrpl. What
- *  *is* asserted below is everything the mock models faithfully: the type gate
- *  and the object arm.
+ *  On xrpld every field but the ledger is deferred: a value that is not an asset or an account
+ *  parses, as `DeferredError::Malformed` / `DeferredError::Malformed`, for the handler to report
+ * after it has resolved the ledger. The asset rules are libxrpl's `assetFromJson`. The Clio arm is
+ *  pinned in SpecClioHandlerErrorsTests.
  */
 
 #include <boost/json/parse.hpp>
 
 #include <gtest/gtest.h>
-#include <rpcspec/Errors.hpp>
+#include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/AssetTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/handlers/amm_info/Spec.hpp>
 #include <rpcspec/handlers/amm_info/Types.hpp>
 
@@ -34,124 +31,137 @@ namespace {
 
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
+constexpr auto kAccountZero = "rrrrrrrrrrrrrrrrrrrrrhoLvTp";
+constexpr auto kAccountOne = "rrrrrrrrrrrrrrrrrrrrBZbvji";
+constexpr auto kPublicKeyHex = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
+constexpr auto kMptId = "00000001A407AF5856CCF3C42619DAA925813FC955C72983";
 
-auto
+Input
 parse(std::string const& json)
 {
     auto value = boost::json::parse(json);
-    return kInputSpec.parse(value);
+    auto result = kInputSpec.parse(value);
+    EXPECT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    return result.value_or(Input{});
 }
 
-// `asset` as an object, with `asset2` held at a fixed valid value.
-std::string
-withAsset(std::string const& assetJson)
+DeferredAsset
+parseAsset(std::string const& assetJson)
 {
-    return std::format(R"JSON({{"asset": {}, "asset2": {{"currency": "XRP"}}}})JSON", assetJson);
+    return parse(std::format(R"JSON({{"asset": {}}})JSON", assetJson)).asset1;
 }
 
 }  // namespace
 
-TEST(AmmInfoSpec, empty_request_parses)
+TEST(AmmInfoSpec, absent_fields_are_missing)
 {
-    // Neither asset nor asset2 is `required`; both default to noIssue().
-    auto const result = parse(R"JSON({})JSON");
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
+    auto const input = parse(R"JSON({})JSON");
+    EXPECT_EQ(input.asset1, DeferredAsset{std::unexpected{DeferredError::Missing}});
+    EXPECT_EQ(input.asset2, DeferredAsset{std::unexpected{DeferredError::Missing}});
+    EXPECT_EQ(input.accountID, DeferredAccountId{std::unexpected{DeferredError::Missing}});
+    EXPECT_EQ(input.ammAccount, DeferredAccountId{std::unexpected{DeferredError::Missing}});
 }
 
-TEST(AmmInfoSpec, object_assets_parse)
+// --- assets -----------------------------------------------------------------
+
+TEST(AmmInfoSpec, issue_and_xrp_assets_parse)
 {
-    auto const result = parse(
+    auto const input = parse(
         std::format(
             R"JSON({{"asset": {{"currency": "USD", "issuer": "{}"}}, "asset2": {{"currency": "XRP"}}}})JSON",
             kAcct1));
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(input.asset1.has_value());
+    EXPECT_TRUE(input.asset1->holds<xrpl::Issue>());
+    EXPECT_EQ(input.asset2, DeferredAsset{xrpl::xrpIssue()});
 }
 
-TEST(AmmInfoSpec, xrp_object_asset_yields_xrp_issue)
+TEST(AmmInfoSpec, xrp_with_null_issuer_parses)
 {
-    auto const result = parse(
-        std::format(
-            R"JSON({{"asset": {{"currency": "XRP"}}, "asset2": {{"currency": "USD", "issuer": "{}"}}}})JSON",
-            kAcct1));
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
-    EXPECT_EQ(result->issue1, xrpl::xrpIssue());
+    EXPECT_EQ(
+        parseAsset(R"JSON({"currency": "XRP", "issuer": null})JSON"),
+        DeferredAsset{xrpl::xrpIssue()});
 }
 
-// --- the type gate ----------------------------------------------------------
-
-TEST(AmmInfoSpec, asset_neither_string_nor_object_is_issue_malformed)
+TEST(AmmInfoSpec, mpt_asset_parses)
 {
-    for (auto const* bad : {"123", "true", "[]", "null"})
+    auto const asset = parseAsset(std::format(R"JSON({{"mpt_issuance_id": "{}"}})JSON", kMptId));
+    ASSERT_TRUE(asset.has_value());
+    EXPECT_TRUE(asset->holds<xrpl::MPTIssue>());
+}
+
+TEST(AmmInfoSpec, a_value_that_is_not_an_asset_is_deferred_as_malformed)
+{
+    for (
+        std::string const& bad : {
+            std::string{R"JSON(123)JSON"},
+            std::string{R"JSON(true)JSON"},
+            std::string{R"JSON([])JSON"},
+            std::string{R"JSON(null)JSON"},
+            std::string{R"JSON("XRP")JSON"},
+            std::string{R"JSON({})JSON"},
+            std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1),
+            std::string{R"JSON({"currency": 1})JSON"},
+            std::string{R"JSON({"currency": "TOOLONGCURRENCY"})JSON"},
+            std::format(
+                R"JSON({{"currency": "0000000000000000000000005852500000000000", "issuer": "{}"}})JSON",
+                kAcct1),
+            std::format(
+                R"JSON({{"currency": "0000000000000000000000000000000000000001", "issuer": "{}"}})JSON",
+                kAcct1),
+            std::format(R"JSON({{"currency": "XRP", "issuer": "{}"}})JSON", kAcct1),
+            std::string{R"JSON({"currency": "USD"})JSON"},
+            std::string{R"JSON({"currency": "USD", "issuer": 1})JSON"},
+            std::string{R"JSON({"currency": "USD", "issuer": "notanaccount"})JSON"},
+            std::string{
+                R"JSON({"currency": "USD", "issuer": "B5F762798A53D543A014CAF8B297CFF8F2F937E8"})JSON"},
+            std::format(R"JSON({{"currency": "USD", "issuer": "{}"}})JSON", kAccountZero),
+            std::format(R"JSON({{"currency": "USD", "issuer": "{}"}})JSON", kAccountOne),
+            std::format(
+                R"JSON({{"currency": "USD", "issuer": "{}", "mpt_issuance_id": "{}"}})JSON",
+                kAcct1,
+                kMptId),
+            std::format(R"JSON({{"mpt_issuance_id": "{}", "issuer": "{}"}})JSON", kMptId, kAcct1),
+            std::string{R"JSON({"mpt_issuance_id": 1})JSON"},
+            std::string{R"JSON({"mpt_issuance_id": "NOTHEX"})JSON"},
+        })
     {
-        auto const result = parse(withAsset(bad));
-        ASSERT_FALSE(result.has_value()) << "asset=" << bad << " unexpectedly accepted";
-        EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed) << "asset=" << bad;
+        EXPECT_EQ(parseAsset(bad), DeferredAsset{std::unexpected{DeferredError::Malformed}})
+            << "asset=" << bad;
     }
 }
 
-TEST(AmmInfoSpec, asset2_neither_string_nor_object_is_issue_malformed)
+TEST(AmmInfoSpec, asset2_is_deferred_like_asset)
 {
-    auto const result = parse(R"JSON({"asset": {"currency": "XRP"}, "asset2": 123})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
+    auto const input = parse(R"JSON({"asset2": 123})JSON");
+    EXPECT_EQ(input.asset2, DeferredAsset{std::unexpected{DeferredError::Malformed}});
 }
 
-// --- the object arm ---------------------------------------------------------
-
-TEST(AmmInfoSpec, object_asset_bad_currency_is_issue_malformed)
-{
-    auto const result = parse(withAsset(R"JSON({"currency": "TOOLONGCURRENCY"})JSON"));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
-}
-
-TEST(AmmInfoSpec, object_asset_bad_issuer_is_issue_malformed)
-{
-    auto const result =
-        parse(withAsset(R"JSON({"currency": "USD", "issuer": "notanaccount"})JSON"));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
-}
-
-TEST(AmmInfoSpec, object_asset_missing_currency_is_issue_malformed)
-{
-    auto const result = parse(withAsset(std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1)));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
-}
-
-TEST(AmmInfoSpec, object_asset_non_xrp_missing_issuer_is_issue_malformed)
-{
-    auto const result = parse(withAsset(R"JSON({"currency": "USD"})JSON"));
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed);
-}
-
-// --- account fields ---------------------------------------------------------
+// --- accounts ---------------------------------------------------------------
 
 TEST(AmmInfoSpec, account_and_amm_account_parse)
 {
-    auto const result =
+    auto const input =
         parse(std::format(R"JSON({{"account": "{}", "amm_account": "{}"}})JSON", kAcct1, kAcct2));
-    ASSERT_TRUE(result.has_value())
-        << "error: " << result.error().error << " msg: " << result.error().message;
-    ASSERT_TRUE(result->accountID.has_value());
-    ASSERT_TRUE(result->ammAccount.has_value());
+    EXPECT_TRUE(input.accountID.has_value());
+    EXPECT_TRUE(input.ammAccount.has_value());
 }
 
-TEST(AmmInfoSpec, malformed_account_is_act_malformed)
+TEST(AmmInfoSpec, a_value_that_is_not_a_base58_account_is_deferred_as_malformed)
 {
-    auto const result = parse(R"JSON({"account": "notanaccount"})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
-}
-
-TEST(AmmInfoSpec, malformed_amm_account_is_act_malformed)
-{
-    auto const result = parse(R"JSON({"amm_account": "notanaccount"})JSON");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed);
+    for (std::string const& bad : {
+             std::string{R"JSON("notanaccount")JSON"},
+             std::format(R"JSON("{}")JSON", kPublicKeyHex),
+             std::string{R"JSON(42)JSON"},
+             std::string{R"JSON(null)JSON"},
+             std::string{R"JSON({})JSON"},
+         })
+    {
+        auto const input =
+            parse(std::format(R"JSON({{"account": {}, "amm_account": {}}})JSON", bad, bad));
+        EXPECT_EQ(input.accountID, DeferredAccountId{std::unexpected{DeferredError::Malformed}})
+            << "account=" << bad;
+        EXPECT_EQ(input.ammAccount, DeferredAccountId{std::unexpected{DeferredError::Malformed}})
+            << "amm_account=" << bad;
+    }
 }

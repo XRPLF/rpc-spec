@@ -10,19 +10,29 @@
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
+#include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/Typed.hpp>
 #include <rpcspec/VersionedSpec.hpp>
 #include <rpcspec/handlers/book_offers/Types.hpp>
 
 #include <expected>
 #include <string>
+#include <utility>
 
 namespace rpc::spec::handlers::book_offers {
 
 /**
  * @brief Converts the taker asset field into its strongly-typed value.
+ *
+ * On xrpld the currency and issuer values are checked here, in xrpld's order and with its
+ * messages, which name the nested field (`taker_pays.issuer`) as no field-level validator can.
+ * On Clio the section has checked them already, and the handler checks the issuer of a
+ * non-XRP currency.
+ *
+ * @tparam AmtErr The error for a currency that does not parse (xrpld only).
+ * @tparam IsrErr The error for a bad issuer.
  */
-template <rpc::XrpldError IsrErr>
+template <rpc::XrpldError AmtErr, rpc::XrpldError IsrErr>
 struct TakerAssetConverter
 {
     /**
@@ -55,6 +65,59 @@ struct TakerAssetConverter
             return xrpl::MPTIssue{mptId};
         }
 
+        if constexpr (kIsXrpldBuild)
+        {
+            return parseXrpld(fieldView);
+        }
+        else
+        {
+            return parseClio(fieldView);
+        }
+    }
+
+private:
+    template <SomeFieldView View>
+    [[nodiscard]] static Parsed<ValueType>
+    parseXrpld(View const& fieldView)
+    {
+        auto const key = std::string{fieldView.key()};
+        auto const error = [&](rpc::XrpldError code, std::string message) {
+            return std::unexpected{rpc::Status{code, std::move(message)}};
+        };
+
+        xrpl::Currency currency;
+        if (not xrpl::toCurrency(currency, std::string{fieldView.child("currency").asString()}))
+            return error(AmtErr, "Invalid field '" + key + ".currency', bad currency.");
+
+        auto account = xrpl::xrpAccount();
+        if (auto const issuerView = fieldView.child("issuer"); issuerView.present())
+        {
+            if (not issuerView.isString())
+            {
+                return error(
+                    rpc::XrpldError::RpcInvalidParams,
+                    "Invalid field '" + key + ".issuer', not string.");
+            }
+            if (not xrpl::toIssuer(account, std::string{issuerView.asString()}))
+                return error(IsrErr, "Invalid field '" + key + ".issuer', bad issuer.");
+            if (account == xrpl::noAccount())
+                return error(IsrErr, "Invalid field '" + key + ".issuer', bad issuer account one.");
+        }
+
+        if (xrpl::isXRP(currency) and not xrpl::isXRP(account))
+        {
+            return error(
+                IsrErr, "Unneeded field '" + key + ".issuer' for XRP currency specification.");
+        }
+        if (not xrpl::isXRP(currency) and xrpl::isXRP(account))
+            return error(IsrErr, "Invalid field '" + key + ".issuer', expected non-XRP issuer.");
+        return xrpl::Issue{currency, account};
+    }
+
+    template <SomeFieldView View>
+    [[nodiscard]] static Parsed<ValueType>
+    parseClio(View const& fieldView)
+    {
         auto const currSv = fieldView.child("currency").asString();
         xrpl::Currency currency{};
         if (not xrpl::toCurrency(currency, std::string{currSv}))
@@ -114,7 +177,17 @@ struct TakerConverter
         };
         if (not fieldView.isString())
             return err();
-        auto id = detail::accountFromStringStrict(std::string{fieldView.asString()});
+        auto const str = std::string{fieldView.asString()};
+        auto const id = [&] {
+            if constexpr (kIsXrpldBuild)
+            {
+                return xrpl::parseBase58<xrpl::AccountID>(str);
+            }
+            else
+            {
+                return detail::accountFromStringStrict(str);
+            }
+        }();
         if (not id.has_value())
             return err();
         return *id;
@@ -125,8 +198,25 @@ struct TakerConverter
  * @brief Validator instance: custom.
  */
 inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView) -> MaybeError {
-    if (not fieldView.isObject())
+    if (not fieldView.present())
         return {};
+
+    if constexpr (kIsXrpldBuild)
+    {
+        // xrpld reads `null` as an object without members, so it is missing its currency below.
+        if (not fieldView.isNull() and not fieldView.isObject())
+        {
+            return std::unexpected{rpc::Status{
+                rpc::XrpldError::RpcInvalidParams,
+                "Invalid field '" + std::string{fieldView.key()} + "', not object."}};
+        }
+    }
+    else
+    {
+        // Clio's type<JsonObject> reports a value that is not an object.
+        if (not fieldView.isObject())
+            return {};
+    }
 
     auto const currencyView = fieldView.child("currency");
     auto const mptView = fieldView.child("mpt_issuance_id");
@@ -151,7 +241,7 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
     // withCustomError(currency|uint192Hex, Rpc{Src,Dst}...Malformed), so those own bad *values*
     // only; that ordering is what makes a wrong type invalidParams rather than
     // src/dstCurMalformed. xrpld's validateTakerJSON names `.currency` in both arms, which
-    // misreports the mpt_issuance_id case — see #3205.
+    // misreports the mpt_issuance_id case; Clio names the field — see #3205.
     if (hasCurrency and not currencyView.isString())
     {
         return std::unexpected{rpc::Status{
@@ -161,9 +251,11 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
 
     if (hasMptId and not mptView.isString())
     {
+        // xrpld names `.currency` here too.
         return std::unexpected{rpc::Status{
             rpc::XrpldError::RpcInvalidParams,
-            "Invalid field '" + std::string{fieldView.key()} + ".mpt_issuance_id', not string."}};
+            "Invalid field '" + std::string{fieldView.key()} +
+                (kIsXrpldBuild ? ".currency" : ".mpt_issuance_id") + "', not string."}};
     }
 
     return {};
@@ -173,12 +265,14 @@ inline constexpr auto kTakerValidator = CustomValidator{[](auto const& fieldView
 /**
  * @brief Converter instance: taker asset.
  */
-inline constexpr auto takerPaysConv = TakerAssetConverter<XrpldError::RpcSrcIsrMalformed>{};
+inline constexpr auto takerPaysConv =
+    TakerAssetConverter<XrpldError::RpcSrcCurMalformed, XrpldError::RpcSrcIsrMalformed>{};
 
 /**
  * @brief Converter instance: taker asset.
  */
-inline constexpr auto takerGetsConv = TakerAssetConverter<XrpldError::RpcDstIsrMalformed>{};
+inline constexpr auto takerGetsConv =
+    TakerAssetConverter<XrpldError::RpcDstAmtMalformed, XrpldError::RpcDstIsrMalformed>{};
 
 /**
  * @brief Converter instance: taker.
@@ -192,31 +286,52 @@ inline constexpr auto takerConv = TakerConverter{};
 inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field(
-        "taker_gets",
-        &Input::takerGets,
-        required,
-        type<JsonObject>,
-        kTakerValidator,
-        section(
-            field("currency", withCustomError(currency, XrpldError::RpcDstAmtMalformed)),
-            field("mpt_issuance_id", withCustomError(uint192Hex, XrpldError::RpcDstAmtMalformed)),
-            field("issuer", withCustomError(issuer, XrpldError::RpcDstIsrMalformed))),
-        takerGetsConv),
-    field(
         "taker_pays",
         &Input::takerPays,
         required,
-        type<JsonObject>,
+        ifServerClio(type<JsonObject>),
         kTakerValidator,
         section(
-            field("currency", withCustomError(currency, XrpldError::RpcSrcCurMalformed)),
-            field("mpt_issuance_id", withCustomError(uint192Hex, XrpldError::RpcSrcCurMalformed)),
-            field("issuer", withCustomError(issuer, XrpldError::RpcSrcIsrMalformed))),
+            field(
+                "currency",
+                ifServerClio(withCustomError(currency, XrpldError::RpcSrcCurMalformed))),
+            field(
+                "mpt_issuance_id",
+                ifServerXrpld(withCustomError(
+                    uint192Hex,
+                    XrpldError::RpcSrcCurMalformed,
+                    "Invalid field 'taker_pays.mpt_issuance_id'")),
+                ifServerClio(withCustomError(uint192Hex, XrpldError::RpcSrcCurMalformed))),
+            field("issuer", ifServerClio(withCustomError(issuer, XrpldError::RpcSrcIsrMalformed)))),
         takerPaysConv),
+    field(
+        "taker_gets",
+        &Input::takerGets,
+        required,
+        ifServerClio(type<JsonObject>),
+        kTakerValidator,
+        section(
+            field(
+                "currency",
+                ifServerClio(withCustomError(currency, XrpldError::RpcDstAmtMalformed))),
+            field(
+                "mpt_issuance_id",
+                ifServerXrpld(withCustomError(
+                    uint192Hex,
+                    XrpldError::RpcDstAmtMalformed,
+                    "Invalid field 'taker_gets.mpt_issuance_id'")),
+                ifServerClio(withCustomError(uint192Hex, XrpldError::RpcDstAmtMalformed))),
+            field("issuer", ifServerClio(withCustomError(issuer, XrpldError::RpcDstIsrMalformed)))),
+        takerGetsConv),
     field(
         "taker",
         &Input::taker,
-        withCustomError(account, XrpldError::RpcInvalidParams, "Invalid field 'taker'."),
+        ifServerXrpld(withCustomError(
+            type<std::string>,
+            XrpldError::RpcInvalidParams,
+            "Invalid field 'taker', not string.")),
+        ifServerClio(
+            withCustomError(account, XrpldError::RpcInvalidParams, "Invalid field 'taker'.")),
         takerConv),
     field(
         "domain",
@@ -230,10 +345,19 @@ inline constexpr auto kInputSpec = spec<Input>(
     field(
         "limit",
         &Input::limit,
-        type<uint32_t>,
-        min(uint32_t{kLimitMin}),
-        clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax}),
+        ifServerXrpld(nullAs(kLimitDefault)),
+        ifServerXrpld(
+            withCustomError(
+                type<uint32_t>,
+                XrpldError::RpcInvalidParams,
+                "Invalid field 'limit', not unsigned integer."),
+            withCustomError(
+                min(uint32_t{kLimitMin}),
+                XrpldError::RpcInvalidParams,
+                "Invalid field 'limit'.")),
+        ifServerClio(type<uint32_t>, min(uint32_t{kLimitMin})),
         defaultTo(kLimitDefault),
+        ifServerClio(clamp(uint32_t{kLimitMin}, uint32_t{kLimitMax})),
         asUint32));
 
 /**

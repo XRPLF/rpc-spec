@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/AssetTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_channels/Spec.hpp>
 #include <rpcspec/handlers/account_channels/Types.hpp>
@@ -28,8 +30,14 @@
 #include <rpcspec/handlers/account_nfts/Types.hpp>
 #include <rpcspec/handlers/account_offers/Spec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
+#include <rpcspec/handlers/amm_info/Spec.hpp>
+#include <rpcspec/handlers/amm_info/Types.hpp>
+#include <rpcspec/handlers/book_offers/Spec.hpp>
+#include <rpcspec/handlers/book_offers/Types.hpp>
 #include <rpcspec/handlers/deposit_authorized/Spec.hpp>
 #include <rpcspec/handlers/deposit_authorized/Types.hpp>
+#include <rpcspec/handlers/get_aggregate_price/Spec.hpp>
+#include <rpcspec/handlers/get_aggregate_price/Types.hpp>
 #include <rpcspec/handlers/ledger/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Spec.hpp>
 #include <rpcspec/handlers/ledger_data/Types.hpp>
@@ -52,6 +60,29 @@ namespace {
 constexpr auto kAcct1 = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
 constexpr auto kAcct2 = "rPMh7Pi9ct699iZUTWaytJUoHcJ7cgyziK";
 constexpr auto kHex1 = "1B8590C01B0006EDFA9ED60296DD052DC5E90F99659B25014D08E1BC983515BC";
+constexpr auto kMptId = "000004C463C52827307480341125DA0577DEFC38405DBADD";
+constexpr auto kPublicKeyHex = "0330E7FC9D56BB25D6893BA3F317AE5BCF33B3291BD63DB32654A313222F7FD020";
+
+auto
+parseBookOffers(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::book_offers::kInputSpec.parse(value);
+}
+
+auto
+parseAmmInfo(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::amm_info::kInputSpec.parse(value);
+}
+
+auto
+parseAggregatePrice(std::string const& json)
+{
+    auto value = boost::json::parse(json);
+    return handlers::get_aggregate_price::kInputSpec.parse(value);
+}
 
 auto
 parseVault(std::string const& json)
@@ -424,7 +455,7 @@ TEST(AccountLinesSpecClio, peer_is_missing_when_absent)
     ASSERT_TRUE(absent.has_value())
         << "error: " << absent.error().error << " msg: " << absent.error().message;
     ASSERT_FALSE(absent->peer.has_value());
-    EXPECT_EQ(absent->peer.error(), AccountError::Missing);
+    EXPECT_EQ(absent->peer.error(), DeferredError::Missing);
 
     auto const present = parseAccountLines(
         std::format(R"JSON({{"account": "{}", "peer": "{}"}})JSON", kAcct1, kAcct2));
@@ -502,7 +533,7 @@ TEST(AccountInfoSpecClio, neither_leaves_account_missing)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_FALSE(result->account.has_value());
-    EXPECT_EQ(result->account.error(), AccountError::Missing);
+    EXPECT_EQ(result->account.error(), DeferredError::Missing);
 }
 
 TEST(AccountInfoSpecClio, ident_is_read_when_account_is_absent)
@@ -638,4 +669,227 @@ TEST(NftOffersSpecClio, non_hex_marker_is_malformed)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
     EXPECT_EQ(result.error().message, "markerMalformed");
+}
+
+TEST(BookOffersSpecClio, non_string_mpt_issuance_id_names_mpt_issuance_id_field)
+{
+    auto const result = parseBookOffers(R"JSON({
+        "taker_gets": {"mpt_issuance_id": 123},
+        "taker_pays": {"currency": "XRP"}
+    })JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+    EXPECT_EQ(result.error().message, "Invalid field 'taker_gets.mpt_issuance_id', not string.");
+}
+
+TEST(BookOffersSpecClio, non_object_taker_is_invalid_params)
+{
+    auto const result =
+        parseBookOffers(R"JSON({"taker_pays": null, "taker_gets": {"currency": "XRP"}})JSON");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+}
+
+TEST(BookOffersSpecClio, issued_currency_without_issuer_is_left_to_the_handler)
+{
+    auto const result = parseBookOffers(
+        R"JSON({"taker_pays": {"currency": "USD"}, "taker_gets": {"currency": "XRP"}})JSON");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->takerPays.holds<xrpl::Issue>());
+    EXPECT_EQ(result->takerPays.get<xrpl::Issue>().account, xrpl::xrpAccount());
+}
+
+TEST(BookOffersSpecClio, taker_may_be_a_public_key)
+{
+    auto const result = parseBookOffers(
+        std::format(
+            R"JSON({{"taker_pays": {{"currency": "XRP"}}, "taker_gets": {{"currency": "XRP"}}, "taker": "{}"}})JSON",
+            kPublicKeyHex));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_TRUE(result->taker.has_value());
+}
+
+TEST(BookOffersSpecClio, limit_is_clamped)
+{
+    auto const result = parseBookOffers(
+        R"JSON({"taker_pays": {"currency": "XRP"}, "taker_gets": {"currency": "XRP"}, "limit": 1000})JSON");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->limit, handlers::book_offers::kLimitMax);
+}
+
+TEST(AmmInfoSpecClio, assets_and_accounts_parse)
+{
+    auto const result = parseAmmInfo(
+        std::format(
+            R"JSON({{"asset": {{"currency": "USD", "issuer": "{}"}}, "asset2": {{"currency": "XRP"}}, "account": "{}", "amm_account": "{}"}})JSON",
+            kAcct1,
+            kPublicKeyHex,
+            kAcct2));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->asset1.has_value());
+    EXPECT_TRUE(result->asset1->holds<xrpl::Issue>());
+    EXPECT_EQ(result->asset2, DeferredAsset{xrpl::xrpIssue()});
+    EXPECT_TRUE(result->accountID.has_value());
+    EXPECT_TRUE(result->ammAccount.has_value());
+}
+
+TEST(AmmInfoSpecClio, absent_fields_are_missing)
+{
+    auto const result = parseAmmInfo(R"JSON({})JSON");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->asset1, DeferredAsset{std::unexpected{DeferredError::Missing}});
+    EXPECT_EQ(result->accountID, DeferredAccountId{std::unexpected{DeferredError::Missing}});
+}
+
+TEST(AmmInfoSpecClio, xrp_asset_yields_xrp_issue)
+{
+    auto const result = parseAmmInfo(R"JSON({"asset": {"currency": "XRP"}})JSON");
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    EXPECT_EQ(result->asset1, DeferredAsset{xrpl::xrpIssue()});
+}
+
+TEST(AmmInfoSpecClio, bad_asset_is_issue_malformed)
+{
+    for (auto const& asset : {
+             std::string{"123"},
+             std::string{"true"},
+             std::string{"[]"},
+             std::string{"null"},
+             std::string{R"JSON({"currency": "TOOLONGCURRENCY"})JSON"},
+             std::string{R"JSON({"currency": "USD", "issuer": "notanaccount"})JSON"},
+             std::format(R"JSON({{"issuer": "{}"}})JSON", kAcct1),
+             std::string{R"JSON({"currency": "USD"})JSON"},
+             std::format(R"JSON({{"mpt_issuance_id": "{}"}})JSON", kMptId),
+         })
+    {
+        for (auto const* key : {"asset", "asset2"})
+        {
+            auto const result = parseAmmInfo(std::format(R"JSON({{"{}": {}}})JSON", key, asset));
+            ASSERT_FALSE(result.has_value()) << key << "=" << asset;
+            EXPECT_EQ(result.error(), rpc::XrpldError::RpcIssueMalformed) << key << "=" << asset;
+        }
+    }
+}
+
+TEST(AmmInfoSpecClio, bad_account_is_act_malformed)
+{
+    for (auto const* account : {R"("notanaccount")", "42"})
+    {
+        for (auto const* key : {"account", "amm_account"})
+        {
+            auto const result = parseAmmInfo(std::format(R"JSON({{"{}": {}}})JSON", key, account));
+            ASSERT_FALSE(result.has_value()) << key << "=" << account;
+            EXPECT_EQ(result.error(), rpc::XrpldError::RpcActMalformed) << key << "=" << account;
+        }
+    }
+}
+
+TEST(GetAggregatePriceSpecClio, oracles_parse)
+{
+    auto const result = parseAggregatePrice(
+        std::format(
+            R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": [{{"oracle_document_id": "7", "account": "{}"}}]}})JSON",
+            kAcct1));
+    ASSERT_TRUE(result.has_value())
+        << "error: " << result.error().error << " msg: " << result.error().message;
+    ASSERT_TRUE(result->oracles.has_value());
+    EXPECT_EQ((*result->oracles)[0].documentId, 7u);
+}
+
+TEST(GetAggregatePriceSpecClio, required_fields)
+{
+    for (
+        auto const& json : {
+            std::format(
+                R"JSON({{"quote_asset": "XRP", "oracles": [{{"oracle_document_id": 1, "account": "{}"}}]}})JSON",
+                kAcct1),
+            std::string{R"JSON({"base_asset": "USD", "quote_asset": "XRP"})JSON"},
+        })
+    {
+        auto const result = parseAggregatePrice(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+    }
+}
+
+TEST(GetAggregatePriceSpecClio, bad_oracles_fail_the_parse)
+{
+    auto const withOracles = [](std::string const& oracles) {
+        return std::format(
+            R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "oracles": {}}})JSON", oracles);
+    };
+    auto const withElement = [&](std::string const& docId, std::string const& account) {
+        return withOracles(
+            std::format(
+                R"JSON([{{"oracle_document_id": {}, "account": {}}}])JSON", docId, account));
+    };
+    auto const account = std::format(R"JSON("{}")JSON", kAcct1);
+
+    for (auto const& json : {
+             withOracles(R"JSON("nope")JSON"),
+             withOracles("[]"),
+             withOracles("[1]"),
+             withOracles(std::format(R"JSON([{{"account": "{}"}}])JSON", kAcct1)),
+             withOracles(R"JSON([{"oracle_document_id": 1}])JSON"),
+         })
+    {
+        auto const result = parseAggregatePrice(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcOracleMalformed) << json;
+    }
+
+    for (auto const& json : {
+             withElement("-1", account),
+             withElement("null", account),
+             withElement("2.3", account),
+             withElement("true", account),
+             withElement("4294967296", account),
+             withElement(R"JSON("a")JSON", account),
+             withElement("1", R"JSON("notanaccount")JSON"),
+             withElement("1", "5"),
+         })
+    {
+        auto const result = parseAggregatePrice(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+    }
+}
+
+TEST(GetAggregatePriceSpecClio, trim_and_time_threshold)
+{
+    auto const withField = [](std::string const& key, std::string const& value) {
+        return std::format(
+            R"JSON({{"base_asset": "USD", "quote_asset": "XRP", "{}": {}, "oracles": [{{"oracle_document_id": 1, "account": "{}"}}]}})JSON",
+            key,
+            value,
+            kAcct1);
+    };
+
+    for (auto const& json : {
+             withField("trim", "1"),
+             withField("trim", "25"),
+             withField("time_threshold", "60"),
+         })
+    {
+        auto const result = parseAggregatePrice(json);
+        ASSERT_TRUE(result.has_value()) << json << " msg: " << result.error().message;
+    }
+
+    for (auto const& json : {
+             withField("trim", "0"),
+             withField("trim", "26"),
+             withField("trim", R"JSON("5")JSON"),
+             withField("time_threshold", R"JSON("60")JSON"),
+         })
+    {
+        auto const result = parseAggregatePrice(json);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+    }
 }
