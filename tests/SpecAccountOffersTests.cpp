@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_offers/Spec.hpp>
 #include <rpcspec/handlers/account_offers/Types.hpp>
@@ -75,7 +76,7 @@ TEST(AccountOffersSpec, malformed_account_is_left_to_the_handler)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_FALSE(result->account.has_value());
-    EXPECT_EQ(result->account.error(), AccountError::Malformed);
+    EXPECT_EQ(result->account.error(), DeferredError::Malformed);
 }
 
 TEST(AccountOffersSpec, non_string_account_is_invalid_params)

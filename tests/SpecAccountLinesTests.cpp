@@ -4,7 +4,7 @@
  *  Compiled under RPCSPEC_IS_XRPLD.
  *
  *  xrpld decodes `account` and `peer` only after it has resolved the ledger, so a
- *  malformed one reaches the handler as an `AccountError`; an empty `peer` is no
+ *  malformed one reaches the handler as a `DeferredError`; an empty `peer` is no
  *  filter at all. The Clio arm is pinned by SpecClioHandlerErrorsTests.
  */
 
@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_lines/Spec.hpp>
 #include <rpcspec/handlers/account_lines/Types.hpp>
@@ -68,7 +69,7 @@ TEST(AccountLinesSpec, minimal_request_parses)
         << "error: " << result.error().error << " msg: " << result.error().message;
     EXPECT_TRUE(result->account.has_value());
     ASSERT_FALSE(result->peer.has_value());
-    EXPECT_EQ(result->peer.error(), AccountError::Missing);
+    EXPECT_EQ(result->peer.error(), DeferredError::Missing);
     EXPECT_FALSE(result->ignoreDefault);
     EXPECT_EQ(result->limit, kLimitDefault);
     EXPECT_FALSE(result->marker.has_value());
@@ -95,7 +96,7 @@ TEST(AccountLinesSpec, malformed_account_is_left_to_the_handler)
         ASSERT_TRUE(result.has_value())
             << "error: " << result.error().error << " msg: " << result.error().message;
         ASSERT_FALSE(result->account.has_value()) << "account=" << bad;
-        EXPECT_EQ(result->account.error(), AccountError::Malformed) << "account=" << bad;
+        EXPECT_EQ(result->account.error(), DeferredError::Malformed) << "account=" << bad;
     }
 }
 
@@ -113,7 +114,7 @@ TEST(AccountLinesSpec, empty_peer_is_no_peer)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_FALSE(result->peer.has_value());
-    EXPECT_EQ(result->peer.error(), AccountError::Missing);
+    EXPECT_EQ(result->peer.error(), DeferredError::Missing);
 }
 
 TEST(AccountLinesSpec, non_string_peer_is_invalid_params)
@@ -133,7 +134,7 @@ TEST(AccountLinesSpec, malformed_peer_is_left_to_the_handler)
     ASSERT_TRUE(result.has_value())
         << "error: " << result.error().error << " msg: " << result.error().message;
     ASSERT_FALSE(result->peer.has_value());
-    EXPECT_EQ(result->peer.error(), AccountError::Malformed);
+    EXPECT_EQ(result->peer.error(), DeferredError::Malformed);
 }
 
 // --- ignore_default ---------------------------------------------------------

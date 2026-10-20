@@ -16,6 +16,7 @@
 #include <expected>
 #include <limits>
 #include <string>
+#include <utility>
 
 using namespace rpc::spec;
 
@@ -637,4 +638,51 @@ TEST(TypedSpecModifier, converter_validates_modified_value)
     auto const result = kSpec.parse(wrongType);  // clamp no-ops on non-uint, converter rejects
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams);
+}
+
+TEST(RpcSpecDSLLexicalUint32, reads_a_uint32_as_xrpld_does)
+{
+    struct Input
+    {
+        uint32_t value = 0;
+    };
+    static constexpr auto kSpec =
+        spec<Input>(field("value", &Input::value, lexicalUint32, asUint32));
+
+    for (auto const& [json, expected] : {
+             std::pair{R"JSON({"value": "123"})JSON", 123u},
+             std::pair{R"JSON({"value": "+5"})JSON", 5u},
+             std::pair{R"JSON({"value": "007"})JSON", 7u},
+             std::pair{R"JSON({"value": "4294967295"})JSON", std::numeric_limits<uint32_t>::max()},
+             std::pair{R"JSON({"value": 9})JSON", 9u},
+         })
+    {
+        auto request = boost::json::parse(json);
+        auto const result = kSpec.parse(request);
+        ASSERT_TRUE(result.has_value()) << json;
+        EXPECT_EQ(result->value, expected) << json;
+    }
+}
+
+TEST(RpcSpecDSLLexicalUint32, rejects_anything_else)
+{
+    static constexpr auto kSpec = RpcSpec{field("value", lexicalUint32)};
+    for (auto const* json : {
+             R"JSON({"value": "-0"})JSON",
+             R"JSON({"value": "-1"})JSON",
+             R"JSON({"value": "++5"})JSON",
+             R"JSON({"value": "+"})JSON",
+             R"JSON({"value": ""})JSON",
+             R"JSON({"value": " 5"})JSON",
+             R"JSON({"value": "5.0"})JSON",
+             R"JSON({"value": "4294967296"})JSON",
+             R"JSON({"value": "a"})JSON",
+         })
+    {
+        auto request = boost::json::parse(json);
+        auto const result = kSpec.process(request);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+        EXPECT_TRUE(result.error().message.empty()) << json;
+    }
 }

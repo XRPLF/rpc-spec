@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/Errors.hpp>
 #include <rpcspec/handlers/account_info/Spec.hpp>
 #include <rpcspec/handlers/account_info/Types.hpp>
@@ -98,12 +99,12 @@ TEST(AccountInfoSpec, malformed_account_is_left_to_the_handler)
     auto const fromAccount = parse(R"JSON({"account": "llIIOO"})JSON");
     ASSERT_TRUE(fromAccount.has_value());
     ASSERT_FALSE(fromAccount->account.has_value());
-    EXPECT_EQ(fromAccount->account.error(), AccountError::Malformed);
+    EXPECT_EQ(fromAccount->account.error(), DeferredError::Malformed);
 
     auto const fromIdent = parse(R"JSON({"ident": "llIIOO"})JSON");
     ASSERT_TRUE(fromIdent.has_value());
     ASSERT_FALSE(fromIdent->account.has_value());
-    EXPECT_EQ(fromIdent->account.error(), AccountError::Malformed);
+    EXPECT_EQ(fromIdent->account.error(), DeferredError::Malformed);
 }
 
 // --- signer_lists / queue -----------------------------------------------------

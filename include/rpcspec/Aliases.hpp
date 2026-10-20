@@ -209,6 +209,11 @@ inline constexpr auto accountBase58 = AccountBase58Validator{};
 inline constexpr auto currency = CurrencyValidator{};
 
 /**
+ * @brief Validates a currency code as libxrpl's `currencyFromJson` does.
+ */
+inline constexpr auto strictCurrency = StrictCurrencyValidator{};
+
+/**
  * @brief Validates that a field contains a valid XRPL issuer account address.
  */
 inline constexpr auto issuer = IssuerValidator{};
@@ -232,6 +237,11 @@ inline constexpr auto authorizeCredential = AuthorizeCredentialValidator{};
  * @brief Modifier that converts a string field value to a number in place.
  */
 inline constexpr auto toNumber = ToNumberModifier{};
+
+/**
+ * @brief Modifier that converts a string field holding a uint32 to that number, as xrpld does.
+ */
+inline constexpr auto lexicalUint32 = LexicalUint32Modifier{};
 
 /**
  * @brief Validates that a field contains a 256-bit value encoded as a 64-character hex string.

@@ -2,6 +2,7 @@
 #pragma once
 
 #include <rpcspec/AccountTypes.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/Ledger.hpp>
 
@@ -26,7 +27,7 @@ struct Input
      * malformed one is reported by the handler. `Missing` when neither is sent, which only Clio
      * lets through.
      */
-    DeferredAccountId account = std::unexpected{AccountError::Missing};
+    DeferredAccountId account = std::unexpected{DeferredError::Missing};
 
     /**
      * @brief Value of the `signer_lists` request field.

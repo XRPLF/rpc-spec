@@ -14,6 +14,7 @@
 
 #include <rpcspec/AccountTypes.hpp>
 #include <rpcspec/Concepts.hpp>
+#include <rpcspec/DeferredTypes.hpp>
 #include <rpcspec/JsonBool.hpp>
 #include <rpcspec/ServerConditional.hpp>
 #include <rpcspec/Types.hpp>
@@ -549,25 +550,25 @@ struct AbsentValue
 };
 
 /**
- * @brief A @ref DeferredAccountId already encodes absence, as @ref AccountError::Missing.
+ * @brief A @ref Deferred value already encodes absence, as @ref DeferredError::Missing.
  */
-template <>
-struct AbsentValue<DeferredAccountId>
+template <typename T>
+struct AbsentValue<Deferred<T>>
 {
     /**
-     * @brief The converter's value type: the DeferredAccountId itself.
+     * @brief The converter's value type: the Deferred value itself.
      */
-    using Type = DeferredAccountId;
+    using Type = Deferred<T>;
 
     /**
      * @brief The absent value.
      *
-     * @return `std::unexpected{AccountError::Missing}`.
+     * @return `std::unexpected{DeferredError::Missing}`.
      */
     [[nodiscard]] static constexpr Type
     get()
     {
-        return std::unexpected{AccountError::Missing};
+        return std::unexpected{DeferredError::Missing};
     }
 };
 
@@ -578,7 +579,7 @@ struct AbsentValue<DeferredAccountId>
  *
  * xrpld treats an empty optional account filter (`peer`, `destination_account`) as no filter.
  * On Clio the wrapped converter sees every value, as before. The value is an optional, except
- * that a @ref DeferredAccountId is produced as-is, with `""` read as @ref AccountError::Missing.
+ * that a @ref Deferred value is produced as-is, with `""` read as @ref DeferredError::Missing.
  *
  * @tparam Conv The converter applied to any other value.
  */

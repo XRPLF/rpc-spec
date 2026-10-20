@@ -271,23 +271,50 @@ public:
     operator<=>(AccountID const& other) const noexcept = default;
 };
 
+// A 160-bit value, as in libxrpl: XRP is all zeros, and a three-character code sits at byte 12.
 class Currency
 {
-    bool isXrp_ = false;
+    base_uint<160> value_;
 
 public:
-    Currency() = default;
-    explicit Currency(bool isXrp) : isXrp_(isXrp)
+    [[nodiscard]] std::uint8_t*
+    data() noexcept
     {
+        return std::begin(value_.data_);
     }
+
     [[nodiscard]] bool
-    isXrp() const noexcept
+    isZero() const noexcept
     {
-        return isXrp_;
+        return value_.isZero();
     }
+
+    [[nodiscard]] bool
+    parseHex(std::string_view sv)
+    {
+        return value_.parseHex(sv);
+    }
+
     bool
     operator==(Currency const&) const noexcept = default;
 };
+
+[[nodiscard]] inline Currency
+noCurrency()
+{
+    Currency currency;
+    currency.data()[19] = 1;
+    return currency;
+}
+
+// The ISO-style "XRP", which libxrpl refuses as a currency in favour of the all-zero one.
+[[nodiscard]] inline Currency
+badCurrency()
+{
+    Currency currency;
+    std::ranges::copy(std::string_view{"XRP"}, currency.data() + 12);
+    return currency;
+}
 
 [[nodiscard]] inline AccountID
 noAccount()
@@ -337,7 +364,7 @@ issueFromJson(std::string const&)
 [[nodiscard]] inline Issue
 xrpIssue()
 {
-    return Issue{Currency{true}, xrpAccount()};
+    return Issue{Currency{}, xrpAccount()};
 }
 
 using MPTID = uint192;
@@ -420,7 +447,7 @@ struct Book
 [[nodiscard]] inline bool
 isXRP(Currency const& currency)
 {
-    return currency.isXrp();
+    return currency.isZero();
 }
 
 // libxrpl also has isXRP(AccountID): the XRP "account" is the all-zero ID.
@@ -430,26 +457,30 @@ isXRP(AccountID const& account)
     return account.isZero();
 }
 
-// "XRP", any 3-character ISO code, or a 40-char hex code is accepted.
+// libxrpl's parse: "" or "XRP" is XRP, a 3-character code from the ISO charset, or 40 hex chars.
 [[nodiscard]] inline bool
 toCurrency(Currency& currency, std::string const& code)
 {
-    if (code == "XRP")
+    static constexpr std::string_view kIsoCharSet =
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "0123456789"
+        "<>(){}[]|?!@#$%^&*";
+
+    if (code.empty() or code == "XRP")
     {
-        currency = Currency{true};
+        currency = Currency{};
         return true;
     }
     if (code.size() == 3)
     {
-        currency = Currency{false};
+        if (code.find_first_not_of(kIsoCharSet) != std::string::npos)
+            return false;
+        currency = Currency{};
+        std::ranges::copy(code, currency.data() + 12);
         return true;
     }
-    if (code.size() == 40 and mock_detail::hexToBytes(code).has_value())
-    {
-        currency = Currency{false};
-        return true;
-    }
-    return false;
+    return currency.parseHex(code);
 }
 
 // ---- protocol/PublicKey.h ---------------------------------------------------
@@ -527,9 +558,12 @@ parseBase58<PublicKey>(TokenType type, std::string const& str)
     return PublicKey{Slice{bytes->data() + 1, 33}};
 }
 
+// As libxrpl: 40 hex characters first, then a base58 address.
 [[nodiscard]] inline bool
 toIssuer(AccountID& issuer, std::string const& str)
 {
+    if (issuer.parseHex(str))
+        return true;
     auto const parsed = parseBase58<AccountID>(str);
     if (not parsed.has_value())
         return false;

@@ -4,7 +4,9 @@
 #include <xrpl/protocol/Issue.h>
 #include <xrpl/protocol/UintTypes.h>
 
+#include <rpcspec/Account.hpp>
 #include <rpcspec/Aliases.hpp>
+#include <rpcspec/Asset.hpp>
 #include <rpcspec/Converters.hpp>
 #include <rpcspec/Ledger.hpp>
 #include <rpcspec/RpcSpec.hpp>
@@ -113,20 +115,24 @@ inline constexpr auto kInputSpec = spec<Input>(
     ledgerSelector(&Input::ledger),
     field(
         "asset",
-        &Input::issue1,
-        withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed),
-        ifType<std::string>(kStringIssueValidator),
-        ifType<JsonObject>(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed)),
-        issueConv),
+        &Input::asset1,
+        ifServerClio(
+            withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed)),
+        ifType<std::string>(ifServerClio(kStringIssueValidator)),
+        ifType<JsonObject>(
+            ifServerClio(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed))),
+        deferredAsset(issueConv)),
     field(
         "asset2",
-        &Input::issue2,
-        withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed),
-        ifType<std::string>(kStringIssueValidator),
-        ifType<JsonObject>(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed)),
-        issueConv),
-    field("amm_account", &Input::ammAccount, accountIdActMalformed),
-    field("account", &Input::accountID, accountIdActMalformed));
+        &Input::asset2,
+        ifServerClio(
+            withCustomError(type<std::string, JsonObject>, rpc::XrpldError::RpcIssueMalformed)),
+        ifType<std::string>(ifServerClio(kStringIssueValidator)),
+        ifType<JsonObject>(
+            ifServerClio(withCustomError(currencyIssue, rpc::XrpldError::RpcIssueMalformed))),
+        deferredAsset(issueConv)),
+    field("amm_account", &Input::ammAccount, deferredAccountIdActMalformed),
+    field("account", &Input::accountID, deferredAccountIdActMalformed));
 
 /**
  * @brief Version-selecting spec (resolved from Input via specFor).

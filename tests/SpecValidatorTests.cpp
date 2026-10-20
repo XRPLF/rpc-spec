@@ -672,6 +672,45 @@ TEST(RpcSpecDSLCurrency, absent_field_skipped)
     EXPECT_TRUE(kSpec.process(absent).has_value());
 }
 
+TEST(RpcSpecDSLStrictCurrency, accepts_what_currency_accepts)
+{
+    static constexpr auto kSpec = RpcSpec{field("currency", strictCurrency)};
+    for (auto const* json : {
+             R"JSON({ "currency": "XRP" })JSON",
+             R"JSON({ "currency": "USD" })JSON",
+             R"JSON({ "currency": "0000000000000000000000005553440000000000" })JSON",
+             R"JSON({})JSON",
+         })
+    {
+        auto req = boost::json::parse(json);
+        EXPECT_TRUE(kSpec.process(req).has_value()) << json;
+    }
+}
+
+TEST(RpcSpecDSLStrictCurrency, rejects_bad_and_no_currency)
+{
+    static constexpr auto kSpec = RpcSpec{field("currency", strictCurrency)};
+    for (auto const* json : {
+             R"JSON({ "currency": "0000000000000000000000005852500000000000" })JSON",
+             R"JSON({ "currency": "0000000000000000000000000000000000000001" })JSON",
+         })
+    {
+        auto req = boost::json::parse(json);
+        auto const result = kSpec.process(req);
+        ASSERT_FALSE(result.has_value()) << json;
+        EXPECT_EQ(result.error(), rpc::XrpldError::RpcInvalidParams) << json;
+    }
+}
+
+TEST(RpcSpecDSLStrictCurrency, rejects_what_currency_rejects)
+{
+    static constexpr auto kSpec = RpcSpec{field("currency", strictCurrency)};
+    auto req = boost::json::parse(R"JSON({ "currency": "" })JSON");
+    auto const result = kSpec.process(req);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().message, "currencyIsEmpty");
+}
+
 TEST(RpcSpecDSLNotSupported, absent_field_passes)
 {
     static constexpr auto kSpec = RpcSpec{
