@@ -1,6 +1,6 @@
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/AdmissionSpec.hpp>
-#include <admissionspec/BothSinks.hpp>
+#include <admissionspec/AllSinks.hpp>
 #include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ChargeSink.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
@@ -149,7 +149,9 @@ struct RecordingSink
 
 static_assert(ChargeSink<RecordingSink>);
 static_assert(ChargeSink<TokenBucketSink>);
-static_assert(ChargeSink<BothSinks<RecordingSink, TokenBucketSink>>);
+static_assert(ChargeSink<AllSinks<RecordingSink>>);
+static_assert(ChargeSink<AllSinks<RecordingSink, TokenBucketSink>>);
+static_assert(ChargeSink<AllSinks<RecordingSink, TokenBucketSink, RecordingSink>>);
 static_assert(ChargeSink<ConnectionLimiter<int32_t>::ConnectionSink>);
 
 constexpr auto kSmall = admissionSpecFor<Small>();
@@ -330,15 +332,30 @@ TEST(ChargeSinkTests, token_bucket_sink_takes_the_larger_of_cost_and_penalty)
     EXPECT_EQ(sink.standing(), Standing::Ok);
 }
 
-TEST(ChargeSinkTests, both_sinks_charges_both_and_reports_the_worse)
+TEST(ChargeSinkTests, all_sinks_charges_every_sink_and_reports_the_worst)
 {
     auto first = RecordingSink{.current = Standing::Warn};
     auto second = RecordingSink{.current = Standing::Ok};
-    auto both = BothSinks{first, second};
-    EXPECT_EQ(both.standing(), Standing::Warn);
-    EXPECT_EQ(both.charge(AdmissionDecision::admit(1.0)), Standing::Warn);
+    auto third = RecordingSink{.current = Standing::Drop};
+    auto all = AllSinks{first, second, third};
+    EXPECT_EQ(all.standing(), Standing::Drop);
+
+    // A sink at Drop does not stop the others being charged.
+    EXPECT_EQ(all.charge(AdmissionDecision::admit(1.0)), Standing::Drop);
     EXPECT_EQ(first.charges.size(), 1U);
     EXPECT_EQ(second.charges.size(), 1U);
+    EXPECT_EQ(third.charges.size(), 1U);
+
+    third.current = Standing::Ok;
+    EXPECT_EQ(all.standing(), Standing::Warn);
+}
+
+TEST(ChargeSinkTests, all_sinks_with_one_sink_reports_its_standing)
+{
+    auto only = RecordingSink{.current = Standing::Warn};
+    auto all = AllSinks{only};
+    EXPECT_EQ(all.charge(AdmissionDecision::admit(1.0)), Standing::Warn);
+    EXPECT_EQ(only.charges.size(), 1U);
 }
 
 TEST(SpecRegistryTests, dispatches_by_type_number)
