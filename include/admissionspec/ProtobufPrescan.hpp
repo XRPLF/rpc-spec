@@ -7,8 +7,12 @@
 #include <admissionspec/VisitEvent.hpp>
 #include <admissionspec/detail/ProtobufPrescan.hpp>
 #include <google/protobuf/descriptor.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <span>
 
 // Needs libprotobuf: build with the Conan option `with_protobuf=True` (CMake `with_protobuf=ON`).
@@ -30,8 +34,10 @@ namespace admission::spec {
  * - one event per value, typed by the field's declared type as libprotobuf stores it: `Int64` for
  *   int32, int64, sint32, sint64 (zigzag-decoded), sfixed32, sfixed64 and enums; `Uint64` for
  *   uint32, uint64, fixed32 and fixed64; `Bool`; `Double` for double and float; `String` for
- *   string (a view of its bytes); `Bytes` for bytes. A string or bytes event's @c size is its
- *   length;
+ *   string; `Bytes` for bytes. A string or bytes event's @c size is its length, and its @c value
+ *   a view of its bytes, if the input holds them in one piece: always for a span, and for a
+ *   stream when they lie in one of its buffers. Otherwise the event carries no value, so a check
+ *   that reads values must allow for that;
  * - `ObjectBegin` and `ObjectEnd` around a nested message, the end's @c size its field count;
  * - every event's @c fieldNumber, and its @c depth: 0 for the top-level message's fields, one more
  *   inside each nested message.
@@ -62,7 +68,32 @@ prescanProtobuf(
     BaseLimits const& limits,
     Check& check)
 {
-    return detail::Prescan<Check>{payload, limits, check}.run(descriptor);
+    // A payload too large for the stream is refused by the walk, which is given its true size.
+    auto in = google::protobuf::io::CodedInputStream{
+        payload.data(),
+        static_cast<int>(std::min<size_t>(payload.size(), std::numeric_limits<int>::max()))};
+    return detail::Prescan<Check>{in, payload.size(), limits, check}.run(descriptor);
+}
+
+/**
+ * @brief @ref prescanProtobuf over a payload a stream delivers in pieces, such as a frame spread
+ * over several receive buffers, without copying it into one.
+ *
+ * @param stream The stream, positioned at the payload. The walk reads exactly @p size bytes, and
+ *        backs up any it read past them when it returns.
+ * @param size The payload's size.
+ */
+template <typename Check>
+[[nodiscard]] AdmissionDecision
+prescanProtobuf(
+    google::protobuf::io::ZeroCopyInputStream& stream,
+    uint64_t size,
+    google::protobuf::Descriptor const& descriptor,
+    BaseLimits const& limits,
+    Check& check)
+{
+    auto in = google::protobuf::io::CodedInputStream{&stream};
+    return detail::Prescan<Check>{in, size, limits, check}.run(descriptor);
 }
 
 /**
@@ -92,6 +123,27 @@ protobufVisitor(std::span<uint8_t const> payload, BaseLimits const& limits = {})
 {
     return [payload, limits]<typename Check>(Check& check) -> AdmissionDecision {
         return prescanProtobuf(payload, *T::descriptor(), limits, check);
+    };
+}
+
+/**
+ * @brief @ref protobufVisitor over a payload a stream delivers in pieces.
+ *
+ * @param stream The stream, positioned at the payload. It must outlive the visitor, which reads
+ *        it once.
+ * @param size The payload's size.
+ * @param limits The limits applied to every message.
+ */
+template <typename T>
+    requires HasAdmissionSpec<T> and requires { T::descriptor(); }
+[[nodiscard]] auto
+protobufVisitor(
+    google::protobuf::io::ZeroCopyInputStream& stream,
+    uint64_t size,
+    BaseLimits const& limits = {})
+{
+    return [&stream, size, limits]<typename Check>(Check& check) -> AdmissionDecision {
+        return prescanProtobuf(stream, size, *T::descriptor(), limits, check);
     };
 }
 

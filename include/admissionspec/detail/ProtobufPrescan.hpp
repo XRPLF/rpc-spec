@@ -31,8 +31,8 @@ namespace admission::spec::detail {
 template <typename Check>
 class Prescan
 {
-    std::span<uint8_t const> payload_;
-    google::protobuf::io::CodedInputStream in_;
+    google::protobuf::io::CodedInputStream& in_;
+    uint64_t size_;
     BaseLimits const& limits_;
     Check& check_;
     // In the message being walked; each nested message counts its own.
@@ -41,23 +41,28 @@ class Prescan
     uint64_t unknownBytes_{};
 
 public:
-    Prescan(std::span<uint8_t const> payload, BaseLimits const& limits, Check& check)
-        : payload_{payload}
-        , in_{payload.data(), static_cast<int>(payload.size())}
-        , limits_{limits}
-        , check_{check}
+    /**
+     * @param in The stream, positioned at the payload.
+     * @param size The payload's size: the walk reads exactly this many bytes.
+     */
+    Prescan(
+        google::protobuf::io::CodedInputStream& in,
+        uint64_t size,
+        BaseLimits const& limits,
+        Check& check)
+        : in_{in}, size_{size}, limits_{limits}, check_{check}
     {
     }
 
     [[nodiscard]] AdmissionDecision
     run(google::protobuf::Descriptor const& descriptor)
     {
-        if (payload_.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+        if (size_ > static_cast<uint64_t>(std::numeric_limits<int>::max()))
         {
             return malformed("payload larger than protobuf can parse");
         }
         // A limit at the top level too, so the end of the payload reads as zero bytes left.
-        auto const limit = in_.PushLimit(static_cast<int>(payload_.size()));
+        auto const limit = in_.PushLimit(static_cast<int>(size_));
         auto const walked = message(descriptor, 0);
         in_.PopLimit(limit);
         return walked ? AdmissionDecision::admit() : walked.error();
@@ -461,29 +466,49 @@ private:
                  .fieldNumber = number});
         }
 
-        // A string or bytes field: report it, then step over it.
-        auto const offset = static_cast<size_t>(in_.CurrentPosition());
-        auto const body = payload_.subspan(offset, *length);
+        // A string or bytes field: report it, then step over it. Its value is reported only if the
+        // stream holds it in one piece, as an array always does.
+        auto const body = contiguous(*length);
         if (not in_.Skip(static_cast<int>(*length)))
         {
             return malformed("truncated protobuf field");
         }
-        if (field.type() == google::protobuf::FieldDescriptor::TYPE_STRING)
+        auto event = VisitEvent{
+            .kind = field.type() == google::protobuf::FieldDescriptor::TYPE_STRING
+                ? EventKind::String
+                : EventKind::Bytes,
+            .size = *length,
+            .depth = at,
+            .fieldNumber = number};
+        if (body and event.kind == EventKind::String)
         {
-            return emit(
-                {.kind = EventKind::String,
-                 .size = body.size(),
-                 .depth = at,
-                 .fieldNumber = number,
-                 .value =
-                     std::string_view{reinterpret_cast<char const*>(body.data()), body.size()}});
+            event.value =
+                std::string_view{reinterpret_cast<char const*>(body->data()), body->size()};
         }
-        return emit(
-            {.kind = EventKind::Bytes,
-             .size = body.size(),
-             .depth = at,
-             .fieldNumber = number,
-             .value = body});
+        else if (body)
+        {
+            event.value = *body;
+        }
+        return emit(event);
+    }
+
+    // The next `length` bytes, if the stream's current buffer holds them all. The view stays valid
+    // while the walk skips over them, since that reads nothing more from the stream.
+    [[nodiscard]] std::optional<std::span<uint8_t const>>
+    contiguous(uint32_t length)
+    {
+        if (length == 0)
+        {
+            return std::span<uint8_t const>{};
+        }
+        void const* data{};
+        auto available = int{};
+        if (not in_.GetDirectBufferPointer(&data, &available) or
+            static_cast<uint32_t>(available) < length)
+        {
+            return std::nullopt;
+        }
+        return std::span<uint8_t const>{static_cast<uint8_t const*>(data), length};
     }
 
     // A packed repeated scalar: each element is an entry.
