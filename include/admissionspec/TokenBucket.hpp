@@ -4,6 +4,7 @@
 #include <admissionspec/folly/TokenBucket.hpp>
 
 #include <chrono>
+#include <stdexcept>
 
 namespace admission::spec {
 
@@ -45,15 +46,16 @@ public:
     /**
      * @brief Construct a bucket that starts full at @p now.
      *
-     * @param capacity Maximum number of tokens the bucket can hold (the burst size); should be > 0.
-     * @param refillRatePerSecond Tokens regained per second (the sustained rate); should be > 0.
-     * @param now The reference time point the bucket starts from (it holds @p capacity tokens at @p
-     * now).
+     * @param capacity Maximum number of tokens the bucket can hold (the burst size); must be > 0.
+     * @param refillRatePerSecond Tokens added back per second; must be > 0. A bucket that never
+     *        refills cannot start full: the token count is derived from elapsed time.
+     * @param now The time the bucket starts full at.
+     * @throws std::invalid_argument if @p capacity or @p refillRatePerSecond is not positive.
      */
     TokenBucket(double capacity, double refillRatePerSecond, TimePoint now)
         : bucket_{
-              refillRatePerSecond,
-              capacity,
+              validRate(refillRatePerSecond),
+              validCapacity(capacity),
               fullStartZeroTime(capacity, refillRatePerSecond, toSeconds(now))}
     {
     }
@@ -109,6 +111,26 @@ public:
 
 private:
     [[nodiscard]] static double
+    validCapacity(double capacity)
+    {
+        if (not(capacity > 0.0))
+        {
+            throw std::invalid_argument("TokenBucket: capacity must be positive");
+        }
+        return capacity;
+    }
+
+    [[nodiscard]] static double
+    validRate(double refillRatePerSecond)
+    {
+        if (not(refillRatePerSecond > 0.0))
+        {
+            throw std::invalid_argument("TokenBucket: refill rate must be positive");
+        }
+        return refillRatePerSecond;
+    }
+
+    [[nodiscard]] static double
     toSeconds(TimePoint tp) noexcept
     {
         return std::chrono::duration<double>{tp.time_since_epoch()}.count();
@@ -122,10 +144,6 @@ private:
     [[nodiscard]] static double
     fullStartZeroTime(double capacity, double refillRatePerSecond, double nowSeconds) noexcept
     {
-        if (refillRatePerSecond <= 0.0)
-        {
-            return nowSeconds;
-        }
         return nowSeconds - (capacity / refillRatePerSecond);
     }
 };

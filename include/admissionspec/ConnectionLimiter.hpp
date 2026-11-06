@@ -51,10 +51,14 @@ public:
     /**
      * @param settings Resolved per-connection bucket parameters (capacity, refill rate).
      * @param maxConnections Hard cap on the number of tracked connections (bounds memory).
+     * @throws std::invalid_argument if a bucket could not be built from @p settings, so a bad
+     *         configuration fails at startup rather than when a connection first sends.
      */
     ConnectionLimiter(BucketSettings settings, size_t maxConnections)
         : settings_{settings}, maxConnections_{maxConnections}
     {
+        static_cast<void>(
+            TokenBucket{settings_.capacity, settings_.refillRatePerSecond, Clock::now()});
     }
 
     /**
