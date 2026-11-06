@@ -27,7 +27,7 @@ typeIdOf()
  * @brief Maps a frame's type number to the type whose spec governs it.
  *
  * @code
- * using PeerSpecs = SpecRegistry<TMPing, TMManifests, TMGetLedger>;
+ * using PeerSpecs = SpecRegistry<Ping, Status, Query>;
  * auto const result = PeerSpecs::dispatch(
  *     frame.type,
  *     [&]<class T> { return admitHeader<T>(frame, connection, sink); },

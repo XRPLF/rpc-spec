@@ -94,7 +94,7 @@ struct RepeatedCaps
 
 /**
  * @brief Build @ref RepeatedCaps from a braced list, e.g.
- * `repeatedCaps({{.fieldNumber = 3, .maxEntries = 12288, .minEntryBytes = 1}})` for protobuf, or
+ * `repeatedCaps({{.fieldNumber = 3, .maxEntries = 100, .minEntryBytes = 1}})` for protobuf, or
  * `repeatedCaps({{.key = "items", .maxEntries = 100}})` for JSON.
  */
 template <size_t N>
