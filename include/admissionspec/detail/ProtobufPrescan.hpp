@@ -14,7 +14,9 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -60,10 +62,9 @@ public:
         }
         // A limit at the top level too, so the end of the payload reads as zero bytes left.
         auto const limit = in_.PushLimit(static_cast<int>(payload_.size()));
-        auto fields = size_t{};
-        auto const decision = message(descriptor, 0, fields);
+        auto const walked = message(descriptor, 0);
         in_.PopLimit(limit);
-        return decision;
+        return walked ? AdmissionDecision::admit() : walked.error();
     }
 
 private:
@@ -84,59 +85,62 @@ private:
     // both are read as plain varints and checked here.
     static constexpr int32_t kMaxTagOrLengthBytes{5};
 
-    [[nodiscard]] bool
-    readBounded(uint64_t& value, uint64_t max)
+    [[nodiscard]] std::optional<uint64_t>
+    readBounded(uint64_t max)
     {
         auto const start = in_.CurrentPosition();
-        return in_.ReadVarint64(&value) and
-            in_.CurrentPosition() - start <= kMaxTagOrLengthBytes and value <= max;
-    }
-
-    [[nodiscard]] bool
-    readTag(uint32_t& tag)
-    {
         auto value = uint64_t{};
-        if (not readBounded(value, std::numeric_limits<uint64_t>::max()))
+        if (not in_.ReadVarint64(&value) or in_.CurrentPosition() - start > kMaxTagOrLengthBytes or
+            value > max)
         {
-            return false;
+            return std::nullopt;
         }
-        tag = static_cast<uint32_t>(value);
-        return tag != 0;
+        return value;
     }
 
-    [[nodiscard]] bool
-    readLength(uint32_t& length)
+    [[nodiscard]] std::optional<uint32_t>
+    readTag()
     {
-        auto value = uint64_t{};
-        if (not readBounded(value, static_cast<uint64_t>(std::numeric_limits<int32_t>::max())) or
-            static_cast<int64_t>(value) > static_cast<int64_t>(in_.BytesUntilLimit()))
+        auto const value = readBounded(std::numeric_limits<uint64_t>::max());
+        if (not value or static_cast<uint32_t>(*value) == 0)
         {
-            return false;
+            return std::nullopt;
         }
-        length = static_cast<uint32_t>(value);
-        return true;
+        return static_cast<uint32_t>(*value);
     }
 
-    // Walk the fields up to the current limit, as members of `descriptor` at `depth`, counting
-    // them in `fields`. The end is decided before a tag is read: a tag of 0, or one that does not
-    // decode, is never an end.
-    [[nodiscard]] AdmissionDecision
-    message(google::protobuf::Descriptor const& descriptor, uint64_t depth, size_t& fields)
+    [[nodiscard]] std::optional<uint32_t>
+    readLength()
     {
+        auto const value = readBounded(static_cast<uint64_t>(std::numeric_limits<int32_t>::max()));
+        if (not value or static_cast<int64_t>(*value) > static_cast<int64_t>(in_.BytesUntilLimit()))
+        {
+            return std::nullopt;
+        }
+        return static_cast<uint32_t>(*value);
+    }
+
+    // Walk the fields up to the current limit, as members of `descriptor` at `depth`. The end is
+    // decided before a tag is read: a tag of 0, or one that does not decode, is never an end.
+    // Returns how many fields it read, or the first drop.
+    [[nodiscard]] std::expected<size_t, AdmissionDecision>
+    message(google::protobuf::Descriptor const& descriptor, uint64_t depth)
+    {
+        auto fields = size_t{};
         while (in_.BytesUntilLimit() > 0)
         {
-            auto tag = uint32_t{};
-            if (not readTag(tag))
+            auto const tag = readTag();
+            if (not tag)
             {
-                return malformed("invalid protobuf tag");
+                return std::unexpected{malformed("invalid protobuf tag")};
             }
-            if (auto const decision = field(descriptor, depth, tag); decision.dropped())
+            if (auto const decision = field(descriptor, depth, *tag); decision.dropped())
             {
-                return decision;
+                return std::unexpected{decision};
             }
             ++fields;
         }
-        return AdmissionDecision::admit();
+        return fields;
     }
 
     [[nodiscard]] AdmissionDecision
@@ -232,8 +236,8 @@ private:
                 return in_.Skip(4) ? AdmissionDecision::admit()
                                    : malformed("truncated protobuf field");
             case google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED: {
-                auto length = uint32_t{};
-                return readLength(length) and in_.Skip(static_cast<int>(length))
+                auto const length = readLength();
+                return length and in_.Skip(static_cast<int>(*length))
                     ? AdmissionDecision::admit()
                     : malformed("truncated protobuf field");
             }
@@ -256,20 +260,19 @@ private:
         }
         while (in_.BytesUntilLimit() > 0)
         {
-            auto tag = uint32_t{};
-            if (not readTag(tag) or
-                google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag) == 0)
+            auto const tag = readTag();
+            if (not tag or google::protobuf::internal::WireFormatLite::GetTagFieldNumber(*tag) == 0)
             {
                 return malformed("invalid protobuf tag");
             }
-            if (google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+            if (google::protobuf::internal::WireFormatLite::GetTagWireType(*tag) ==
                 google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP)
             {
-                return google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag) == number
+                return google::protobuf::internal::WireFormatLite::GetTagFieldNumber(*tag) == number
                     ? AdmissionDecision::admit()
                     : malformed("unmatched protobuf end group");
             }
-            if (auto const decision = skip(tag, depth); decision.dropped())
+            if (auto const decision = skip(*tag, depth); decision.dropped())
             {
                 return decision;
             }
@@ -445,8 +448,8 @@ private:
     [[nodiscard]] AdmissionDecision
     lengthDelimited(google::protobuf::FieldDescriptor const& field, uint64_t depth)
     {
-        auto length = uint32_t{};
-        if (not readLength(length))
+        auto const length = readLength();
+        if (not length)
         {
             return malformed("truncated protobuf field");
         }
@@ -465,22 +468,24 @@ private:
             {
                 return d;
             }
-            auto const limit = in_.PushLimit(static_cast<int>(length));
-            auto fields = size_t{};
-            auto const decision = message(*field.message_type(), depth + 1, fields);
+            auto const limit = in_.PushLimit(static_cast<int>(*length));
+            auto const walked = message(*field.message_type(), depth + 1);
             in_.PopLimit(limit);
-            if (decision.dropped())
+            if (not walked)
             {
-                return decision;
+                return walked.error();
             }
             return emit(
-                {.kind = EventKind::ObjectEnd, .size = fields, .depth = at, .fieldNumber = number});
+                {.kind = EventKind::ObjectEnd,
+                 .size = *walked,
+                 .depth = at,
+                 .fieldNumber = number});
         }
 
         // A string or bytes field: report it, then step over it.
         auto const offset = static_cast<size_t>(in_.CurrentPosition());
-        auto const body = payload_.subspan(offset, length);
-        if (not in_.Skip(static_cast<int>(length)))
+        auto const body = payload_.subspan(offset, *length);
+        if (not in_.Skip(static_cast<int>(*length)))
         {
             return malformed("truncated protobuf field");
         }
@@ -506,14 +511,14 @@ private:
     [[nodiscard]] AdmissionDecision
     packedEntries(google::protobuf::FieldDescriptor const& field, uint64_t depth)
     {
-        auto length = uint32_t{};
-        if (not readLength(length))
+        auto const length = readLength();
+        if (not length)
         {
             return malformed("truncated protobuf field");
         }
         auto const element = google::protobuf::internal::WireFormatLite::WireTypeForFieldType(
             static_cast<google::protobuf::internal::WireFormatLite::FieldType>(field.type()));
-        auto const limit = in_.PushLimit(static_cast<int>(length));
+        auto const limit = in_.PushLimit(static_cast<int>(*length));
         auto decision = AdmissionDecision::admit();
         while (in_.BytesUntilLimit() > 0 and decision.admitted())
         {
