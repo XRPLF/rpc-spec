@@ -498,6 +498,31 @@ TEST(ProtobufPrescanTests, limits_unknown_fields_by_count_and_bytes)
     EXPECT_TRUE(scan(Writer{}.bytes(1, "x").str(), limits).dropped());
 }
 
+TEST(ProtobufPrescanTests, counts_unknown_fields_in_each_message_on_its_own)
+{
+    auto limits = BaseLimits{};
+    limits.maxUnknownFields = 2;
+
+    // Two unknown fields in each of two nested messages, and two at the top level, all pass.
+    auto const sub = Writer{}.varint(40, 1).varint(41, 1).str();
+    EXPECT_TRUE(scan(Writer{}.varint(40, 1).bytes(3, sub).bytes(3, sub).varint(41, 1).str(), limits)
+                    .admitted());
+    // So do two in a message nested inside one that holds two.
+    auto const child = Writer{}.varint(40, 1).bytes(2, sub).varint(41, 1).str();
+    EXPECT_TRUE(scan(Writer{}.bytes(3, child).str(), limits).admitted());
+
+    // A third in any one message is refused, before or after a nested message.
+    auto const third = Writer{}.varint(40, 1).varint(41, 1).varint(42, 1).str();
+    EXPECT_EQ(scan(Writer{}.bytes(3, third).str(), limits).rule, Rule::UnknownFields);
+    EXPECT_EQ(
+        scan(Writer{}.varint(40, 1).bytes(3, sub).varint(41, 1).varint(42, 1).str(), limits).rule,
+        Rule::UnknownFields);
+
+    // The byte limit counts the whole payload: here four unknown values of one byte each.
+    limits.maxUnknownFieldBytes = 3;
+    EXPECT_EQ(scan(Writer{}.bytes(3, sub).bytes(3, sub).str(), limits).rule, Rule::UnknownFields);
+}
+
 TEST(ProtobufPrescanTests, counts_an_undefined_closed_enum_value_as_unknown)
 {
     auto limits = BaseLimits{};
