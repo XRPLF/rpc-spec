@@ -23,6 +23,7 @@ class XrplRpcSpecConan(ConanFile):
         "cmake/*",
         "CMakeLists.txt",
         "tests/*",
+        "examples/*",
         "LICENSE.md",
         "README.md",
     )

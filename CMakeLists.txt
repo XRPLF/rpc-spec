@@ -76,3 +76,9 @@ if(rpcspec_tests)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+# --- Examples (standalone only) -----------------------------------------------
+option(rpcspec_examples "Build the rpcspec examples (the admission example needs with_protobuf)" ${rpcspec_tests})
+if(rpcspec_examples AND with_protobuf)
+    add_subdirectory(examples/admission)
+endif()

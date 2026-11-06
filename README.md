@@ -69,6 +69,9 @@ include/rpcspec/
 include/admissionspec/  # independent admission-control/rate-limiting DSL
   folly/                # vendored folly TokenBucket (not linted or formatted)
 
+examples/admission/     # one node admitting protobuf peer frames and JSON RPC requests
+                        # with the same specs, stages and sinks; start with its README
+
 cmake/                  # generator for the per-handler instantiation TUs
 tests/                  # standalone unit tests
   stubs/                # libxrpl mock — tests need only gtest + Boost::json
