@@ -671,15 +671,16 @@ TEST(ProtobufPrescanTests, reports_values_typed_by_their_declared_type)
 
 TEST(ProtobufPrescanTests, runs_a_specs_check_and_caps)
 {
-    EXPECT_TRUE(prescan<TestMessage>(spanOf(Writer{}.varint(1, 100).str())).admitted());
-    EXPECT_EQ(prescan<TestMessage>(spanOf(Writer{}.varint(1, 101).str())).reason, "a too large");
+    EXPECT_TRUE(prescanProtobuf<TestMessage>(spanOf(Writer{}.varint(1, 100).str())).admitted());
+    EXPECT_EQ(
+        prescanProtobuf<TestMessage>(spanOf(Writer{}.varint(1, 101).str())).reason, "a too large");
     // The check reads the top level only: an `x` of 101 in a nested message is admitted.
     EXPECT_TRUE(
-        prescan<TestMessage>(spanOf(Writer{}.bytes(3, Writer{}.varint(1, 101).str()).str()))
+        prescanProtobuf<TestMessage>(spanOf(Writer{}.bytes(3, Writer{}.varint(1, 101).str()).str()))
             .admitted());
     // The spec's cap of two items.
     auto const three = Writer{}.bytes(2, "a").bytes(2, "b").bytes(2, "c").str();
-    EXPECT_EQ(prescan<TestMessage>(spanOf(three)).penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(prescanProtobuf<TestMessage>(spanOf(three)).penalty, PenaltyClass::Invalid);
 }
 
 // A connection that may send anything.

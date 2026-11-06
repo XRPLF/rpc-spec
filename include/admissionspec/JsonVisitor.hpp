@@ -6,7 +6,9 @@
 #include <boost/system/system_error.hpp>
 
 #include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/Rule.hpp>
+#include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/VisitEvent.hpp>
 
 #include <cstdint>
@@ -635,6 +637,36 @@ visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& 
             options.costForInvalidPayload);
     }
     return decision;
+}
+
+/**
+ * @brief A walker that visits a JSON payload, for @ref admitBody, which calls it as
+ * `walker(check)` with the spec's check and caps. The JSON counterpart of @ref protobufVisitor.
+ *
+ * @tparam VisitorOptions The compile-time size limits; see @ref DefaultJsonVisitorOptions.
+ * @param payload The payload. It must outlive the visitor.
+ * @param options The nesting limit and the cost of a malformed payload.
+ */
+template <typename VisitorOptions = DefaultJsonVisitorOptions>
+[[nodiscard]] auto
+jsonVisitor(std::span<uint8_t const> payload, VisitJsonOptions const& options = {})
+{
+    return [payload, options]<typename Check>(Check& check) -> AdmissionDecision {
+        return visitJson<Check, VisitorOptions>(payload, check, options);
+    };
+}
+
+/**
+ * @brief Visit a JSON payload of type @p T with its spec's check and caps. The JSON counterpart of
+ * @ref prescanProtobuf.
+ */
+template <typename T, typename VisitorOptions = DefaultJsonVisitorOptions>
+    requires HasAdmissionSpec<T>
+[[nodiscard]] AdmissionDecision
+prescanJson(std::span<uint8_t const> payload, VisitJsonOptions const& options = {})
+{
+    auto check = makeChecker<T>();
+    return jsonVisitor<VisitorOptions>(payload, options)(check);
 }
 
 }  // namespace admission::spec

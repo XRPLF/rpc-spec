@@ -149,11 +149,13 @@ protobufVisitor(
 
 /**
  * @brief Prescan a payload of the generated protobuf type @p T, with its spec's check and caps.
+ *
+ * Named for its format: a JSON payload is a span of bytes too; see @ref prescanJson.
  */
 template <typename T>
     requires HasAdmissionSpec<T> and requires { T::descriptor(); }
 [[nodiscard]] AdmissionDecision
-prescan(std::span<uint8_t const> payload, BaseLimits const& limits = {})
+prescanProtobuf(std::span<uint8_t const> payload, BaseLimits const& limits = {})
 {
     auto check = makeChecker<T>();
     return protobufVisitor<T>(payload, limits)(check);
