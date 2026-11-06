@@ -1,5 +1,6 @@
 #include <admissionspec/AdmissionSpec.hpp>
 #include <admissionspec/ChargeSink.hpp>
+#include <admissionspec/ConnectionLimiter.hpp>
 #include <admissionspec/Frame.hpp>
 #include <admissionspec/Pipeline.hpp>
 #include <admissionspec/SpecAttributes.hpp>
@@ -137,6 +138,7 @@ static_assert(ChargeSink<RecordingSink>);
 static_assert(ChargeSink<TokenBucketSink>);
 static_assert(ChargeSink<BothSinks<RecordingSink, TokenBucketSink>>);
 static_assert(ChargeSink<AnyChargeSink>);
+static_assert(ChargeSink<ConnectionLimiter<int>::ConnectionSink>);
 
 constexpr auto kSmall = admissionSpecFor<Small>();
 constexpr auto kRelayed = admissionSpecFor<Relayed>();
@@ -329,4 +331,31 @@ TEST(SpecRegistryTests, runs_the_header_stage_for_the_named_type)
         });
     EXPECT_TRUE(result.decision.dropped());
     EXPECT_EQ(result.decision.penalty, PenaltyClass::Trivial);
+}
+
+TEST(ChargeSinkTests, a_limiter_hands_out_a_sink_per_connection)
+{
+    auto const now = TokenBucket::Clock::now();
+    auto limiter =
+        ConnectionLimiter<int>{BucketSettings{.capacity = 10.0, .refillRatePerSecond = 1.0}, 4};
+    auto const costs = PenaltyCosts{.trivial = 1, .useless = 5, .invalid = 5, .malformed = 10};
+
+    // Each small message costs 1 token, by Small's ramp, so the eleventh is refused.
+    auto first = limiter.sink(1, now, costs);
+    auto const frame = FrameInfo{.wireBytes = 10, .decodedBytes = 10};
+    for (int i = 0; i < 10; ++i)
+    {
+        EXPECT_EQ(admitHeader<Small>(frame, Connection{}, first).standing, Standing::Ok);
+    }
+    EXPECT_EQ(admitHeader<Small>(frame, Connection{}, first).standing, Standing::Drop);
+    EXPECT_EQ(first.standing(), Standing::Drop);
+
+    // Another connection has its own bucket.
+    auto second = limiter.sink(2, now, costs);
+    EXPECT_EQ(admitHeader<Small>(frame, Connection{}, second).standing, Standing::Ok);
+    EXPECT_EQ(limiter.size(), 2U);
+
+    // The bucket refills with time.
+    auto later = limiter.sink(1, now + std::chrono::seconds{2}, costs);
+    EXPECT_EQ(later.standing(), Standing::Ok);
 }

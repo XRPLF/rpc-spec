@@ -2,6 +2,8 @@
 #pragma once
 
 #include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/ChargeSink.hpp>
+#include <admissionspec/Frame.hpp>
 #include <admissionspec/TokenBucket.hpp>
 #include <admissionspec/Types.hpp>
 
@@ -10,6 +12,7 @@
 #include <mutex>
 #include <span>
 #include <unordered_map>
+#include <utility>
 
 namespace admission::spec {
 
@@ -109,6 +112,56 @@ public:
             return penalize(conn, decision, now);
         }
         return charge(conn, decision, now);
+    }
+
+    /**
+     * @brief A @ref ChargeSink over one connection's bucket in a @ref ConnectionLimiter.
+     *
+     * Each call takes the limiter's lock and finds the connection's bucket, creating it as the
+     * limiter's other stages do, so no reference into the limiter outlives the lock.
+     */
+    class ConnectionSink
+    {
+        ConnectionLimiter* limiter_;
+        ConnId conn_;
+        TimePoint now_;
+        PenaltyCosts costs_;
+
+    public:
+        ConnectionSink(ConnectionLimiter& limiter, ConnId conn, TimePoint now, PenaltyCosts costs)
+            : limiter_{&limiter}, conn_{std::move(conn)}, now_{now}, costs_{costs}
+        {
+        }
+
+        [[nodiscard]] Standing
+        standing()
+        {
+            auto _ = std::scoped_lock<std::mutex>{limiter_->mutex_};
+            auto it = limiter_->touchBucket(limiter_->state_.buckets, conn_, now_);
+            return TokenBucketSink{it->second.bucket, now_, costs_}.standing();
+        }
+
+        Standing
+        charge(ChargeRequest const& request)
+        {
+            auto _ = std::scoped_lock<std::mutex>{limiter_->mutex_};
+            auto it = limiter_->touchBucket(limiter_->state_.buckets, conn_, now_);
+            return TokenBucketSink{it->second.bucket, now_, costs_}.charge(request);
+        }
+    };
+
+    /**
+     * @brief A sink charging @p conn's bucket, for the header stage and the stages after it.
+     *
+     * @param conn The connection a message arrived on.
+     * @param now The time the message is handled.
+     * @param costs What each penalty class costs, in tokens.
+     * @return The sink. It must not outlive the limiter.
+     */
+    [[nodiscard]] ConnectionSink
+    sink(ConnId const& conn, TimePoint now, PenaltyCosts costs)
+    {
+        return ConnectionSink{*this, conn, now, costs};
     }
 
     /**
