@@ -303,6 +303,21 @@ scan(
     return prescanProtobuf(span, *schema().test, limits, check);
 }
 
+// `scan` over a stream that hands the payload out in pieces of `block` bytes.
+[[nodiscard]] AdmissionDecision
+scanInPieces(
+    std::string const& bytes,
+    int32_t block,
+    BaseLimits const& limits = BaseLimits{},
+    RepeatedCaps const& caps = {})
+{
+    auto stream = google::protobuf::io::ArrayInputStream{
+        bytes.data(), static_cast<int>(bytes.size()), static_cast<int>(block)};
+    auto check =
+        RepeatedCapsCheck{caps, [](VisitEvent const&) { return AdmissionDecision::admit(); }};
+    return prescanProtobuf(stream, bytes.size(), *schema().test, limits, check);
+}
+
 // A Sub nested `depth` levels deep, through `child`.
 [[nodiscard]] std::string
 nested(int32_t depth)
@@ -385,6 +400,54 @@ TEST(ProtobufPrescanTests, admits_a_well_formed_message_and_reports_its_values)
     EXPECT_EQ(count(EventKind::Uint64), 4);
     // The two nested x, and color.
     EXPECT_EQ(count(EventKind::Int64), 3);
+}
+
+TEST(ProtobufPrescanTests, reports_a_value_from_a_stream_only_when_it_lies_in_one_piece)
+{
+    auto const bytes = Writer{}.bytes(2, "in one").bytes(11, "split").str();
+    // Pieces of all but the last three bytes: the first value lies inside the first piece, and the
+    // second crosses into the next one.
+    ASSERT_LT(bytes.size(), 32U);
+    auto stream = google::protobuf::io::ArrayInputStream{
+        bytes.data(), static_cast<int>(bytes.size()), static_cast<int>(bytes.size() - 3)};
+
+    auto seen = std::vector<VisitEvent>{};
+    auto record = [&](VisitEvent const& event) {
+        seen.push_back(event);
+        return AdmissionDecision::admit();
+    };
+    EXPECT_TRUE(
+        prescanProtobuf(stream, bytes.size(), *schema().test, BaseLimits{}, record).admitted());
+    ASSERT_EQ(seen.size(), 2U);
+
+    ASSERT_NE(seen[0].as<std::span<uint8_t const>>(), nullptr);
+    EXPECT_EQ(seen[0].as<std::span<uint8_t const>>()->size(), 6U);
+    EXPECT_EQ(seen[0].size, 6U);
+
+    // Split across pieces: its size, and no value.
+    EXPECT_EQ(seen[1].kind, EventKind::String);
+    EXPECT_EQ(seen[1].size, 5U);
+    EXPECT_EQ(seen[1].as<std::string_view>(), nullptr);
+}
+
+TEST(ProtobufPrescanTests, reads_exactly_the_payload_from_a_stream)
+{
+    auto const payload = Writer{}.varint(1, 5).bytes(2, "one").str();
+    auto const bytes = payload + Writer{}.varint(1, 6).str();
+    auto stream =
+        google::protobuf::io::ArrayInputStream{bytes.data(), static_cast<int>(bytes.size()), 4};
+    auto check = [](VisitEvent const&) { return AdmissionDecision::admit(); };
+    EXPECT_TRUE(
+        prescanProtobuf(stream, payload.size(), *schema().test, BaseLimits{}, check).admitted());
+    // What it read past the payload is backed up, so the stream is left at the bytes after it.
+    EXPECT_EQ(stream.ByteCount(), static_cast<int64_t>(payload.size()));
+
+    // A stream that ends before the payload's size is a truncated payload.
+    auto shortStream =
+        google::protobuf::io::ArrayInputStream{payload.data(), static_cast<int>(payload.size()), 4};
+    EXPECT_EQ(
+        prescanProtobuf(shortStream, payload.size() + 1, *schema().test, BaseLimits{}, check).rule,
+        Rule::Malformed);
 }
 
 TEST(ProtobufPrescanTests, a_check_can_refuse_while_walking)
@@ -632,8 +695,23 @@ TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
                     break;
             }
         }
-        auto const prescanned = scan(bytes, permissive).admitted();
+        auto const decision = scan(bytes, permissive);
+        auto const prescanned = decision.admitted();
         auto const parsed = schema().parses(bytes);
+
+        // The same payload in pieces is decided the same way.
+        for (int32_t const block : {1, 3, 7})
+        {
+            auto const inPieces = scanInPieces(bytes, block, permissive);
+            if (inPieces.action != decision.action or inPieces.rule != decision.rule or
+                inPieces.penalty != decision.penalty)
+            {
+                ++disagreements;
+                ADD_FAILURE() << "in pieces of " << block << " the prescan decides otherwise: "
+                              << testing::PrintToString(
+                                     std::vector<uint8_t>(bytes.begin(), bytes.end()));
+            }
+        }
         if (prescanned != parsed)
         {
             ++disagreements;
