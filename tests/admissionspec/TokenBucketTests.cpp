@@ -1,6 +1,6 @@
+#include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
 #include <admissionspec/TokenBucket.hpp>
-#include <admissionspec/Types.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>

@@ -1,8 +1,18 @@
+#include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/BaseLimits.hpp>
+#include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/PenaltyCosts.hpp>
+#include <admissionspec/Pipeline.hpp>
 #include <admissionspec/ProtobufPrescan.hpp>
+#include <admissionspec/RepeatedCaps.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
-#include <admissionspec/Types.hpp>
+#include <admissionspec/SpecLookup.hpp>
+#include <admissionspec/Tunable.hpp>
+#include <admissionspec/VisitEvent.hpp>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/dynamic_message.h>
@@ -219,7 +229,7 @@ public:
 [[nodiscard]] AdmissionDecision
 scan(
     std::string const& bytes,
-    PrescanLimits const& limits = prescanLimits(),
+    BaseLimits const& limits = BaseLimits{},
     RepeatedCaps const& caps = {})
 {
     auto const span =
@@ -299,7 +309,7 @@ TEST(ProtobufPrescanTests, admits_a_well_formed_message_and_reports_its_values)
     };
     auto const span =
         std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
-    EXPECT_TRUE(prescanProtobuf(span, *schema().test, prescanLimits(), {}, record).admitted());
+    EXPECT_TRUE(prescanProtobuf(span, *schema().test, BaseLimits{}, {}, record).admitted());
 
     auto const count = [&](EventKind kind) { return std::ranges::count(events, kind); };
     EXPECT_EQ(count(EventKind::Bytes), 2);
@@ -323,8 +333,7 @@ TEST(ProtobufPrescanTests, a_check_can_refuse_while_walking)
     auto const span =
         std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
     EXPECT_EQ(
-        prescanProtobuf(span, *schema().test, prescanLimits(), {}, refuseLarge).reason,
-        "a too large");
+        prescanProtobuf(span, *schema().test, BaseLimits{}, {}, refuseLarge).reason, "a too large");
 }
 
 TEST(ProtobufPrescanTests, refuses_input_no_conforming_encoder_produces)
@@ -366,7 +375,7 @@ TEST(ProtobufPrescanTests, refuses_input_no_conforming_encoder_produces)
 TEST(ProtobufPrescanTests, reads_tags_as_libprotobufs_parser_does)
 {
     auto const agrees = [](std::string const& bytes) {
-        auto permissive = prescanLimits();
+        auto permissive = BaseLimits{};
         permissive.maxUnknownFields = std::numeric_limits<uint64_t>::max();
         permissive.maxUnknownFieldBytes = std::numeric_limits<uint64_t>::max();
         return scan(bytes, permissive).admitted() == schema().parses(bytes);
@@ -395,7 +404,7 @@ TEST(ProtobufPrescanTests, reads_tags_as_libprotobufs_parser_does)
 
 TEST(ProtobufPrescanTests, limits_unknown_fields_by_count_and_bytes)
 {
-    auto limits = prescanLimits();
+    auto limits = BaseLimits{};
     limits.maxUnknownFields = 2;
     limits.maxUnknownFieldBytes = 64;
 
@@ -414,7 +423,7 @@ TEST(ProtobufPrescanTests, limits_unknown_fields_by_count_and_bytes)
 
 TEST(ProtobufPrescanTests, counts_an_undefined_closed_enum_value_as_unknown)
 {
-    auto limits = prescanLimits();
+    auto limits = BaseLimits{};
     limits.maxUnknownFields = 0;
     EXPECT_TRUE(scan(Writer{}.varint(4, 1).str(), limits).admitted());
     EXPECT_EQ(scan(Writer{}.varint(4, 9).str(), limits).penalty, PenaltyClass::Invalid);
@@ -425,14 +434,14 @@ TEST(ProtobufPrescanTests, refuses_groups_unless_allowed)
     auto const bytes = Writer{}.group(40, Writer{}.varint(1, 1).str()).str();
     EXPECT_EQ(scan(bytes).penalty, PenaltyClass::Invalid);
 
-    auto limits = prescanLimits();
+    auto limits = BaseLimits{};
     limits.rejectGroups = false;
     EXPECT_TRUE(scan(bytes, limits).admitted());
 }
 
 TEST(ProtobufPrescanTests, limits_nesting_depth)
 {
-    auto limits = prescanLimits();
+    auto limits = BaseLimits{};
     limits.maxDepth = 3;
     EXPECT_TRUE(scan(Writer{}.bytes(3, nested(3)).str(), limits).admitted());
     EXPECT_EQ(scan(Writer{}.bytes(3, nested(4)).str(), limits).penalty, PenaltyClass::Invalid);
@@ -444,23 +453,22 @@ TEST(ProtobufPrescanTests, caps_top_level_repeated_fields_packed_or_not)
         {{.fieldNumber = 2, .maxEntries = 2, .minEntryBytes = 2},
          {.fieldNumber = 5, .maxEntries = 3, .minEntryBytes = 1}});
 
-    EXPECT_TRUE(
-        scan(Writer{}.bytes(2, "ab").bytes(2, "cd").str(), prescanLimits(), kCaps).admitted());
+    EXPECT_TRUE(scan(Writer{}.bytes(2, "ab").bytes(2, "cd").str(), BaseLimits{}, kCaps).admitted());
     EXPECT_EQ(
-        scan(Writer{}.bytes(2, "ab").bytes(2, "cd").bytes(2, "ef").str(), prescanLimits(), kCaps)
+        scan(Writer{}.bytes(2, "ab").bytes(2, "cd").bytes(2, "ef").str(), BaseLimits{}, kCaps)
             .penalty,
         PenaltyClass::Invalid);
     // An entry smaller than the cap allows: a one-byte string is three bytes with its length.
     // The cap counts the value, so set the minimum above it.
     constexpr auto kLarge = repeatedCaps({{.fieldNumber = 2, .maxEntries = 9, .minEntryBytes = 4}});
     EXPECT_EQ(
-        scan(Writer{}.bytes(2, "a").str(), prescanLimits(), kLarge).penalty, PenaltyClass::Invalid);
+        scan(Writer{}.bytes(2, "a").str(), BaseLimits{}, kLarge).penalty, PenaltyClass::Invalid);
 
     // Packed elements count one by one, and unpacked ones add to them.
     auto const packed = Writer::varintBytes(1) + Writer::varintBytes(2) + Writer::varintBytes(3);
-    EXPECT_TRUE(scan(Writer{}.bytes(5, packed).str(), prescanLimits(), kCaps).admitted());
+    EXPECT_TRUE(scan(Writer{}.bytes(5, packed).str(), BaseLimits{}, kCaps).admitted());
     EXPECT_EQ(
-        scan(Writer{}.bytes(5, packed).varint(5, 4).str(), prescanLimits(), kCaps).penalty,
+        scan(Writer{}.bytes(5, packed).varint(5, 4).str(), BaseLimits{}, kCaps).penalty,
         PenaltyClass::Invalid);
 }
 
@@ -468,7 +476,7 @@ TEST(ProtobufPrescanTests, caps_top_level_repeated_fields_packed_or_not)
 // of the way: any difference lets a payload mean one thing to admission and another to the parse.
 TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
 {
-    auto const permissive = PrescanLimits{
+    auto const permissive = BaseLimits{
         .maxUnknownFields = std::numeric_limits<uint64_t>::max(),
         .maxUnknownFieldBytes = std::numeric_limits<uint64_t>::max(),
         .maxDepth = 64,
@@ -558,7 +566,7 @@ TEST(ProtobufPrescanTests, reports_values_typed_by_their_declared_type)
         return AdmissionDecision::admit();
     };
     ASSERT_TRUE(
-        prescanProtobuf(spanOf(bytes), *schema().test, prescanLimits(), {}, record).admitted());
+        prescanProtobuf(spanOf(bytes), *schema().test, BaseLimits{}, {}, record).admitted());
 
     auto const find = [&](uint64_t field, uint32_t depth = 0) {
         return *std::ranges::find_if(events, [&](VisitEvent const& e) {
@@ -601,16 +609,20 @@ TEST(ProtobufPrescanTests, runs_a_specs_check_and_caps)
     EXPECT_EQ(prescan<TestMessage>(spanOf(three)).penalty, PenaltyClass::Invalid);
 }
 
-TEST(ProtobufPrescanTests, plugs_into_a_connection_limiter)
+TEST(ProtobufPrescanTests, runs_as_the_body_stage)
 {
     auto limiter =
         ConnectionLimiter<int>{BucketSettings{.capacity = 100.0, .refillRatePerSecond = 1.0}, 4};
     auto const now = std::chrono::steady_clock::now();
+    auto const costs = PenaltyCosts{.trivial = 1, .useless = 5, .invalid = 10, .malformed = 20};
+    auto sink = limiter.sink(1, now, costs);
+
     auto const good = Writer{}.varint(1, 5).str();
     auto const bad = Writer{}.varint(1, 500).str();
     EXPECT_TRUE(
-        limiter.admit<TestMessage>(1, protobufVisitor<TestMessage>(spanOf(good)), now).admitted());
-    EXPECT_EQ(
-        limiter.admit<TestMessage>(1, protobufVisitor<TestMessage>(spanOf(bad)), now).reason,
-        "a too large");
+        admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(good)), sink)
+            .decision.admitted());
+    auto const refused = admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(bad)), sink);
+    EXPECT_EQ(refused.decision.reason, "a too large");
+    EXPECT_EQ(refused.decision.penalty, PenaltyClass::Invalid);
 }

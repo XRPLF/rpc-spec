@@ -1,23 +1,26 @@
 /** @file */
 #pragma once
 
-#include <admissionspec/AdmissionSpec.hpp>
-#include <admissionspec/ChargeSink.hpp>
-#include <admissionspec/Frame.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/BucketSettings.hpp>
+#include <admissionspec/PenaltyCosts.hpp>
+#include <admissionspec/Standing.hpp>
 #include <admissionspec/TokenBucket.hpp>
-#include <admissionspec/Types.hpp>
+#include <admissionspec/TokenBucketSink.hpp>
 
 #include <chrono>
 #include <cstddef>
 #include <mutex>
-#include <span>
 #include <unordered_map>
 #include <utility>
 
 namespace admission::spec {
 
 /**
- * @brief Tracks one token bucket per connection and enforces the admission stages against it.
+ * @brief One token bucket per connection, handed out as a @ref ChargeSink for each message.
+ *
+ * For a host with no resource manager of its own: run the stages in Pipeline.hpp with
+ * `limiter.sink(conn, now, costs)` as their sink.
  *
  * @tparam ConnId The caller's connection identifier (must be hashable and equality-comparable).
  */
@@ -30,15 +33,10 @@ class ConnectionLimiter
         TokenBucket::TimePoint lastSeen;
     };
 
-    struct State
-    {
-        std::unordered_map<ConnId, BucketEntry> buckets;
-    };
-
     BucketSettings settings_;
     size_t maxConnections_{};
     mutable std::mutex mutex_;
-    State state_;
+    std::unordered_map<ConnId, BucketEntry> buckets_;
 
 public:
     /**
@@ -65,60 +63,10 @@ public:
     }
 
     /**
-     * @brief Pre-deserialization admission for a message of type @p T arriving on @p conn.
+     * @brief A @ref ChargeSink over one connection's bucket.
      *
-     * Runs @ref admission::spec::AdmissionSpec::preAdmit() (hard byte cap + size-ramp cost + pre
-     * hook); if admitted, debits the size cost from @p conn's bucket. On a drop, any penalty cost
-     * the stage carried is debited too.
-     *
-     * @tparam T The message type whose @ref AdmissionSpec governs the limits.
-     * @param conn The connection the message arrived on.
-     * @param payload The raw, not-yet-deserialized message bytes.
-     * @param now The current time, used for bucket refill.
-     * @return Admit (with the debited cost) or Drop (oversize / pre-hook reject / rate limited).
-     */
-    template <typename T>
-    [[nodiscard]] AdmissionDecision
-    admitPre(ConnId const& conn, std::span<uint8_t const> payload, TimePoint now)
-    {
-        auto const decision = preAdmit<T>(payload);
-        if (decision.dropped())
-        {
-            return penalize(conn, decision, now);
-        }
-        return charge(conn, decision, now);
-    }
-
-    /**
-     * @brief Streaming admission for a message of type @p T arriving on @p conn.
-     *
-     * @tparam T The message type whose @ref AdmissionSpec governs the limits.
-     * @tparam Visitor The traversal callable.
-     * @param conn The connection the message arrived on.
-     * @param visitor Caller-provided traversal, invoked as `visitor(check)`.
-     * @param now The current time, used for bucket refill.
-     * @return Admit (with the debited cost) or Drop (check reject / rate limited).
-     */
-    template <typename T, typename Visitor>
-    AdmissionDecision
-    admit(ConnId const& conn, Visitor visitor, TimePoint now)
-    {
-        // A fresh, state-carrying checker for this one message; the visitor feeds it each event.
-        auto check = admission::spec::makeChecker<T>();
-
-        auto decision = visitor(check);
-        if (decision.dropped())
-        {
-            return penalize(conn, decision, now);
-        }
-        return charge(conn, decision, now);
-    }
-
-    /**
-     * @brief A @ref ChargeSink over one connection's bucket in a @ref ConnectionLimiter.
-     *
-     * Each call takes the limiter's lock and finds the connection's bucket, creating it as the
-     * limiter's other stages do, so no reference into the limiter outlives the lock.
+     * Each call takes the limiter's lock and finds the connection's bucket, creating it if absent,
+     * so no reference into the limiter outlives the lock.
      */
     class ConnectionSink
     {
@@ -137,21 +85,20 @@ public:
         standing()
         {
             auto _ = std::scoped_lock<std::mutex>{limiter_->mutex_};
-            auto it = limiter_->touchBucket(limiter_->state_.buckets, conn_, now_);
-            return TokenBucketSink{it->second.bucket, now_, costs_}.standing();
+            return TokenBucketSink{limiter_->touchBucket(conn_, now_), now_, costs_}.standing();
         }
 
         Standing
-        charge(ChargeRequest const& request)
+        charge(AdmissionDecision const& decision)
         {
             auto _ = std::scoped_lock<std::mutex>{limiter_->mutex_};
-            auto it = limiter_->touchBucket(limiter_->state_.buckets, conn_, now_);
-            return TokenBucketSink{it->second.bucket, now_, costs_}.charge(request);
+            return TokenBucketSink{limiter_->touchBucket(conn_, now_), now_, costs_}.charge(
+                decision);
         }
     };
 
     /**
-     * @brief A sink charging @p conn's bucket, for the header stage and the stages after it.
+     * @brief A sink charging @p conn's bucket.
      *
      * @param conn The connection a message arrived on.
      * @param now The time the message is handled.
@@ -173,7 +120,7 @@ public:
     onDisconnect(ConnId const& conn)
     {
         auto _ = std::scoped_lock<std::mutex>{mutex_};
-        state_.buckets.erase(conn);
+        buckets_.erase(conn);
     }
 
     /**
@@ -186,9 +133,8 @@ public:
     sweepIdle(TimePoint now, std::chrono::steady_clock::duration idleFor)
     {
         auto _ = std::scoped_lock<std::mutex>{mutex_};
-        std::erase_if(state_.buckets, [&](auto const& entry) {
-            return now - entry.second.lastSeen >= idleFor;
-        });
+        std::erase_if(
+            buckets_, [&](auto const& entry) { return now - entry.second.lastSeen >= idleFor; });
     }
 
     /**
@@ -198,25 +144,25 @@ public:
     size() const
     {
         auto _ = std::scoped_lock<std::mutex>{mutex_};
-        return state_.buckets.size();
+        return buckets_.size();
     }
 
 private:
     /**
      * @brief Find @p conn's bucket, creating it (evicting the oldest if at capacity) if absent,
-     * and stamp it as seen at @p now. Caller must hold @p buckets' lock.
+     * and stamp it as seen at @p now. Caller must hold the lock.
      */
-    [[nodiscard]] std::unordered_map<ConnId, BucketEntry>::iterator
-    touchBucket(std::unordered_map<ConnId, BucketEntry>& buckets, ConnId const& conn, TimePoint now)
+    [[nodiscard]] TokenBucket&
+    touchBucket(ConnId const& conn, TimePoint now)
     {
-        auto it = buckets.find(conn);
-        if (it == std::end(buckets))
+        auto it = buckets_.find(conn);
+        if (it == std::end(buckets_))
         {
-            if (buckets.size() >= maxConnections_)
+            if (buckets_.size() >= maxConnections_)
             {
-                evictOldest(buckets);
+                evictOldest();
             }
-            it = buckets
+            it = buckets_
                      .try_emplace(
                          conn,
                          BucketEntry{
@@ -225,53 +171,23 @@ private:
                      .first;
         }
         it->second.lastSeen = now;
-        return it;
+        return it->second.bucket;
     }
 
-    [[nodiscard]] AdmissionDecision
-    charge(ConnId const& conn, AdmissionDecision const& decision, TimePoint now)
+    void
+    evictOldest()
     {
-        auto _ = std::scoped_lock<std::mutex>{mutex_};
-        if (auto it = touchBucket(state_.buckets, conn, now);
-            not it->second.bucket.tryConsume(decision.tokenCost, now))
-        {
-            return AdmissionDecision::drop("connection rate limit exceeded");
-        }
-        return AdmissionDecision::admit(decision.tokenCost);
-    }
-
-    /**
-     * @brief Apply a dropped stage's penalty cost to @p conn's bucket and return the drop
-     * unchanged. The debit is best-effort: if the bucket lacks the tokens it is left as-is (the
-     * connection is already at its limit). A drop is always a drop regardless of bucket state.
-     */
-    [[nodiscard]] AdmissionDecision
-    penalize(ConnId const& conn, AdmissionDecision const& decision, TimePoint now)
-    {
-        if (decision.tokenCost > 0.0)
-        {
-            auto _ = std::scoped_lock<std::mutex>{mutex_};
-            auto it = touchBucket(state_.buckets, conn, now);
-            // Best-effort: debit the penalty if affordable; a drop is a drop regardless.
-            (void)it->second.bucket.tryConsume(decision.tokenCost, now);
-        }
-        return decision;
-    }
-
-    static void
-    evictOldest(std::unordered_map<ConnId, BucketEntry>& buckets)
-    {
-        auto oldest = std::begin(buckets);
-        for (auto it = std::begin(buckets); it != std::end(buckets); ++it)
+        auto oldest = std::begin(buckets_);
+        for (auto it = std::begin(buckets_); it != std::end(buckets_); ++it)
         {
             if (it->second.lastSeen < oldest->second.lastSeen)
             {
                 oldest = it;
             }
         }
-        if (oldest != std::end(buckets))
+        if (oldest != std::end(buckets_))
         {
-            buckets.erase(oldest);
+            buckets_.erase(oldest);
         }
     }
 };

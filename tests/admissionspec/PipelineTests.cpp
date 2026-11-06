@@ -1,11 +1,24 @@
+#include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/BothSinks.hpp>
+#include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ChargeSink.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
-#include <admissionspec/Frame.hpp>
+#include <admissionspec/ConnectionView.hpp>
+#include <admissionspec/FrameInfo.hpp>
+#include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/PenaltyCosts.hpp>
 #include <admissionspec/Pipeline.hpp>
+#include <admissionspec/RepeatedCaps.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
+#include <admissionspec/SpecLookup.hpp>
+#include <admissionspec/SpecRegistry.hpp>
+#include <admissionspec/Standing.hpp>
 #include <admissionspec/TokenBucket.hpp>
-#include <admissionspec/Types.hpp>
+#include <admissionspec/TokenBucketSink.hpp>
+#include <admissionspec/Tunable.hpp>
+#include <admissionspec/VisitEvent.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -83,8 +96,7 @@ admissionSpec(std::type_identity<Relayed>)
              .relayedByOlderVersions = true,
              .repeated = repeatedCaps(
                  {{.fieldNumber = 3, .maxEntries = 12, .minEntryBytes = 1},
-                  {.fieldNumber = 4, .maxEntries = 2, .minEntryBytes = 32}}),
-             .obligations = Obligation::DedupBeforeWork | Obligation::TrustLookup});
+                  {.fieldNumber = 4, .maxEntries = 2, .minEntryBytes = 32}})});
 }
 
 struct Connection
@@ -118,7 +130,7 @@ static_assert(ConnectionView<Connection>);
 struct RecordingSink
 {
     Standing current{Standing::Ok};
-    std::vector<ChargeRequest> charges;
+    std::vector<AdmissionDecision> charges;
 
     [[nodiscard]] Standing
     standing() const
@@ -127,9 +139,9 @@ struct RecordingSink
     }
 
     Standing
-    charge(ChargeRequest const& request)
+    charge(AdmissionDecision const& decision)
     {
-        charges.push_back(request);
+        charges.push_back(decision);
         return current;
     }
 };
@@ -137,7 +149,6 @@ struct RecordingSink
 static_assert(ChargeSink<RecordingSink>);
 static_assert(ChargeSink<TokenBucketSink>);
 static_assert(ChargeSink<BothSinks<RecordingSink, TokenBucketSink>>);
-static_assert(ChargeSink<AnyChargeSink>);
 static_assert(ChargeSink<ConnectionLimiter<int>::ConnectionSink>);
 
 constexpr auto kSmall = admissionSpecFor<Small>();
@@ -214,14 +225,12 @@ TEST(AdmissionHeaderTests, a_relayed_type_is_refused_at_the_trivial_penalty_only
     EXPECT_EQ(kSmall.penaltyFor(PenaltyClass::Malformed), PenaltyClass::Malformed);
 }
 
-TEST(AdmissionHeaderTests, attributes_carry_caps_and_obligations)
+TEST(AdmissionHeaderTests, attributes_carry_repeated_caps)
 {
     auto const& attributes = kRelayed.attributes();
     ASSERT_TRUE(attributes.repeated.find(4).has_value());
     EXPECT_EQ(attributes.repeated.find(4)->minEntryBytes, 32U);
     EXPECT_FALSE(attributes.repeated.find(5).has_value());
-    EXPECT_TRUE(includes(attributes.obligations, Obligation::TrustLookup));
-    EXPECT_FALSE(includes(attributes.obligations, Obligation::AnswersOutstandingRequest));
 }
 
 TEST(AdmissionPipelineTests, charges_the_header_stage_admitted_or_not)
@@ -248,14 +257,31 @@ TEST(AdmissionPipelineTests, a_sender_over_its_limit_is_refused_unread_and_not_c
     EXPECT_TRUE(sink.charges.empty());
 }
 
-TEST(AdmissionPipelineTests, a_later_refusal_is_charged_the_specs_penalty_only)
+TEST(AdmissionPipelineTests, a_body_refusal_is_charged_the_penalty_its_spec_allows)
 {
-    auto sink = RecordingSink{};
-    static_cast<void>(chargeRefusal<Relayed>(
-        AdmissionDecision::drop("too many entries", PenaltyClass::Invalid, 50.0), sink));
-    ASSERT_EQ(sink.charges.size(), 1U);
-    EXPECT_EQ(sink.charges[0].penalty, PenaltyClass::Trivial);
-    EXPECT_DOUBLE_EQ(sink.charges[0].cost, 0.0);
+    auto const refuse = [](auto&) {
+        return AdmissionDecision::drop("too many entries", PenaltyClass::Invalid, 50.0);
+    };
+
+    // A type older releases relay: capped at the trivial penalty, with no cost.
+    auto relayed = RecordingSink{};
+    auto const capped = admitBody<Relayed>(refuse, relayed);
+    EXPECT_EQ(capped.decision.penalty, PenaltyClass::Trivial);
+    ASSERT_EQ(relayed.charges.size(), 1U);
+    EXPECT_DOUBLE_EQ(relayed.charges[0].tokenCost, 0.0);
+
+    // Any other type: the penalty and cost the walk asked for.
+    auto other = RecordingSink{};
+    auto const full = admitBody<Small>(refuse, other);
+    EXPECT_EQ(full.decision.penalty, PenaltyClass::Invalid);
+    EXPECT_DOUBLE_EQ(full.decision.tokenCost, 50.0);
+
+    // An admission is charged only a cost the walk asked for.
+    auto quiet = RecordingSink{};
+    EXPECT_TRUE(
+        admitBody<Small>([](auto&) { return AdmissionDecision::admit(); }, quiet)
+            .decision.admitted());
+    EXPECT_TRUE(quiet.charges.empty());
 }
 
 TEST(ChargeSinkTests, token_bucket_sink_takes_the_larger_of_cost_and_penalty)
@@ -266,13 +292,13 @@ TEST(ChargeSinkTests, token_bucket_sink_takes_the_larger_of_cost_and_penalty)
     auto sink = TokenBucketSink{
         bucket, now, PenaltyCosts{.trivial = 1, .useless = 10, .invalid = 40, .malformed = 80}};
 
-    EXPECT_EQ(sink.charge({.cost = 5.0}), Standing::Ok);
+    EXPECT_EQ(sink.charge(AdmissionDecision::admit(5.0)), Standing::Ok);
     EXPECT_DOUBLE_EQ(bucket.available(now), 95.0);
-    EXPECT_EQ(sink.charge({.cost = 5.0, .penalty = PenaltyClass::Invalid}), Standing::Ok);
+    EXPECT_EQ(sink.charge(AdmissionDecision::drop("r", PenaltyClass::Invalid, 5.0)), Standing::Ok);
     EXPECT_DOUBLE_EQ(bucket.available(now), 55.0);
 
     // A charge the bucket cannot cover takes nothing.
-    EXPECT_EQ(sink.charge({.penalty = PenaltyClass::Malformed}), Standing::Drop);
+    EXPECT_EQ(sink.charge(AdmissionDecision::drop("r", PenaltyClass::Malformed)), Standing::Drop);
     EXPECT_DOUBLE_EQ(bucket.available(now), 55.0);
     EXPECT_EQ(sink.standing(), Standing::Ok);
 }
@@ -283,19 +309,9 @@ TEST(ChargeSinkTests, both_sinks_charges_both_and_reports_the_worse)
     auto second = RecordingSink{.current = Standing::Ok};
     auto both = BothSinks{first, second};
     EXPECT_EQ(both.standing(), Standing::Warn);
-    EXPECT_EQ(both.charge({.cost = 1.0}), Standing::Warn);
+    EXPECT_EQ(both.charge(AdmissionDecision::admit(1.0)), Standing::Warn);
     EXPECT_EQ(first.charges.size(), 1U);
     EXPECT_EQ(second.charges.size(), 1U);
-}
-
-TEST(ChargeSinkTests, any_charge_sink_forwards)
-{
-    auto inner = RecordingSink{.current = Standing::Warn};
-    auto erased = AnyChargeSink{inner};
-    EXPECT_EQ(erased.standing(), Standing::Warn);
-    EXPECT_EQ(erased.charge({.cost = 3.0, .reason = "r"}), Standing::Warn);
-    ASSERT_EQ(inner.charges.size(), 1U);
-    EXPECT_EQ(inner.charges[0].reason, std::string_view{"r"});
 }
 
 TEST(SpecRegistryTests, dispatches_by_type_number)
@@ -326,7 +342,7 @@ TEST(SpecRegistryTests, runs_the_header_stage_for_the_named_type)
         frame.type,
         [&]<class T> { return admitHeader<T>(frame, Connection{}, sink); },
         [] {
-            return HeaderAdmission{
+            return StageResult{
                 .decision = AdmissionDecision::drop("unknown type", PenaltyClass::Useless)};
         });
     EXPECT_TRUE(result.decision.dropped());

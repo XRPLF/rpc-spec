@@ -5,7 +5,8 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
 
-#include <admissionspec/Types.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/VisitEvent.hpp>
 
 #include <cstdint>
 #include <limits>
