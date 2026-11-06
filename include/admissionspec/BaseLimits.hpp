@@ -12,13 +12,17 @@ namespace admission::spec {
 struct BaseLimits
 {
     /**
-     * @brief The most fields a message, or a message nested in it, may hold that its schema does
-     * not define. An undefined value of a closed enum counts as one.
+     * @brief The most fields one message may hold that its schema does not define. An undefined
+     * value of a closed enum counts as one.
+     *
+     * Each nested message is counted on its own, so a later schema that adds a field to a message
+     * repeated many times stays within the limit; the payload's size and its repeated-field caps
+     * bound the total. @c maxUnknownFieldBytes bounds the whole payload.
      */
     uint64_t maxUnknownFields{16};
 
     /**
-     * @brief The most bytes those unknown fields may take together.
+     * @brief The most bytes the unknown fields of the whole payload may take together.
      */
     uint64_t maxUnknownFieldBytes{1024};
 

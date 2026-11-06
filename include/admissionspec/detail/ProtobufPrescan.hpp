@@ -20,12 +20,13 @@
 #include <span>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 
 namespace admission::spec::detail {
 
 /**
- * @brief One walk of a payload: the stream, the limits, and the counts kept across nested
- * messages.
+ * @brief One walk of a payload: the stream, the limits, the unknown fields of the message being
+ * walked, and the unknown-field bytes of the whole payload.
  */
 template <typename Check>
 class Prescan
@@ -34,7 +35,9 @@ class Prescan
     google::protobuf::io::CodedInputStream in_;
     BaseLimits const& limits_;
     Check& check_;
+    // In the message being walked; each nested message counts its own.
     uint64_t unknownFields_{};
+    // In the whole payload.
     uint64_t unknownBytes_{};
 
 public:
@@ -113,13 +116,24 @@ private:
         return static_cast<uint32_t>(*value);
     }
 
-    // Walk the fields up to the current limit, as members of `descriptor` at `depth`. The end is
-    // decided before a tag is read: a tag of 0, or one that does not decode, is never an end.
+    // Walk one message: its fields up to the current limit, as members of `descriptor` at
+    // `depth`. Its unknown fields are counted apart from those of the message it is nested in.
     // Returns how many fields it read, or the first drop.
     [[nodiscard]] std::expected<size_t, AdmissionDecision>
     message(google::protobuf::Descriptor const& descriptor, uint64_t depth)
     {
-        auto fields = size_t{};
+        auto const outer = std::exchange(unknownFields_, 0);
+        auto walked = fields(descriptor, depth);
+        unknownFields_ = outer;
+        return walked;
+    }
+
+    // The end is decided before a tag is read: a tag of 0, or one that does not decode, is never
+    // an end.
+    [[nodiscard]] std::expected<size_t, AdmissionDecision>
+    fields(google::protobuf::Descriptor const& descriptor, uint64_t depth)
+    {
+        auto count = size_t{};
         while (in_.BytesUntilLimit() > 0)
         {
             auto const tag = readTag();
@@ -131,9 +145,9 @@ private:
             {
                 return std::unexpected{decision};
             }
-            ++fields;
+            ++count;
         }
-        return fields;
+        return count;
     }
 
     [[nodiscard]] AdmissionDecision

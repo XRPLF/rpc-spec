@@ -43,9 +43,9 @@ namespace admission::spec {
  * @c size, so a cap's minimum entry size applies to it.
  *
  * It refuses, as @ref PenaltyClass::Malformed: an invalid tag, field number 0, wire types 6 and 7,
- * a varint over 10 bytes, and truncated fields. As @ref PenaltyClass::Invalid: more unknown fields,
- * or bytes in them, than @p limits allow, a group when @p limits rejects them, nesting deeper than
- * @p limits allow.
+ * a varint over 10 bytes, and truncated fields. As @ref PenaltyClass::Invalid: more unknown fields
+ * in one message, or bytes in unknown fields in the whole payload, than @p limits allow, a group
+ * when @p limits rejects them, nesting deeper than @p limits allow.
  *
  * @param payload The decoded payload.
  * @param descriptor The schema of the message.
