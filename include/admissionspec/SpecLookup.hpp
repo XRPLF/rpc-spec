@@ -2,6 +2,7 @@
 #pragma once
 
 #include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/RepeatedCapsCheck.hpp>
 #include <admissionspec/detail/SpecLookup.hpp>
 
 #include <type_traits>
@@ -74,7 +75,8 @@ resolvedFor()
 }
 
 /**
- * @brief Make a fresh streaming checker for type @p T, bound to its resolved tunables.
+ * @brief Make a fresh streaming checker for type @p T: its spec's check, bound to its resolved
+ * tunables, behind its repeated-field caps (see @ref RepeatedCapsCheck).
  *
  * The binding point between a caller-provided payload visitor and the type's
  * @ref AdmissionSpec — call once per message to get an `AdmissionDecision(VisitEvent const&)`
@@ -86,7 +88,7 @@ template <typename T>
 makeChecker()
 {
     static constexpr auto kSpec = admissionSpecFor<T>();
-    return kSpec.makeChecker(resolvedFor<T>());
+    return RepeatedCapsCheck{kSpec.attributes().repeated, kSpec.makeChecker(resolvedFor<T>())};
 }
 
 }  // namespace admission::spec

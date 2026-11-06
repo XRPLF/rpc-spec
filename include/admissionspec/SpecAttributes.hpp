@@ -22,9 +22,10 @@ struct SpecAttributes
     std::optional<uint32_t> typeId;
 
     /**
-     * @brief Whether only a sender in the host's cluster may send it.
+     * @brief Whether only a privileged sender may send it: one the host trusts, such as a peer in
+     * its cluster, or an RPC client with the admin role (see @ref ConnectionView).
      */
-    bool fromClusterOnly{};
+    bool privilegedOnly{};
 
     /**
      * @brief A feature the connection must have negotiated. Set it only when every supported

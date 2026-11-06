@@ -163,7 +163,7 @@ admissionSpec(std::type_identity<JsonMessage>)
 struct OpenConnection
 {
     [[nodiscard]] static bool
-    inCluster()
+    privileged()
     {
         return false;
     }
@@ -217,7 +217,7 @@ TEST(ConnectionLimiterTests, rate_limit)
     {
         // The body stage runs the spec's check and charges its refusal.
         auto sink = limiter.sink(0uz, start, kCosts);
-        auto const result = admitBody<FooMessage>(fooVisitor(1000), sink);
+        auto const result = admitBody<FooMessage>(fooVisitor(1000), OpenConnection{}, sink);
         EXPECT_TRUE(result.decision.dropped());
         EXPECT_EQ(result.decision.reason, "foo value is invalid");
         EXPECT_EQ(result.decision.tokenCost, 25.0);
@@ -232,7 +232,8 @@ TEST(ConnectionLimiterTests, rate_limit)
         for (size_t i{}; i < 10; ++i)
         {
             auto sink = limiter.sink(i, start, kCosts);
-            EXPECT_TRUE(admitBody<FooMessage>(fooVisitor(0), sink).decision.admitted());
+            EXPECT_TRUE(
+                admitBody<FooMessage>(fooVisitor(0), OpenConnection{}, sink).decision.admitted());
             EXPECT_EQ(limiter.size(), std::min(i + 1, 5uz));
         }
         EXPECT_EQ(limiter.size(), 5uz);
@@ -265,7 +266,8 @@ TEST(ConnectionLimiterTests, json_message_admission)
         auto const bytes =
             std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(json.data()), json.size()};
         auto sink = limiter.sink(1, now, kCosts);
-        return admitBody<JsonMessage>([&](auto& check) { return visitJson(bytes, check); }, sink)
+        return admitBody<JsonMessage>(
+                   [&](auto& check) { return visitJson(bytes, check); }, OpenConnection{}, sink)
             .decision;
     };
 

@@ -3,7 +3,6 @@
 
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/BaseLimits.hpp>
-#include <admissionspec/RepeatedCaps.hpp>
 #include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <admissionspec/detail/ProtobufPrescan.hpp>
@@ -39,19 +38,18 @@ namespace admission::spec {
  *
  * A repeated field's entries are reported one at a time, each with the field's number, and there
  * are no `ArrayBegin` / `ArrayEnd` events: on the wire, entries need not be contiguous, and a
- * packed field's elements are reported like unpacked entries. A check that needs a count keeps
- * its own; @p caps covers the common case.
+ * packed field's elements are reported like unpacked entries. A spec's repeated-field caps count
+ * them (see @ref RepeatedCapsCheck); a nested message's `ObjectBegin` carries its byte length as
+ * @c size, so a cap's minimum entry size applies to it.
  *
  * It refuses, as @ref PenaltyClass::Malformed: an invalid tag, field number 0, wire types 6 and 7,
  * a varint over 10 bytes, and truncated fields. As @ref PenaltyClass::Invalid: more unknown fields,
  * or bytes in them, than @p limits allow, a group when @p limits rejects them, nesting deeper than
- * @p limits allow, and a top-level repeated field over its cap in @p caps or with an entry smaller
- * than the cap allows.
+ * @p limits allow.
  *
  * @param payload The decoded payload.
  * @param descriptor The schema of the message.
  * @param limits The limits applied to every message.
- * @param caps The message's repeated-field caps.
  * @param check Invoked as `AdmissionDecision(VisitEvent const&)`; the walk stops on its first
  *        drop.
  * @return Admit, or the first drop.
@@ -62,10 +60,9 @@ prescanProtobuf(
     std::span<uint8_t const> payload,
     google::protobuf::Descriptor const& descriptor,
     BaseLimits const& limits,
-    RepeatedCaps const& caps,
     Check& check)
 {
-    return detail::Prescan<Check>{payload, limits, caps, check}.run(descriptor);
+    return detail::Prescan<Check>{payload, limits, check}.run(descriptor);
 }
 
 /**
@@ -75,16 +72,15 @@ prescanProtobuf(
 prescanProtobuf(
     std::span<uint8_t const> payload,
     google::protobuf::Descriptor const& descriptor,
-    BaseLimits const& limits = {},
-    RepeatedCaps const& caps = {})
+    BaseLimits const& limits = {})
 {
     auto admitAll = [](VisitEvent const&) { return AdmissionDecision::admit(); };
-    return prescanProtobuf(payload, descriptor, limits, caps, admitAll);
+    return prescanProtobuf(payload, descriptor, limits, admitAll);
 }
 
 /**
- * @brief A visitor that prescans a payload of the generated protobuf type @p T with its spec's
- * repeated caps, for @ref admitBody, which calls it as `walker(check)` with the spec's check.
+ * @brief A walker that prescans a payload of the generated protobuf type @p T, for @ref admitBody,
+ * which calls it as `walker(check)` with the spec's check and caps.
  *
  * @param payload The decoded payload. It must outlive the visitor.
  * @param limits The limits applied to every message.
@@ -95,15 +91,12 @@ template <typename T>
 protobufVisitor(std::span<uint8_t const> payload, BaseLimits const& limits = {})
 {
     return [payload, limits]<typename Check>(Check& check) -> AdmissionDecision {
-        static constexpr auto kSpec = admissionSpecFor<T>();
-        return prescanProtobuf(
-            payload, *T::descriptor(), limits, kSpec.attributes().repeated, check);
+        return prescanProtobuf(payload, *T::descriptor(), limits, check);
     };
 }
 
 /**
- * @brief Prescan a payload of the generated protobuf type @p T, with its spec's repeated caps and
- * streaming check.
+ * @brief Prescan a payload of the generated protobuf type @p T, with its spec's check and caps.
  */
 template <typename T>
     requires HasAdmissionSpec<T> and requires { T::descriptor(); }

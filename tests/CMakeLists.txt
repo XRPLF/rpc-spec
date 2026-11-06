@@ -10,6 +10,7 @@ add_executable(
     admissionspec/JsonVisitorTests.cpp
     admissionspec/PassthroughVisitorTests.cpp
     admissionspec/PipelineTests.cpp
+    admissionspec/RepeatedCapsCheckTests.cpp
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp

@@ -52,22 +52,33 @@ admitHeader(FrameInfo const& frame, Connection const& connection, Sink& sink)
 }
 
 /**
- * @brief The body stage for type @p T: run the spec's check while a walker reads the payload,
- * before it is parsed, and charge the outcome.
+ * @brief The body stage for type @p T: run the spec's check, behind its repeated-field caps, while
+ * a walker reads the payload, before it is parsed, and charge the outcome.
  *
- * The header stage already charged the message's size. A refusal is charged its penalty, capped
- * by the spec (see @ref AdmissionSpec::penaltyFor), with the check's cost unless the spec's type is
+ * It first asks the connection gate (see @ref AdmissionSpec::refuseConnection), so a type the
+ * sender may not send is refused unread. For a peer the header stage has already asked it; for
+ * RPC, whose method is known only once the body is read, this is where it is settled.
+ *
+ * The header stage already charged the message's size. A refusal is charged its penalty, capped by
+ * the spec (see @ref AdmissionSpec::penaltyFor), with the check's cost unless the spec's type is
  * relayed by older releases. An admission is charged only a cost the check asked for.
  *
  * @param walker Reads the payload, called as `walker(check)`: @ref prescanProtobuf through
  *        @ref protobufVisitor, @ref JsonVisitor, or @ref visitPassthrough.
+ * @param connection The connection the message arrived on.
  * @param sink Where to charge.
  */
-template <typename T, typename Walker, ChargeSink Sink>
+template <typename T, typename Walker, ConnectionView Connection, ChargeSink Sink>
     requires HasAdmissionSpec<T>
 [[nodiscard]] StageResult
-admitBody(Walker&& walker, Sink& sink)
+admitBody(Walker&& walker, Connection const& connection, Sink& sink)
 {
+    static constexpr auto kSpec = admissionSpecFor<T>();
+    if (auto const refusal = kSpec.refuseConnection(connection, 0.0))
+    {
+        return {.decision = *refusal, .standing = sink.charge(*refusal)};
+    }
+
     auto check = makeChecker<T>();
     auto const decision = walker(check);
     if (decision.admitted())
@@ -77,7 +88,6 @@ admitBody(Walker&& walker, Sink& sink)
             .standing = decision.tokenCost > 0.0 ? sink.charge(decision) : sink.standing()};
     }
 
-    static constexpr auto kSpec = admissionSpecFor<T>();
     auto const refusal = AdmissionDecision::drop(
         decision.reason,
         kSpec.penaltyFor(decision.penalty),

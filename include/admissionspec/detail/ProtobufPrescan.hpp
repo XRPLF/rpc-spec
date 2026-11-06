@@ -4,7 +4,6 @@
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/BaseLimits.hpp>
 #include <admissionspec/PenaltyClass.hpp>
-#include <admissionspec/RepeatedCaps.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/coded_stream.h>
@@ -33,22 +32,15 @@ class Prescan
     std::span<uint8_t const> payload_;
     google::protobuf::io::CodedInputStream in_;
     BaseLimits const& limits_;
-    RepeatedCaps const& caps_;
     Check& check_;
     uint64_t unknownFields_{};
     uint64_t unknownBytes_{};
-    std::array<uint64_t, kMaxRepeatedCaps> entries_{};
 
 public:
-    Prescan(
-        std::span<uint8_t const> payload,
-        BaseLimits const& limits,
-        RepeatedCaps const& caps,
-        Check& check)
+    Prescan(std::span<uint8_t const> payload, BaseLimits const& limits, Check& check)
         : payload_{payload}
         , in_{payload.data(), static_cast<int>(payload.size())}
         , limits_{limits}
-        , caps_{caps}
         , check_{check}
     {
     }
@@ -188,13 +180,7 @@ private:
         {
             return packedEntries(*known, depth);
         }
-        auto const start = in_.CurrentPosition();
-        auto decision = value(*known, wireType, depth);
-        if (decision.dropped())
-        {
-            return decision;
-        }
-        return entry(*known, depth, static_cast<uint64_t>(in_.CurrentPosition() - start));
+        return value(*known, wireType, depth);
     }
 
     // Skip a field the schema does not define, counting it against the unknown-field limits.
@@ -278,31 +264,6 @@ private:
             }
         }
         return malformed("unterminated protobuf group");
-    }
-
-    // Count one entry of a repeated field, at the top level, against its cap.
-    [[nodiscard]] AdmissionDecision
-    entry(google::protobuf::FieldDescriptor const& field, uint64_t depth, uint64_t bytes)
-    {
-        if (depth != 0 or not field.is_repeated())
-        {
-            return AdmissionDecision::admit();
-        }
-        for (size_t i{}; i < caps_.count; ++i)
-        {
-            if (caps_.caps[i].fieldNumber == static_cast<uint32_t>(field.number()))
-            {
-                if (++entries_[i] > caps_.caps[i].maxEntries)
-                {
-                    return invalid("too many entries in a repeated protobuf field");
-                }
-                if (bytes < caps_.caps[i].minEntryBytes)
-                {
-                    return invalid("repeated protobuf entry smaller than its type allows");
-                }
-            }
-        }
-        return AdmissionDecision::admit();
     }
 
     [[nodiscard]] AdmissionDecision
@@ -462,8 +423,11 @@ private:
             {
                 return invalid("protobuf messages nested too deeply");
             }
-            if (auto const d =
-                    emit({.kind = EventKind::ObjectBegin, .depth = at, .fieldNumber = number});
+            if (auto const d = emit(
+                    {.kind = EventKind::ObjectBegin,
+                     .size = *length,
+                     .depth = at,
+                     .fieldNumber = number});
                 d.dropped())
             {
                 return d;
@@ -522,13 +486,7 @@ private:
         auto decision = AdmissionDecision::admit();
         while (in_.BytesUntilLimit() > 0 and decision.admitted())
         {
-            auto const start = in_.CurrentPosition();
             decision = value(field, element, depth);
-            if (decision.admitted())
-            {
-                decision =
-                    entry(field, depth, static_cast<uint64_t>(in_.CurrentPosition() - start));
-            }
         }
         in_.PopLimit(limit);
         return decision;

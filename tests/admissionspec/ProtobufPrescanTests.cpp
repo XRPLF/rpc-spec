@@ -3,11 +3,13 @@
 #include <admissionspec/BaseLimits.hpp>
 #include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
+#include <admissionspec/ConnectionView.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/PenaltyCosts.hpp>
 #include <admissionspec/Pipeline.hpp>
 #include <admissionspec/ProtobufPrescan.hpp>
 #include <admissionspec/RepeatedCaps.hpp>
+#include <admissionspec/RepeatedCapsCheck.hpp>
 #include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/SpecLookup.hpp>
@@ -295,7 +297,9 @@ scan(
 {
     auto const span =
         std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
-    return prescanProtobuf(span, *schema().test, limits, caps);
+    auto check =
+        RepeatedCapsCheck{caps, [](VisitEvent const&) { return AdmissionDecision::admit(); }};
+    return prescanProtobuf(span, *schema().test, limits, check);
 }
 
 // A Sub nested `depth` levels deep, through `child`.
@@ -370,7 +374,7 @@ TEST(ProtobufPrescanTests, admits_a_well_formed_message_and_reports_its_values)
     };
     auto const span =
         std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
-    EXPECT_TRUE(prescanProtobuf(span, *schema().test, BaseLimits{}, {}, record).admitted());
+    EXPECT_TRUE(prescanProtobuf(span, *schema().test, BaseLimits{}, record).admitted());
 
     auto const count = [&](EventKind kind) { return std::ranges::count(events, kind); };
     EXPECT_EQ(count(EventKind::Bytes), 2);
@@ -394,7 +398,7 @@ TEST(ProtobufPrescanTests, a_check_can_refuse_while_walking)
     auto const span =
         std::span<uint8_t const>{reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
     EXPECT_EQ(
-        prescanProtobuf(span, *schema().test, BaseLimits{}, {}, refuseLarge).reason, "a too large");
+        prescanProtobuf(span, *schema().test, BaseLimits{}, refuseLarge).reason, "a too large");
 }
 
 TEST(ProtobufPrescanTests, refuses_input_no_conforming_encoder_produces)
@@ -635,8 +639,7 @@ TEST(ProtobufPrescanTests, reports_values_typed_by_their_declared_type)
         events.push_back(event);
         return AdmissionDecision::admit();
     };
-    ASSERT_TRUE(
-        prescanProtobuf(spanOf(bytes), *schema().test, BaseLimits{}, {}, record).admitted());
+    ASSERT_TRUE(prescanProtobuf(spanOf(bytes), *schema().test, BaseLimits{}, record).admitted());
 
     auto const find = [&](uint64_t field, uint32_t depth = 0) {
         return *std::ranges::find_if(events, [&](VisitEvent const& e) {
@@ -679,6 +682,28 @@ TEST(ProtobufPrescanTests, runs_a_specs_check_and_caps)
     EXPECT_EQ(prescan<TestMessage>(spanOf(three)).penalty, PenaltyClass::Invalid);
 }
 
+// A connection that may send anything.
+struct OpenConnection
+{
+    [[nodiscard]] static bool
+    privileged()
+    {
+        return false;
+    }
+
+    [[nodiscard]] static bool
+    hasFeature(FeatureId)
+    {
+        return false;
+    }
+
+    [[nodiscard]] static bool
+    compressionNegotiated()
+    {
+        return false;
+    }
+};
+
 TEST(ProtobufPrescanTests, runs_as_the_body_stage)
 {
     auto limiter = ConnectionLimiter<int32_t>{
@@ -690,9 +715,10 @@ TEST(ProtobufPrescanTests, runs_as_the_body_stage)
     auto const good = Writer{}.varint(1, 5).str();
     auto const bad = Writer{}.varint(1, 500).str();
     EXPECT_TRUE(
-        admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(good)), sink)
+        admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(good)), OpenConnection{}, sink)
             .decision.admitted());
-    auto const refused = admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(bad)), sink);
+    auto const refused =
+        admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(bad)), OpenConnection{}, sink);
     EXPECT_EQ(refused.decision.reason, "a too large");
     EXPECT_EQ(refused.decision.penalty, PenaltyClass::Invalid);
 }

@@ -12,6 +12,7 @@
 
 #include <concepts>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -41,7 +42,8 @@ struct NoHook
  * - named @ref Tunable values, which configuration may override. Two are required:
  *   @c "max_payload_bytes" (the cap on either declared size) and @c "size_ramp" (the price by
  *   decoded size); `makeSpec` checks both are present;
- * - @ref SpecAttributes, the type's fixed facts: its type id, whether only the cluster may send it,
+ * - @ref SpecAttributes, the type's fixed facts: its type id, whether only a privileged sender may
+ *   send it,
  *   a required feature, whether older releases relay it as received, and repeated-field caps;
  * - optionally, a check: a callable invoked with each @ref VisitEvent while the payload is walked,
  *   which keeps any state it needs and may refuse the message before it is parsed.
@@ -176,9 +178,41 @@ public:
     }
 
     /**
+     * @brief Whether the connection may send this type at all: a privileged-only type from an
+     * unprivileged sender, or a type whose feature the connection did not negotiate, is refused.
+     *
+     * Both stages ask it. For a peer, the header stage settles it; for RPC, whose method is known
+     * only once its body is read, the body stage does.
+     *
+     * @param connection The connection the message arrived on.
+     * @param cost The stage's cost, charged with the refusal unless the type is relayed by older
+     *        releases.
+     * @return The refusal, or nothing if the connection may send this type.
+     */
+    template <ConnectionView Connection>
+    [[nodiscard]] std::optional<AdmissionDecision>
+    refuseConnection(Connection const& connection, double cost) const
+    {
+        auto const refuse = [&](std::string_view why) {
+            auto const applied = penaltyFor(PenaltyClass::Useless);
+            return AdmissionDecision::drop(
+                why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
+        };
+        if (attributes_.privilegedOnly and not connection.privileged())
+        {
+            return refuse("only a privileged sender may send this type");
+        }
+        if (attributes_.requiresFeature and not connection.hasFeature(*attributes_.requiresFeature))
+        {
+            return refuse("the connection did not negotiate this type's feature");
+        }
+        return std::nullopt;
+    }
+
+    /**
      * @brief First stage: decide from a frame's header alone, before its payload is read.
      *
-     * In order: a cluster-only type from outside the cluster, a missing required feature, a
+     * In order: the connection gate (see @ref refuseConnection), a
      * compressed payload on a connection that did not negotiate compression, then either declared
      * size over @c "max_payload_bytes". The cost is the size ramp on the decoded size, charged on
      * admission and on refusal alike, except for a type older releases pass on as received, whose
@@ -200,14 +234,9 @@ public:
                 why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
         };
 
-        if (attributes_.fromClusterOnly and not connection.inCluster())
+        if (auto const refusal = refuseConnection(connection, cost))
         {
-            return refuse("only the cluster may send this type", PenaltyClass::Useless);
-        }
-        if (attributes_.requiresFeature and not connection.hasFeature(*attributes_.requiresFeature))
-        {
-            return refuse(
-                "the connection did not negotiate this type's feature", PenaltyClass::Useless);
+            return *refusal;
         }
         if (frame.compressed and not connection.compressionNegotiated())
         {

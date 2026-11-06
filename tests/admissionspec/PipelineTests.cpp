@@ -49,19 +49,20 @@ admissionSpec(std::type_identity<Small>)
         .withAttributes({.typeId = 3});
 }
 
-// Only the cluster may send it.
-struct ClusterOnly
+// Only a privileged sender may send it.
+struct PrivilegedOnly
 {
 };
 
 consteval auto
-admissionSpec(std::type_identity<ClusterOnly>)
+admissionSpec(std::type_identity<PrivilegedOnly>)
 {
-    return makeSpec<ClusterOnly>(
-               tunable<"max_payload_bytes">(uint64_t{1024}, "admission.cluster.max_payload_bytes"),
+    return makeSpec<PrivilegedOnly>(
+               tunable<"max_payload_bytes">(
+                   uint64_t{1024}, "admission.privileged.max_payload_bytes"),
                tunable<"size_ramp">(
-                   ramp({{.upToBytes = 1024, .cost = 1.0}}), "admission.cluster.size_ramp"))
-        .withAttributes({.typeId = 5, .fromClusterOnly = true});
+                   ramp({{.upToBytes = 1024, .cost = 1.0}}), "admission.privileged.size_ramp"))
+        .withAttributes({.typeId = 5, .privilegedOnly = true});
 }
 
 // Needs a negotiated feature.
@@ -101,14 +102,14 @@ admissionSpec(std::type_identity<Relayed>)
 
 struct Connection
 {
-    bool cluster{};
+    bool trusted{};
     bool compression{};
     std::vector<FeatureId> features;
 
     [[nodiscard]] bool
-    inCluster() const
+    privileged() const
     {
-        return cluster;
+        return trusted;
     }
 
     [[nodiscard]] bool
@@ -193,14 +194,15 @@ TEST(AdmissionHeaderTests, refuses_a_compressed_payload_without_negotiated_compr
     EXPECT_EQ(decision.penalty, PenaltyClass::Malformed);
 }
 
-TEST(AdmissionHeaderTests, refuses_a_cluster_only_type_from_outside_the_cluster)
+TEST(AdmissionHeaderTests, refuses_a_privileged_only_type_from_an_unprivileged_sender)
 {
-    constexpr auto kSpec = admissionSpecFor<ClusterOnly>();
+    constexpr auto kSpec = admissionSpecFor<PrivilegedOnly>();
     auto const frame = FrameInfo{.wireBytes = 10, .decodedBytes = 10};
     EXPECT_EQ(
-        kSpec.admitHeader(frame, Connection{.cluster = false}, resolvedFor<ClusterOnly>()).penalty,
+        kSpec.admitHeader(frame, Connection{.trusted = false}, resolvedFor<PrivilegedOnly>())
+            .penalty,
         PenaltyClass::Useless);
-    EXPECT_TRUE(kSpec.admitHeader(frame, Connection{.cluster = true}, resolvedFor<ClusterOnly>())
+    EXPECT_TRUE(kSpec.admitHeader(frame, Connection{.trusted = true}, resolvedFor<PrivilegedOnly>())
                     .admitted());
 }
 
@@ -265,23 +267,48 @@ TEST(AdmissionPipelineTests, a_body_refusal_is_charged_the_penalty_its_spec_allo
 
     // A type older releases relay: capped at the trivial penalty, with no cost.
     auto relayed = RecordingSink{};
-    auto const capped = admitBody<Relayed>(refuse, relayed);
+    auto const capped = admitBody<Relayed>(refuse, Connection{}, relayed);
     EXPECT_EQ(capped.decision.penalty, PenaltyClass::Trivial);
     ASSERT_EQ(relayed.charges.size(), 1U);
     EXPECT_DOUBLE_EQ(relayed.charges[0].tokenCost, 0.0);
 
     // Any other type: the penalty and cost the walk asked for.
     auto other = RecordingSink{};
-    auto const full = admitBody<Small>(refuse, other);
+    auto const full = admitBody<Small>(refuse, Connection{}, other);
     EXPECT_EQ(full.decision.penalty, PenaltyClass::Invalid);
     EXPECT_DOUBLE_EQ(full.decision.tokenCost, 50.0);
 
     // An admission is charged only a cost the walk asked for.
     auto quiet = RecordingSink{};
     EXPECT_TRUE(
-        admitBody<Small>([](auto&) { return AdmissionDecision::admit(); }, quiet)
+        admitBody<Small>([](auto&) { return AdmissionDecision::admit(); }, Connection{}, quiet)
             .decision.admitted());
     EXPECT_TRUE(quiet.charges.empty());
+}
+
+TEST(AdmissionPipelineTests, the_body_stage_refuses_a_type_the_sender_may_not_send_unread)
+{
+    auto walked = false;
+    auto const walker = [&](auto&) {
+        walked = true;
+        return AdmissionDecision::admit();
+    };
+
+    auto sink = RecordingSink{};
+    auto const refused = admitBody<PrivilegedOnly>(walker, Connection{.trusted = false}, sink);
+    EXPECT_TRUE(refused.decision.dropped());
+    EXPECT_EQ(refused.decision.penalty, PenaltyClass::Useless);
+    EXPECT_FALSE(walked);
+    EXPECT_EQ(sink.charges.size(), 1U);
+
+    EXPECT_TRUE(
+        admitBody<PrivilegedOnly>(walker, Connection{.trusted = true}, sink).decision.admitted());
+    EXPECT_TRUE(walked);
+
+    // A feature the connection did not negotiate, likewise.
+    walked = false;
+    EXPECT_TRUE(admitBody<Gated>(walker, Connection{}, sink).decision.dropped());
+    EXPECT_FALSE(walked);
 }
 
 TEST(ChargeSinkTests, token_bucket_sink_takes_the_larger_of_cost_and_penalty)
@@ -316,7 +343,7 @@ TEST(ChargeSinkTests, both_sinks_charges_both_and_reports_the_worse)
 
 TEST(SpecRegistryTests, dispatches_by_type_number)
 {
-    using Registry = SpecRegistry<Small, ClusterOnly, Gated, Relayed>;
+    using Registry = SpecRegistry<Small, PrivilegedOnly, Gated, Relayed>;
     auto const name = [](uint32_t type) {
         return Registry::dispatch(
             type,
