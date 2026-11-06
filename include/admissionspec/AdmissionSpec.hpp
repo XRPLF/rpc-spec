@@ -6,6 +6,7 @@
 #include <admissionspec/FrameInfo.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/ResolvedTunables.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/VisitEvent.hpp>
@@ -193,18 +194,18 @@ public:
     [[nodiscard]] std::optional<AdmissionDecision>
     refuseConnection(Connection const& connection, double cost) const
     {
-        auto const refuse = [&](std::string_view why) {
+        auto const refuse = [&](Rule rule, std::string_view why) {
             auto const applied = penaltyFor(PenaltyClass::Useless);
             return AdmissionDecision::drop(
-                why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
+                rule, why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
         };
         if (attributes_.privilegedOnly and not connection.privileged())
         {
-            return refuse("only a privileged sender may send this type");
+            return refuse(Rule::Privileged, "only a privileged sender may send this type");
         }
         if (attributes_.requiresFeature and not connection.hasFeature(*attributes_.requiresFeature))
         {
-            return refuse("the connection did not negotiate this type's feature");
+            return refuse(Rule::Feature, "the connection did not negotiate this type's feature");
         }
         return std::nullopt;
     }
@@ -228,12 +229,6 @@ public:
     admitHeader(FrameInfo const& frame, Connection const& connection, Resolved const& cfg) const
     {
         double const cost = costFor(cfg.template get<"size_ramp">(), frame.decodedBytes);
-        auto const refuse = [&](std::string_view why, PenaltyClass penalty) {
-            auto const applied = penaltyFor(penalty);
-            return AdmissionDecision::drop(
-                why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
-        };
-
         if (auto const refusal = refuseConnection(connection, cost))
         {
             return *refusal;
@@ -241,12 +236,20 @@ public:
         if (frame.compressed and not connection.compressionNegotiated())
         {
             return AdmissionDecision::drop(
-                "compressed payload without negotiated compression", PenaltyClass::Malformed, cost);
+                Rule::Compression,
+                "compressed payload without negotiated compression",
+                PenaltyClass::Malformed,
+                cost);
         }
         auto const cap = cfg.template get<"max_payload_bytes">();
         if (frame.wireBytes > cap or frame.decodedBytes > cap)
         {
-            return refuse("payload exceeds max bytes for this type", PenaltyClass::Useless);
+            auto const applied = penaltyFor(PenaltyClass::Useless);
+            return AdmissionDecision::drop(
+                Rule::Oversized,
+                "payload exceeds max bytes for this type",
+                applied,
+                applied == PenaltyClass::Trivial ? 0.0 : cost);
         }
         return AdmissionDecision::admit(cost);
     }

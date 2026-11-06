@@ -4,6 +4,7 @@
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/BaseLimits.hpp>
 #include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/coded_stream.h>
@@ -63,13 +64,13 @@ private:
     [[nodiscard]] static AdmissionDecision
     malformed(std::string_view why)
     {
-        return AdmissionDecision::drop(why, PenaltyClass::Malformed);
+        return AdmissionDecision::drop(Rule::Malformed, why, PenaltyClass::Malformed);
     }
 
     [[nodiscard]] static AdmissionDecision
-    invalid(std::string_view why)
+    invalid(Rule rule, std::string_view why)
     {
-        return AdmissionDecision::drop(why, PenaltyClass::Invalid);
+        return AdmissionDecision::drop(rule, why, PenaltyClass::Invalid);
     }
 
     // libprotobuf's parser takes a tag or a length in at most 5 bytes. A tag keeps its low 32
@@ -149,7 +150,7 @@ private:
         {
             if (limits_.rejectGroups)
             {
-                return invalid("protobuf group");
+                return invalid(Rule::Group, "protobuf group");
             }
         }
         else if (
@@ -195,11 +196,11 @@ private:
         unknownBytes_ += static_cast<uint64_t>(in_.CurrentPosition() - start);
         if (++unknownFields_ > limits_.maxUnknownFields)
         {
-            return invalid("too many unknown protobuf fields");
+            return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
         }
         if (unknownBytes_ > limits_.maxUnknownFieldBytes)
         {
-            return invalid("too many bytes in unknown protobuf fields");
+            return invalid(Rule::UnknownFields, "too many bytes in unknown protobuf fields");
         }
         return AdmissionDecision::admit();
     }
@@ -242,7 +243,7 @@ private:
     {
         if (depth > limits_.maxDepth)
         {
-            return invalid("protobuf messages nested too deeply");
+            return invalid(Rule::Depth, "protobuf messages nested too deeply");
         }
         while (in_.BytesUntilLimit() > 0)
         {
@@ -399,7 +400,7 @@ private:
             unknownBytes_ += 1;
             if (++unknownFields_ > limits_.maxUnknownFields)
             {
-                return invalid("too many unknown protobuf fields");
+                return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
             }
             return AdmissionDecision::admit();
         }
@@ -421,7 +422,7 @@ private:
         {
             if (depth + 1 > limits_.maxDepth)
             {
-                return invalid("protobuf messages nested too deeply");
+                return invalid(Rule::Depth, "protobuf messages nested too deeply");
             }
             if (auto const d = emit(
                     {.kind = EventKind::ObjectBegin,

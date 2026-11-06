@@ -6,6 +6,7 @@
 #include <admissionspec/ConnectionView.hpp>
 #include <admissionspec/FrameInfo.hpp>
 #include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/Standing.hpp>
 
@@ -42,7 +43,8 @@ admitHeader(FrameInfo const& frame, Connection const& connection, Sink& sink)
     if (sink.standing() == Standing::Drop)
     {
         return {
-            .decision = AdmissionDecision::drop("sender is over its limit", PenaltyClass::None),
+            .decision = AdmissionDecision::drop(
+                Rule::Sender, "sender is over its limit", PenaltyClass::None),
             .standing = Standing::Drop};
     }
 
@@ -89,6 +91,7 @@ admitBody(Walker&& walker, Connection const& connection, Sink& sink)
     }
 
     auto const refusal = AdmissionDecision::drop(
+        decision.rule,
         decision.reason,
         kSpec.penaltyFor(decision.penalty),
         kSpec.attributes().relayedByOlderVersions ? 0.0 : decision.tokenCost);

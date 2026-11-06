@@ -4,6 +4,7 @@
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/RepeatedCaps.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
 
 #include <array>
@@ -132,12 +133,14 @@ private:
         if (++entries_[i] > cap.maxEntries)
         {
             return AdmissionDecision::drop(
-                "too many entries in a repeated field", PenaltyClass::Invalid);
+                Rule::RepeatedCap, "too many entries in a repeated field", PenaltyClass::Invalid);
         }
         if (hasEntrySize(event.kind, fromJson) and event.size < cap.minEntryBytes)
         {
             return AdmissionDecision::drop(
-                "repeated entry smaller than its type allows", PenaltyClass::Invalid);
+                Rule::EntrySize,
+                "repeated entry smaller than its type allows",
+                PenaltyClass::Invalid);
         }
         return AdmissionDecision::admit();
     }

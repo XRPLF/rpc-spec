@@ -2,6 +2,7 @@
 #pragma once
 
 #include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/Rule.hpp>
 
 #include <cstdint>
 #include <string_view>
@@ -44,6 +45,12 @@ struct AdmissionDecision
      * @brief How a refusal is penalized, on top of @c tokenCost. @c None when admitted.
      */
     PenaltyClass penalty{PenaltyClass::None};
+
+    /**
+     * @brief The rule a refusal broke. @c None when admitted; @c Check for a drop made by a spec's
+     * own check, or by any caller that names no rule.
+     */
+    Rule rule{Rule::None};
 
     /**
      * @brief Whether the message was admitted.
@@ -93,7 +100,8 @@ struct AdmissionDecision
     [[nodiscard]] static constexpr AdmissionDecision
     drop(std::string_view why, double cost = 0.0) noexcept
     {
-        return {.action = AdmissionAction::Drop, .tokenCost = cost, .reason = why};
+        return {
+            .action = AdmissionAction::Drop, .tokenCost = cost, .reason = why, .rule = Rule::Check};
     }
 
     /**
@@ -107,8 +115,26 @@ struct AdmissionDecision
     [[nodiscard]] static constexpr AdmissionDecision
     drop(std::string_view why, PenaltyClass penalty, double cost = 0.0) noexcept
     {
+        return drop(Rule::Check, why, penalty, cost);
+    }
+
+    /**
+     * @brief Construct a "drop" decision that names the rule it broke.
+     *
+     * @param rule The rule the message broke.
+     * @param why Why the message is dropped.
+     * @param penalty How the refusal is penalized; the host maps it to a charge.
+     * @param cost The stage's cost, charged as well.
+     */
+    [[nodiscard]] static constexpr AdmissionDecision
+    drop(Rule rule, std::string_view why, PenaltyClass penalty, double cost = 0.0) noexcept
+    {
         return {
-            .action = AdmissionAction::Drop, .tokenCost = cost, .reason = why, .penalty = penalty};
+            .action = AdmissionAction::Drop,
+            .tokenCost = cost,
+            .reason = why,
+            .penalty = penalty,
+            .rule = rule};
     }
 
     /**

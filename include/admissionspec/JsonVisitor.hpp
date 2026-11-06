@@ -6,6 +6,7 @@
 #include <boost/system/system_error.hpp>
 
 #include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
 
 #include <cstdint>
@@ -627,7 +628,11 @@ visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& 
     }
     if (ec)
     {
-        return AdmissionDecision::drop("Invalid JSON payload", options.costForInvalidPayload);
+        return AdmissionDecision::drop(
+            Rule::Malformed,
+            "Invalid JSON payload",
+            PenaltyClass::None,
+            options.costForInvalidPayload);
     }
     return decision;
 }
