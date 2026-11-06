@@ -58,8 +58,8 @@ public:
     ConnectionLimiter(BucketSettings settings, size_t maxConnections)
         : settings_{settings}, maxConnections_{maxConnections}
     {
-        static_cast<void>(
-            TokenBucket{settings_.capacity, settings_.refillRatePerSecond, Clock::now()});
+        [[maybe_unused]] auto const validated =
+            TokenBucket{settings_.capacity, settings_.refillRatePerSecond, Clock::now()};
     }
 
     /**
