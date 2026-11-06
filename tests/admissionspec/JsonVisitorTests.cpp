@@ -1,5 +1,6 @@
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/JsonVisitor.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <gtest/gtest.h>
 
@@ -12,6 +13,7 @@
 
 using admission::spec::AdmissionDecision;
 using admission::spec::EventKind;
+using admission::spec::Rule;
 using admission::spec::VisitEvent;
 
 namespace {
@@ -133,6 +135,8 @@ TEST(JsonVisitor, stops_on_first_drop)
     EXPECT_TRUE(decision.dropped());
     EXPECT_EQ(decision.reason, "no items");
     EXPECT_EQ(decision.tokenCost, 3.0);
+    // A drop that names no rule is the check's own.
+    EXPECT_EQ(decision.rule, Rule::Check);
     EXPECT_EQ(seen, 3);  // ObjectBegin, Key, ArrayBegin (drop) — nothing after
 }
 
@@ -155,6 +159,7 @@ TEST(JsonVisitor, drops_malformed_payloads)
         EXPECT_TRUE(decision.dropped()) << json;
         EXPECT_EQ(decision.reason, "Invalid JSON payload") << json;
         EXPECT_EQ(decision.tokenCost, 7.0) << json;
+        EXPECT_EQ(decision.rule, Rule::Malformed) << json;
     }
 
     // Trailing whitespace is not trailing data.

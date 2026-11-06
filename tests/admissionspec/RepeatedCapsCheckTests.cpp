@@ -3,6 +3,7 @@
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/RepeatedCaps.hpp>
 #include <admissionspec/RepeatedCapsCheck.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <gtest/gtest.h>
 
@@ -43,10 +44,14 @@ TEST(RepeatedCapsCheckTests, counts_protobuf_entries_at_the_top_level_by_field_n
     // The same field number in a nested message is not counted.
     EXPECT_TRUE(check(entry(1, 2)).admitted());
     EXPECT_TRUE(check(entry(0, 2)).admitted());
-    EXPECT_EQ(check(entry(0, 2)).penalty, PenaltyClass::Invalid);
+    auto const over = check(entry(0, 2));
+    EXPECT_EQ(over.penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(over.rule, Rule::RepeatedCap);
 
     auto small = RepeatedCapsCheck{kCaps, admitAll};
-    EXPECT_EQ(small(entry(0, 1)).reason, "repeated entry smaller than its type allows");
+    auto const tooSmall = small(entry(0, 1));
+    EXPECT_EQ(tooSmall.reason, "repeated entry smaller than its type allows");
+    EXPECT_EQ(tooSmall.rule, Rule::EntrySize);
 }
 
 TEST(RepeatedCapsCheckTests, counts_the_elements_of_a_json_array_by_key)

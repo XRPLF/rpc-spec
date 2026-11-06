@@ -10,6 +10,7 @@
 #include <admissionspec/PenaltyCosts.hpp>
 #include <admissionspec/Pipeline.hpp>
 #include <admissionspec/RepeatedCaps.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/SpecLookup.hpp>
@@ -168,6 +169,7 @@ TEST(AdmissionHeaderTests, admits_within_the_cap_at_the_ramp_cost_of_the_decoded
     EXPECT_TRUE(decision.admitted());
     EXPECT_DOUBLE_EQ(decision.tokenCost, 4.0);
     EXPECT_EQ(decision.penalty, PenaltyClass::None);
+    EXPECT_EQ(decision.rule, Rule::None);
 }
 
 TEST(AdmissionHeaderTests, refuses_either_declared_size_over_the_cap)
@@ -181,6 +183,7 @@ TEST(AdmissionHeaderTests, refuses_either_declared_size_over_the_cap)
         auto const decision = kSmall.admitHeader(frame, connection, resolvedFor<Small>());
         EXPECT_TRUE(decision.dropped());
         EXPECT_EQ(decision.penalty, PenaltyClass::Useless);
+        EXPECT_EQ(decision.rule, Rule::Oversized);
         // A refusal costs what admitting the same size would.
         EXPECT_GT(decision.tokenCost, 0.0);
     }
@@ -194,16 +197,17 @@ TEST(AdmissionHeaderTests, refuses_a_compressed_payload_without_negotiated_compr
         resolvedFor<Small>());
     EXPECT_TRUE(decision.dropped());
     EXPECT_EQ(decision.penalty, PenaltyClass::Malformed);
+    EXPECT_EQ(decision.rule, Rule::Compression);
 }
 
 TEST(AdmissionHeaderTests, refuses_a_privileged_only_type_from_an_unprivileged_sender)
 {
     constexpr auto kSpec = admissionSpecFor<PrivilegedOnly>();
     auto const frame = FrameInfo{.wireBytes = 10, .decodedBytes = 10};
-    EXPECT_EQ(
-        kSpec.admitHeader(frame, Connection{.trusted = false}, resolvedFor<PrivilegedOnly>())
-            .penalty,
-        PenaltyClass::Useless);
+    auto const refused =
+        kSpec.admitHeader(frame, Connection{.trusted = false}, resolvedFor<PrivilegedOnly>());
+    EXPECT_EQ(refused.penalty, PenaltyClass::Useless);
+    EXPECT_EQ(refused.rule, Rule::Privileged);
     EXPECT_TRUE(kSpec.admitHeader(frame, Connection{.trusted = true}, resolvedFor<PrivilegedOnly>())
                     .admitted());
 }
@@ -212,7 +216,7 @@ TEST(AdmissionHeaderTests, refuses_a_gated_type_without_its_feature)
 {
     constexpr auto kSpec = admissionSpecFor<Gated>();
     auto const frame = FrameInfo{.wireBytes = 10, .decodedBytes = 10};
-    EXPECT_TRUE(kSpec.admitHeader(frame, Connection{}, resolvedFor<Gated>()).dropped());
+    EXPECT_EQ(kSpec.admitHeader(frame, Connection{}, resolvedFor<Gated>()).rule, Rule::Feature);
     EXPECT_TRUE(
         kSpec.admitHeader(frame, Connection{.features = {kReplayFeature}}, resolvedFor<Gated>())
             .admitted());
@@ -224,6 +228,7 @@ TEST(AdmissionHeaderTests, a_relayed_type_is_refused_at_the_trivial_penalty_only
         FrameInfo{.wireBytes = 65, .decodedBytes = 65}, Connection{}, resolvedFor<Relayed>());
     EXPECT_TRUE(decision.dropped());
     EXPECT_EQ(decision.penalty, PenaltyClass::Trivial);
+    EXPECT_EQ(decision.rule, Rule::Oversized);
     EXPECT_DOUBLE_EQ(decision.tokenCost, 0.0);
     EXPECT_EQ(kRelayed.penaltyFor(PenaltyClass::Malformed), PenaltyClass::Trivial);
     EXPECT_EQ(kSmall.penaltyFor(PenaltyClass::Malformed), PenaltyClass::Malformed);
@@ -258,19 +263,23 @@ TEST(AdmissionPipelineTests, a_sender_over_its_limit_is_refused_unread_and_not_c
         admitHeader<Small>(FrameInfo{.wireBytes = 10, .decodedBytes = 10}, Connection{}, sink);
     EXPECT_TRUE(result.decision.dropped());
     EXPECT_EQ(result.standing, Standing::Drop);
+    EXPECT_EQ(result.decision.rule, Rule::Sender);
     EXPECT_TRUE(sink.charges.empty());
 }
 
 TEST(AdmissionPipelineTests, a_body_refusal_is_charged_the_penalty_its_spec_allows)
 {
     auto const refuse = [](auto&) {
-        return AdmissionDecision::drop("too many entries", PenaltyClass::Invalid, 50.0);
+        return AdmissionDecision::drop(
+            Rule::RepeatedCap, "too many entries", PenaltyClass::Invalid, 50.0);
     };
 
     // A type older releases relay: capped at the trivial penalty, with no cost.
     auto relayed = RecordingSink{};
     auto const capped = admitBody<Relayed>(refuse, Connection{}, relayed);
     EXPECT_EQ(capped.decision.penalty, PenaltyClass::Trivial);
+    // The penalty is capped; the rule the walk named is kept.
+    EXPECT_EQ(capped.decision.rule, Rule::RepeatedCap);
     ASSERT_EQ(relayed.charges.size(), 1U);
     EXPECT_DOUBLE_EQ(relayed.charges[0].tokenCost, 0.0);
 
@@ -278,6 +287,7 @@ TEST(AdmissionPipelineTests, a_body_refusal_is_charged_the_penalty_its_spec_allo
     auto other = RecordingSink{};
     auto const full = admitBody<Small>(refuse, Connection{}, other);
     EXPECT_EQ(full.decision.penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(full.decision.rule, Rule::RepeatedCap);
     EXPECT_DOUBLE_EQ(full.decision.tokenCost, 50.0);
 
     // An admission is charged only a cost the walk asked for.
@@ -300,6 +310,7 @@ TEST(AdmissionPipelineTests, the_body_stage_refuses_a_type_the_sender_may_not_se
     auto const refused = admitBody<PrivilegedOnly>(walker, Connection{.trusted = false}, sink);
     EXPECT_TRUE(refused.decision.dropped());
     EXPECT_EQ(refused.decision.penalty, PenaltyClass::Useless);
+    EXPECT_EQ(refused.decision.rule, Rule::Privileged);
     EXPECT_FALSE(walked);
     EXPECT_EQ(sink.charges.size(), 1U);
 

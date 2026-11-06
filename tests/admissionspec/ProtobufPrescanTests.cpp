@@ -10,6 +10,7 @@
 #include <admissionspec/ProtobufPrescan.hpp>
 #include <admissionspec/RepeatedCaps.hpp>
 #include <admissionspec/RepeatedCapsCheck.hpp>
+#include <admissionspec/Rule.hpp>
 #include <admissionspec/SizeCostRamp.hpp>
 #include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/SpecLookup.hpp>
@@ -405,7 +406,8 @@ TEST(ProtobufPrescanTests, refuses_input_no_conforming_encoder_produces)
 {
     auto const malformed = [](std::string const& bytes) {
         auto const decision = scan(bytes);
-        return decision.dropped() and decision.penalty == PenaltyClass::Malformed;
+        return decision.dropped() and decision.penalty == PenaltyClass::Malformed and
+            decision.rule == Rule::Malformed;
     };
     // Field number 0.
     EXPECT_TRUE(malformed(
@@ -484,10 +486,12 @@ TEST(ProtobufPrescanTests, limits_unknown_fields_by_count_and_bytes)
     EXPECT_TRUE(scan(Writer{}.varint(40, 1).varint(41, 1).str(), limits).admitted());
     auto const tooMany = scan(Writer{}.varint(40, 1).varint(41, 1).varint(42, 1).str(), limits);
     EXPECT_EQ(tooMany.penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(tooMany.rule, Rule::UnknownFields);
 
     // One unknown field large enough to pass the count but not the bytes.
     auto const tooLarge = scan(Writer{}.bytes(40, std::string(100, 'u')).str(), limits);
     EXPECT_EQ(tooLarge.penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(tooLarge.rule, Rule::UnknownFields);
 
     // A known field sent with the wrong wire type is unknown to libprotobuf too.
     limits.maxUnknownFields = 0;
@@ -499,13 +503,14 @@ TEST(ProtobufPrescanTests, counts_an_undefined_closed_enum_value_as_unknown)
     auto limits = BaseLimits{};
     limits.maxUnknownFields = 0;
     EXPECT_TRUE(scan(Writer{}.varint(4, 1).str(), limits).admitted());
-    EXPECT_EQ(scan(Writer{}.varint(4, 9).str(), limits).penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(scan(Writer{}.varint(4, 9).str(), limits).rule, Rule::UnknownFields);
 }
 
 TEST(ProtobufPrescanTests, refuses_groups_unless_allowed)
 {
     auto const bytes = Writer{}.group(40, Writer{}.varint(1, 1).str()).str();
     EXPECT_EQ(scan(bytes).penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(scan(bytes).rule, Rule::Group);
 
     auto limits = BaseLimits{};
     limits.rejectGroups = false;
@@ -517,7 +522,9 @@ TEST(ProtobufPrescanTests, limits_nesting_depth)
     auto limits = BaseLimits{};
     limits.maxDepth = 3;
     EXPECT_TRUE(scan(Writer{}.bytes(3, nested(3)).str(), limits).admitted());
-    EXPECT_EQ(scan(Writer{}.bytes(3, nested(4)).str(), limits).penalty, PenaltyClass::Invalid);
+    auto const deep = scan(Writer{}.bytes(3, nested(4)).str(), limits);
+    EXPECT_EQ(deep.penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(deep.rule, Rule::Depth);
 }
 
 TEST(ProtobufPrescanTests, caps_top_level_repeated_fields_packed_or_not)
@@ -534,15 +541,14 @@ TEST(ProtobufPrescanTests, caps_top_level_repeated_fields_packed_or_not)
     // An entry smaller than the cap allows: a one-byte string is three bytes with its length.
     // The cap counts the value, so set the minimum above it.
     constexpr auto kLarge = repeatedCaps({{.fieldNumber = 2, .maxEntries = 9, .minEntryBytes = 4}});
-    EXPECT_EQ(
-        scan(Writer{}.bytes(2, "a").str(), BaseLimits{}, kLarge).penalty, PenaltyClass::Invalid);
+    EXPECT_EQ(scan(Writer{}.bytes(2, "a").str(), BaseLimits{}, kLarge).rule, Rule::EntrySize);
 
     // Packed elements count one by one, and unpacked ones add to them.
     auto const packed = Writer::varintBytes(1) + Writer::varintBytes(2) + Writer::varintBytes(3);
     EXPECT_TRUE(scan(Writer{}.bytes(5, packed).str(), BaseLimits{}, kCaps).admitted());
     EXPECT_EQ(
-        scan(Writer{}.bytes(5, packed).varint(5, 4).str(), BaseLimits{}, kCaps).penalty,
-        PenaltyClass::Invalid);
+        scan(Writer{}.bytes(5, packed).varint(5, 4).str(), BaseLimits{}, kCaps).rule,
+        Rule::RepeatedCap);
 }
 
 // The prescan must accept exactly what libprotobuf's parser accepts, when its own limits are out
