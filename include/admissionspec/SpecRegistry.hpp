@@ -31,7 +31,8 @@ typeIdOf()
  * auto const result = PeerSpecs::dispatch(
  *     frame.type,
  *     [&]<class T> { return admitHeader<T>(frame, connection, sink); },
- *     [&] { return StageResult{AdmissionDecision::drop("unknown type", PenaltyClass::Useless)}; });
+ *     [&] { return StageResult{AdmissionDecision::drop(Rule::UnknownType, "unknown type",
+ * PenaltyClass::Useless)}; });
  * @endcode
  */
 template <typename... Ts>

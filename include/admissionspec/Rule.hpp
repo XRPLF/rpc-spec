@@ -14,6 +14,7 @@ namespace admission::spec {
 enum class Rule : uint8_t {
     None,           ///< Not refused.
     Sender,         ///< The sender is already over its limit.
+    UnknownType,    ///< The frame names a type with no spec (see @ref SpecRegistry).
     Privileged,     ///< Only a privileged sender may send the type.
     Feature,        ///< The connection did not negotiate the type's feature.
     Compression,    ///< A compressed payload on a connection that did not negotiate compression.
