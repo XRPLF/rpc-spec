@@ -1,6 +1,8 @@
 /** @file */
 #pragma once
 
+#include <admissionspec/Frame.hpp>
+#include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/Types.hpp>
 
 #include <concepts>
@@ -121,6 +123,7 @@ class AdmissionSpec
 {
     TunablesTuple tunables_;
     Check check_;
+    SpecAttributes attributes_;
 
 public:
     /**
@@ -138,9 +141,10 @@ public:
      *
      * @param tunables The declared tunables.
      * @param check The streaming check, or NoHook when none is attached.
+     * @param attributes The type's fixed admission facts.
      */
-    consteval AdmissionSpec(TunablesTuple tunables, Check check)
-        : tunables_{std::move(tunables)}, check_{std::move(check)}
+    consteval AdmissionSpec(TunablesTuple tunables, Check check, SpecAttributes attributes = {})
+        : tunables_{std::move(tunables)}, check_{std::move(check)}, attributes_{attributes}
     {
     }
 
@@ -156,7 +160,44 @@ public:
     [[nodiscard]] consteval auto
     withCheck(C check) const
     {
-        return AdmissionSpec<T, TunablesTuple, C>{tunables_, check};
+        return AdmissionSpec<T, TunablesTuple, C>{tunables_, check, attributes_};
+    }
+
+    /**
+     * @brief Attach the type's fixed admission facts; returns the updated spec.
+     *
+     * @param attributes The facts to attach.
+     * @return A copy of this spec carrying @p attributes.
+     */
+    [[nodiscard]] consteval AdmissionSpec
+    withAttributes(SpecAttributes attributes) const
+    {
+        return AdmissionSpec{tunables_, check_, attributes};
+    }
+
+    /**
+     * @brief The type's fixed admission facts.
+     */
+    [[nodiscard]] constexpr SpecAttributes const&
+    attributes() const noexcept
+    {
+        return attributes_;
+    }
+
+    /**
+     * @brief The penalty a refusal of this type carries, given the class the failed rule asks for.
+     *
+     * A type an older release passes on as received is refused at @ref PenaltyClass::Trivial at
+     * most, so an honest relay is not penalized for what it did not write.
+     */
+    [[nodiscard]] constexpr PenaltyClass
+    penaltyFor(PenaltyClass requested) const noexcept
+    {
+        if (attributes_.relayedByOlderVersions and requested > PenaltyClass::Trivial)
+        {
+            return PenaltyClass::Trivial;
+        }
+        return requested;
     }
 
     /**
@@ -182,7 +223,57 @@ public:
     }
 
     /**
-     * @brief Pre-deserialization stage: enforce the hard byte cap and compute the size cost.
+     * @brief First stage: decide from a frame's header alone, before its payload is read.
+     *
+     * In order: a cluster-only type from outside the cluster, a missing required feature, a
+     * compressed payload on a connection that did not negotiate compression, then either declared
+     * size over @c "max_payload_bytes". The cost is the size ramp on the decoded size, charged on
+     * admission and on refusal alike, except for a type older releases pass on as received, whose
+     * refusals cost only @ref PenaltyClass::Trivial.
+     *
+     * @param frame What the header declares.
+     * @param connection The connection the frame arrived on.
+     * @param cfg The resolved tunables supplying the cap and the size ramp.
+     * @return Admit carrying the size cost, or Drop with its reason and penalty class.
+     */
+    template <ConnectionView Connection>
+    [[nodiscard]] AdmissionDecision
+    admitHeader(FrameInfo const& frame, Connection const& connection, Resolved const& cfg) const
+    {
+        double const cost = costFor(cfg.template get<"size_ramp">(), frame.decodedBytes);
+        auto const refuse = [&](std::string_view why, PenaltyClass penalty) {
+            auto const applied = penaltyFor(penalty);
+            return AdmissionDecision::drop(
+                why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
+        };
+
+        if (attributes_.fromClusterOnly and not connection.inCluster())
+        {
+            return refuse("only the cluster may send this type", PenaltyClass::Useless);
+        }
+        if (attributes_.requiresFeature and not connection.hasFeature(*attributes_.requiresFeature))
+        {
+            return refuse(
+                "the connection did not negotiate this type's feature", PenaltyClass::Useless);
+        }
+        if (frame.compressed and not connection.compressionNegotiated())
+        {
+            return AdmissionDecision::drop(
+                "compressed payload without negotiated compression", PenaltyClass::Malformed, cost);
+        }
+        auto const cap = cfg.template get<"max_payload_bytes">();
+        if (frame.wireBytes > cap or frame.decodedBytes > cap)
+        {
+            return refuse("payload exceeds max bytes for this type", PenaltyClass::Useless);
+        }
+        return AdmissionDecision::admit(cost);
+    }
+
+    /**
+     * @brief Pre-deserialization stage on an uncompressed payload already in hand.
+     *
+     * Kept for callers that have not moved to @ref admitHeader. Prefer @ref admitHeader, which
+     * decides before the payload is buffered.
      *
      * @param payload The raw message bytes.
      * @param cfg The resolved tunables supplying the cap and the size ramp.
@@ -193,12 +284,10 @@ public:
     {
         double const cost =
             costFor(cfg.template get<"size_ramp">(), static_cast<uint64_t>(payload.size()));
-
         if (payload.size() > cfg.template get<"max_payload_bytes">())
         {
             return AdmissionDecision::drop("payload exceeds max bytes for this type", cost);
         }
-
         return AdmissionDecision::admit(cost);
     }
 

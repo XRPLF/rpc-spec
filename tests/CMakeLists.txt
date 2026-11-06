@@ -7,6 +7,7 @@ find_package(GTest REQUIRED)
 add_executable(
     rpcspec_tests
     admissionspec/ConnectionLimiterTests.cpp
+    admissionspec/PipelineTests.cpp
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
