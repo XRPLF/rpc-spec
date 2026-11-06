@@ -1,6 +1,12 @@
 #include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/AdmissionSpec.hpp>
 #include <admissionspec/JsonVisitor.hpp>
+#include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/RepeatedCaps.hpp>
 #include <admissionspec/Rule.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
+#include <admissionspec/SpecLookup.hpp>
+#include <admissionspec/Tunable.hpp>
 #include <admissionspec/VisitEvent.hpp>
 #include <gtest/gtest.h>
 
@@ -9,6 +15,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 using admission::spec::AdmissionDecision;
@@ -35,7 +42,67 @@ struct RecordedEvent
     operator==(RecordedEvent const&) const = default;
 };
 
+// A request with a spec: at most two `items`, each at least two characters, and a `limit` of at
+// most five.
+struct ListRequest
+{
+};
+
+consteval auto
+admissionSpec(std::type_identity<ListRequest>)
+{
+    return admission::spec::makeSpec<ListRequest>(
+               admission::spec::tunable<"max_payload_bytes">(
+                   uint64_t{1024}, "admission.list.max_payload_bytes"),
+               admission::spec::tunable<"size_ramp">(
+                   admission::spec::ramp({{.upToBytes = 1024, .cost = 1.0}}),
+                   "admission.list.size_ramp"))
+        .withAttributes(
+            {.typeId = 1,
+             .repeated = admission::spec::repeatedCaps(
+                 {{.key = "items", .maxEntries = 2, .minEntryBytes = 2}})})
+        .withCheck([](VisitEvent const& event, auto const&) -> AdmissionDecision {
+            if (auto const* limit = event.as<int64_t>();
+                event.depth == 1 and event.key == "limit" and limit != nullptr and *limit > 5)
+            {
+                return AdmissionDecision::drop(
+                    "limit too large", admission::spec::PenaltyClass::Invalid);
+            }
+            return AdmissionDecision::admit();
+        });
+}
+
 }  // namespace
+
+TEST(JsonVisitor, prescan_json_applies_a_specs_caps_and_check)
+{
+    using admission::spec::prescanJson;
+    EXPECT_TRUE(prescanJson<ListRequest>(asBytes(R"({"items":["ab","cd"],"limit":5})")).admitted());
+    EXPECT_EQ(
+        prescanJson<ListRequest>(asBytes(R"({"items":["ab","cd","ef"]})")).rule, Rule::RepeatedCap);
+    EXPECT_EQ(prescanJson<ListRequest>(asBytes(R"({"items":["a"]})")).rule, Rule::EntrySize);
+    EXPECT_EQ(prescanJson<ListRequest>(asBytes(R"({"limit":6})")).rule, Rule::Check);
+    EXPECT_EQ(prescanJson<ListRequest>(asBytes(R"({"limit":)")).rule, Rule::Malformed);
+}
+
+TEST(JsonVisitor, json_visitor_walks_with_the_check_it_is_given_and_its_options)
+{
+    auto const body = asBytes(R"({"a":[[1]]})");
+    auto seen = 0;
+    auto count = [&](VisitEvent const&) {
+        ++seen;
+        return AdmissionDecision::admit();
+    };
+    EXPECT_TRUE(admission::spec::jsonVisitor(body)(count).admitted());
+    EXPECT_GT(seen, 0);
+
+    // Its options reach the walk: nesting deeper than allowed is invalid JSON.
+    auto const shallow = admission::spec::jsonVisitor(
+        body, admission::spec::VisitJsonOptions{.costForInvalidPayload = 4.0, .maxDepth = 2});
+    auto const refused = shallow(count);
+    EXPECT_EQ(refused.rule, Rule::Malformed);
+    EXPECT_EQ(refused.tokenCost, 4.0);
+}
 
 TEST(JsonVisitor, emits_keyed_events_with_depth_and_size)
 {
