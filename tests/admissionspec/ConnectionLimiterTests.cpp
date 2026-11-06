@@ -229,7 +229,7 @@ TEST(ConnectionLimiterTests, rate_limit)
 
     {
         // More connections than the cap evicts the oldest.
-        for (auto i = 0uz; i < 10; ++i)
+        for (size_t i{}; i < 10; ++i)
         {
             auto sink = limiter.sink(i, start, kCosts);
             EXPECT_TRUE(admitBody<FooMessage>(fooVisitor(0), sink).decision.admitted());
@@ -241,7 +241,7 @@ TEST(ConnectionLimiterTests, rate_limit)
     {
         // Each 1025-byte frame costs 10 tokens, so the sixth is refused unread once the bucket is
         // empty, and the bucket refills with time.
-        for (auto i = 0uz; i < 6; ++i)
+        for (size_t i{}; i < 6; ++i)
         {
             auto sink = limiter.sink(0uz, start, kCosts);
             auto const result = admitHeader<FooMessage>(frameOf(1025), OpenConnection{}, sink);

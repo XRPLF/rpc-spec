@@ -69,7 +69,7 @@ class JsonVisitor
 {
     Check& check_;
     AdmissionDecision& decision_;
-    std::uint32_t depth_{0};
+    std::uint32_t depth_{};
     std::vector<std::string> containerKeys_;
     std::string pendingKey_;
 

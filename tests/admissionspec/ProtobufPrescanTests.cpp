@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <bit>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -73,7 +74,7 @@ public:
         auto const add =
             [](google::protobuf::DescriptorProto& message,
                std::string const& name,
-               int number,
+               int32_t number,
                google::protobuf::FieldDescriptorProto::Type type,
                google::protobuf::FieldDescriptorProto::Label label,
                std::string const& typeName = {}) -> google::protobuf::FieldDescriptorProto& {
@@ -201,7 +202,7 @@ class Writer
 
 public:
     Writer&
-    varint(int field, uint64_t value)
+    varint(int32_t field, uint64_t value)
     {
         tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT);
         raw(varintBytes(value));
@@ -209,10 +210,10 @@ public:
     }
 
     Writer&
-    fixed64(int field, uint64_t value)
+    fixed64(int32_t field, uint64_t value)
     {
         tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64);
-        for (int i = 0; i < 8; ++i)
+        for (uint32_t i{}; i < 8; ++i)
         {
             bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
         }
@@ -220,10 +221,10 @@ public:
     }
 
     Writer&
-    fixed32(int field, uint32_t value)
+    fixed32(int32_t field, uint32_t value)
     {
         tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32);
-        for (int i = 0; i < 4; ++i)
+        for (uint32_t i{}; i < 4; ++i)
         {
             bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
         }
@@ -231,7 +232,7 @@ public:
     }
 
     Writer&
-    bytes(int field, std::string const& value)
+    bytes(int32_t field, std::string const& value)
     {
         tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED);
         raw(varintBytes(value.size()));
@@ -240,7 +241,7 @@ public:
     }
 
     Writer&
-    group(int field, std::string const& body)
+    group(int32_t field, std::string const& body)
     {
         tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_START_GROUP);
         raw(body);
@@ -249,7 +250,7 @@ public:
     }
 
     Writer&
-    tag(int field, google::protobuf::internal::WireFormatLite::WireType wireType)
+    tag(int32_t field, google::protobuf::internal::WireFormatLite::WireType wireType)
     {
         raw(varintBytes(google::protobuf::internal::WireFormatLite::MakeTag(field, wireType)));
         return *this;
@@ -299,10 +300,10 @@ scan(
 
 // A Sub nested `depth` levels deep, through `child`.
 [[nodiscard]] std::string
-nested(int depth)
+nested(int32_t depth)
 {
     auto body = Writer{}.varint(1, 7).str();
-    for (int i = 1; i < depth; ++i)
+    for (int32_t i{1}; i < depth; ++i)
     {
         body = Writer{}.varint(1, 7).bytes(2, body).str();
     }
@@ -564,10 +565,10 @@ TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
     };
 
     auto disagreements = 0;
-    for (int i = 0; i < 20000; ++i)
+    for (int32_t i{}; i < 20000; ++i)
     {
         auto bytes = seeds[pick(seeds.size())];
-        for (size_t m = 0, n = 1 + pick(4); m < n; ++m)
+        for (size_t m{}, n{1 + pick(4)}; m < n; ++m)
         {
             switch (pick(5))
             {
@@ -579,7 +580,7 @@ TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
                     break;
                 case 1:  // insert a byte
                     bytes.insert(
-                        bytes.begin() + static_cast<long>(pick(bytes.size() + 1)),
+                        bytes.begin() + static_cast<std::ptrdiff_t>(pick(bytes.size() + 1)),
                         static_cast<char>(pick(256)));
                     break;
                 case 2:  // truncate
@@ -680,8 +681,8 @@ TEST(ProtobufPrescanTests, runs_a_specs_check_and_caps)
 
 TEST(ProtobufPrescanTests, runs_as_the_body_stage)
 {
-    auto limiter =
-        ConnectionLimiter<int>{BucketSettings{.capacity = 100.0, .refillRatePerSecond = 1.0}, 4};
+    auto limiter = ConnectionLimiter<int32_t>{
+        BucketSettings{.capacity = 100.0, .refillRatePerSecond = 1.0}, 4};
     auto const now = std::chrono::steady_clock::now();
     auto const costs = PenaltyCosts{.trivial = 1, .useless = 5, .invalid = 10, .malformed = 20};
     auto sink = limiter.sink(1, now, costs);

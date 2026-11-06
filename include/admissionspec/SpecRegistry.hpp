@@ -45,9 +45,9 @@ struct SpecRegistry
     distinctIds()
     {
         constexpr auto kIds = std::array<uint32_t, sizeof...(Ts)>{typeIdOf<Ts>()...};
-        for (size_t i = 0; i < kIds.size(); ++i)
+        for (size_t i{}; i < kIds.size(); ++i)
         {
-            for (size_t j = i + 1; j < kIds.size(); ++j)
+            for (size_t j{i + 1}; j < kIds.size(); ++j)
             {
                 if (kIds[i] == kIds[j])
                 {

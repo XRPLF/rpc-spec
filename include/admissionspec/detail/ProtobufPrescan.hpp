@@ -82,7 +82,7 @@ private:
     // libprotobuf's parser takes a tag or a length in at most 5 bytes. A tag keeps its low 32
     // bits; a length must fit int32. CodedInputStream's own readers accept longer encodings, so
     // both are read as plain varints and checked here.
-    static constexpr int kMaxTagOrLengthBytes = 5;
+    static constexpr int32_t kMaxTagOrLengthBytes{5};
 
     [[nodiscard]] bool
     readBounded(uint64_t& value, uint64_t max)
@@ -248,7 +248,7 @@ private:
 
     // Step over a group's fields, up to the end-group tag of the same field number.
     [[nodiscard]] AdmissionDecision
-    group(int number, uint64_t depth)
+    group(int32_t number, uint64_t depth)
     {
         if (depth > limits_.maxDepth)
         {
@@ -285,7 +285,7 @@ private:
         {
             return AdmissionDecision::admit();
         }
-        for (size_t i = 0; i < caps_.count; ++i)
+        for (size_t i{}; i < caps_.count; ++i)
         {
             if (caps_.caps[i].fieldNumber == static_cast<uint32_t>(field.number()))
             {

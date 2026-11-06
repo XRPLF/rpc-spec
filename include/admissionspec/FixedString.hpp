@@ -24,7 +24,7 @@ struct FixedString
      */
     consteval FixedString(char const (&str)[N]) noexcept
     {
-        for (auto i = 0uz; i < N; ++i)
+        for (size_t i{}; i < N; ++i)
         {
             value[i] = str[i];
         }

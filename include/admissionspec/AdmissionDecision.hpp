@@ -3,6 +3,7 @@
 
 #include <admissionspec/PenaltyClass.hpp>
 
+#include <cstdint>
 #include <string_view>
 
 namespace admission::spec {
@@ -10,7 +11,7 @@ namespace admission::spec {
 /**
  * @brief Outcome of an admission stage: admit (with a token cost) or drop (with a reason).
  */
-enum class AdmissionAction { Admit, Drop };
+enum class AdmissionAction : uint8_t { Admit, Drop };
 
 /**
  * @brief The result an admission stage produces.

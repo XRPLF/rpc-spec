@@ -44,7 +44,7 @@ TEST(TokenBucketTests, refuses_settings_that_cannot_hold_tokens)
 
 TEST(TokenBucketTests, a_limiter_refuses_bad_settings_when_it_is_built)
 {
-    using Limiter = admission::spec::ConnectionLimiter<int>;
+    using Limiter = admission::spec::ConnectionLimiter<int32_t>;
     EXPECT_THROW(
         Limiter(admission::spec::BucketSettings{.capacity = 10.0, .refillRatePerSecond = 0.0}, 4),
         std::invalid_argument);

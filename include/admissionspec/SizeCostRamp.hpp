@@ -79,7 +79,7 @@ template <size_t N>
 ramp(SizeTier const (&tiers)[N])
 {
     std::array<SizeTier, N> arr{};
-    for (auto i = 0uz; i < N; ++i)
+    for (size_t i{}; i < N; ++i)
     {
         arr[i] = tiers[i];
     }

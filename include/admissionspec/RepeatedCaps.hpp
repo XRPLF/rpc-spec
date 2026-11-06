@@ -52,7 +52,7 @@ struct RepeatedCaps
     [[nodiscard]] constexpr std::optional<RepeatedCap>
     find(uint32_t fieldNumber) const noexcept
     {
-        for (size_t i = 0; i < count; ++i)
+        for (size_t i{}; i < count; ++i)
         {
             if (caps[i].fieldNumber == fieldNumber)
             {
@@ -76,9 +76,9 @@ template <size_t N>
 repeatedCaps(RepeatedCap const (&caps)[N])
 {
     auto result = RepeatedCaps{};
-    for (size_t i = 0; i < N; ++i)
+    for (size_t i{}; i < N; ++i)
     {
-        for (size_t j = 0; j < i; ++j)
+        for (size_t j{}; j < i; ++j)
         {
             if (caps[j].fieldNumber == caps[i].fieldNumber)
             {

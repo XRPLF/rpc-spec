@@ -149,7 +149,7 @@ struct RecordingSink
 static_assert(ChargeSink<RecordingSink>);
 static_assert(ChargeSink<TokenBucketSink>);
 static_assert(ChargeSink<BothSinks<RecordingSink, TokenBucketSink>>);
-static_assert(ChargeSink<ConnectionLimiter<int>::ConnectionSink>);
+static_assert(ChargeSink<ConnectionLimiter<int32_t>::ConnectionSink>);
 
 constexpr auto kSmall = admissionSpecFor<Small>();
 constexpr auto kRelayed = admissionSpecFor<Relayed>();
@@ -353,13 +353,13 @@ TEST(ChargeSinkTests, a_limiter_hands_out_a_sink_per_connection)
 {
     auto const now = TokenBucket::Clock::now();
     auto limiter =
-        ConnectionLimiter<int>{BucketSettings{.capacity = 10.0, .refillRatePerSecond = 1.0}, 4};
+        ConnectionLimiter<int32_t>{BucketSettings{.capacity = 10.0, .refillRatePerSecond = 1.0}, 4};
     auto const costs = PenaltyCosts{.trivial = 1, .useless = 5, .invalid = 5, .malformed = 10};
 
     // Each small message costs 1 token, by Small's ramp, so the eleventh is refused.
     auto first = limiter.sink(1, now, costs);
     auto const frame = FrameInfo{.wireBytes = 10, .decodedBytes = 10};
-    for (int i = 0; i < 10; ++i)
+    for (int32_t i{}; i < 10; ++i)
     {
         EXPECT_EQ(admitHeader<Small>(frame, Connection{}, first).standing, Standing::Ok);
     }
