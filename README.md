@@ -150,9 +150,9 @@ ctest --preset conan-release --output-on-failure
 ```
 
 The protobuf admission prescan (`include/admissionspec/ProtobufPrescan.hpp`) needs
-libprotobuf, so it and its tests are behind the `protobuf` option (CMake:
-`rpcspec_protobuf`). xrpld turns it on; Clio leaves it off. To build its tests,
-add `-o protobuf=True` to the install above; they build as `rpcspec_protobuf_tests`.
+libprotobuf, so it and its tests are behind the `with_protobuf` option (CMake:
+`with_protobuf`). xrpld turns it on; Clio leaves it off. To build its tests,
+add `-o with_protobuf=True` to the install above; they build as `rpcspec_protobuf_tests`.
 
 ### Plain CMake
 

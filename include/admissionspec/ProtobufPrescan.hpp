@@ -15,7 +15,7 @@
 #include <span>
 #include <string_view>
 
-// Needs libprotobuf: build with the Conan option `protobuf=True` (CMake `rpcspec_protobuf=ON`).
+// Needs libprotobuf: build with the Conan option `with_protobuf=True` (CMake `with_protobuf=ON`).
 
 namespace admission::spec {
 

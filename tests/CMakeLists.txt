@@ -88,7 +88,7 @@ gtest_discover_tests(rpcspec_tests)
 gtest_discover_tests(rpcspec_clio_tests)
 
 # The protobuf prescan's tests, including its differential test against libprotobuf.
-if(rpcspec_protobuf)
+if(with_protobuf)
     add_executable(rpcspec_protobuf_tests admissionspec/ProtobufPrescanTests.cpp)
     target_link_libraries(rpcspec_protobuf_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)
     gtest_discover_tests(rpcspec_protobuf_tests)

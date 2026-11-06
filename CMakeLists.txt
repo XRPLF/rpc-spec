@@ -20,8 +20,8 @@ target_link_libraries(rpcspec INTERFACE Boost::json)
 
 # The protobuf admission prescan (include/admissionspec/ProtobufPrescan.hpp) needs libprotobuf.
 # Only consumers that admit untrusted protobuf, such as xrpld, turn it on.
-option(rpcspec_protobuf "Link libprotobuf for the protobuf admission prescan" OFF)
-if(rpcspec_protobuf)
+option(with_protobuf "Link libprotobuf for the protobuf admission prescan" OFF)
+if(with_protobuf)
     find_package(protobuf CONFIG REQUIRED)
     target_link_libraries(rpcspec INTERFACE protobuf::libprotobuf)
 endif()
