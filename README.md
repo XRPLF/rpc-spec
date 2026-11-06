@@ -149,6 +149,11 @@ cmake --build --preset conan-release
 ctest --preset conan-release --output-on-failure
 ```
 
+The protobuf admission prescan (`include/admissionspec/ProtobufPrescan.hpp`) needs
+libprotobuf, so it and its tests are behind the `protobuf` option (CMake:
+`rpcspec_protobuf`). xrpld turns it on; Clio leaves it off. To build its tests,
+add `-o protobuf=True` to the install above; they build as `rpcspec_protobuf_tests`.
+
 ### Plain CMake
 
 If `gtest` and `Boost::json` are already discoverable by `find_package`
