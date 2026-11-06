@@ -21,9 +21,6 @@
 
 namespace admission::spec::detail {
 
-namespace gpb = google::protobuf;
-using WireFormat = gpb::internal::WireFormatLite;
-
 /**
  * @brief One walk of a payload: the stream, the limits, and the counts kept across nested
  * messages.
@@ -32,7 +29,7 @@ template <typename Check>
 class Prescan
 {
     std::span<uint8_t const> payload_;
-    gpb::io::CodedInputStream in_;
+    google::protobuf::io::CodedInputStream in_;
     BaseLimits const& limits_;
     RepeatedCaps const& caps_;
     Check& check_;
@@ -55,7 +52,7 @@ public:
     }
 
     [[nodiscard]] AdmissionDecision
-    run(gpb::Descriptor const& descriptor)
+    run(google::protobuf::Descriptor const& descriptor)
     {
         if (payload_.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
         {
@@ -124,7 +121,7 @@ private:
     // them in `fields`. The end is decided before a tag is read: a tag of 0, or one that does not
     // decode, is never an end.
     [[nodiscard]] AdmissionDecision
-    message(gpb::Descriptor const& descriptor, uint64_t depth, size_t& fields)
+    message(google::protobuf::Descriptor const& descriptor, uint64_t depth, size_t& fields)
     {
         while (in_.BytesUntilLimit() > 0)
         {
@@ -143,16 +140,16 @@ private:
     }
 
     [[nodiscard]] AdmissionDecision
-    field(gpb::Descriptor const& descriptor, uint64_t depth, uint32_t tag)
+    field(google::protobuf::Descriptor const& descriptor, uint64_t depth, uint32_t tag)
     {
-        auto const number = WireFormat::GetTagFieldNumber(tag);
-        auto const wireType = WireFormat::GetTagWireType(tag);
+        auto const number = google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag);
+        auto const wireType = google::protobuf::internal::WireFormatLite::GetTagWireType(tag);
         if (number == 0)
         {
             return malformed("protobuf field number 0");
         }
-        if (wireType == WireFormat::WIRETYPE_START_GROUP or
-            wireType == WireFormat::WIRETYPE_END_GROUP)
+        if (wireType == google::protobuf::internal::WireFormatLite::WIRETYPE_START_GROUP or
+            wireType == google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP)
         {
             if (limits_.rejectGroups)
             {
@@ -160,9 +157,10 @@ private:
             }
         }
         else if (
-            wireType != WireFormat::WIRETYPE_VARINT and wireType != WireFormat::WIRETYPE_FIXED64 and
-            wireType != WireFormat::WIRETYPE_LENGTH_DELIMITED and
-            wireType != WireFormat::WIRETYPE_FIXED32)
+            wireType != google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT and
+            wireType != google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64 and
+            wireType != google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED and
+            wireType != google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32)
         {
             return malformed("invalid protobuf wire type");
         }
@@ -171,12 +169,13 @@ private:
         // libprotobuf keeps a field whose wire type does not match its declaration as unknown,
         // except a repeated scalar sent packed or unpacked.
         auto const declared = known != nullptr
-            ? WireFormat::WireTypeForFieldType(static_cast<WireFormat::FieldType>(known->type()))
-            : WireFormat::WIRETYPE_VARINT;
+            ? google::protobuf::internal::WireFormatLite::WireTypeForFieldType(
+                  static_cast<google::protobuf::internal::WireFormatLite::FieldType>(known->type()))
+            : google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT;
         bool const packed = known != nullptr and known->is_packable() and
-            wireType == WireFormat::WIRETYPE_LENGTH_DELIMITED;
+            wireType == google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED;
         if (known == nullptr or (wireType != declared and not packed) or
-            known->type() == gpb::FieldDescriptor::TYPE_GROUP)
+            known->type() == google::protobuf::FieldDescriptor::TYPE_GROUP)
         {
             return unknown(tag, depth);
         }
@@ -219,27 +218,28 @@ private:
     [[nodiscard]] AdmissionDecision
     skip(uint32_t tag, uint64_t depth)
     {
-        switch (WireFormat::GetTagWireType(tag))
+        switch (google::protobuf::internal::WireFormatLite::GetTagWireType(tag))
         {
-            case WireFormat::WIRETYPE_VARINT: {
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT: {
                 auto ignored = uint64_t{};
                 return in_.ReadVarint64(&ignored) ? AdmissionDecision::admit()
                                                   : malformed("invalid protobuf varint");
             }
-            case WireFormat::WIRETYPE_FIXED64:
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64:
                 return in_.Skip(8) ? AdmissionDecision::admit()
                                    : malformed("truncated protobuf field");
-            case WireFormat::WIRETYPE_FIXED32:
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32:
                 return in_.Skip(4) ? AdmissionDecision::admit()
                                    : malformed("truncated protobuf field");
-            case WireFormat::WIRETYPE_LENGTH_DELIMITED: {
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED: {
                 auto length = uint32_t{};
                 return readLength(length) and in_.Skip(static_cast<int>(length))
                     ? AdmissionDecision::admit()
                     : malformed("truncated protobuf field");
             }
-            case WireFormat::WIRETYPE_START_GROUP:
-                return group(WireFormat::GetTagFieldNumber(tag), depth + 1);
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_START_GROUP:
+                return group(
+                    google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag), depth + 1);
             default:
                 // An end-group tag outside its group.
                 return malformed("unmatched protobuf end group");
@@ -257,13 +257,15 @@ private:
         while (in_.BytesUntilLimit() > 0)
         {
             auto tag = uint32_t{};
-            if (not readTag(tag) or WireFormat::GetTagFieldNumber(tag) == 0)
+            if (not readTag(tag) or
+                google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag) == 0)
             {
                 return malformed("invalid protobuf tag");
             }
-            if (WireFormat::GetTagWireType(tag) == WireFormat::WIRETYPE_END_GROUP)
+            if (google::protobuf::internal::WireFormatLite::GetTagWireType(tag) ==
+                google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP)
             {
-                return WireFormat::GetTagFieldNumber(tag) == number
+                return google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag) == number
                     ? AdmissionDecision::admit()
                     : malformed("unmatched protobuf end group");
             }
@@ -277,7 +279,7 @@ private:
 
     // Count one entry of a repeated field, at the top level, against its cap.
     [[nodiscard]] AdmissionDecision
-    entry(gpb::FieldDescriptor const& field, uint64_t depth, uint64_t bytes)
+    entry(google::protobuf::FieldDescriptor const& field, uint64_t depth, uint64_t bytes)
     {
         if (depth != 0 or not field.is_repeated())
         {
@@ -309,7 +311,7 @@ private:
     // Report a scalar of `field` at `depth`, as the event its C++ type maps to.
     template <typename V>
     [[nodiscard]] AdmissionDecision
-    scalar(gpb::FieldDescriptor const& field, uint64_t depth, V v)
+    scalar(google::protobuf::FieldDescriptor const& field, uint64_t depth, V v)
     {
         auto const kind = [] {
             if constexpr (std::is_same_v<V, bool>)
@@ -340,12 +342,14 @@ private:
     // Read one value of a known field with its declared wire type, and report it typed by the
     // field's declared type, as libprotobuf would store it.
     [[nodiscard]] AdmissionDecision
-    value(gpb::FieldDescriptor const& field, WireFormat::WireType wireType, uint64_t depth)
+    value(
+        google::protobuf::FieldDescriptor const& field,
+        google::protobuf::internal::WireFormatLite::WireType wireType,
+        uint64_t depth)
     {
-        using F = gpb::FieldDescriptor;
         switch (wireType)
         {
-            case WireFormat::WIRETYPE_VARINT: {
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT: {
                 auto v = uint64_t{};
                 if (not in_.ReadVarint64(&v))
                 {
@@ -353,31 +357,35 @@ private:
                 }
                 switch (field.type())
                 {
-                    case F::TYPE_INT32:
+                    case google::protobuf::FieldDescriptor::TYPE_INT32:
                         return scalar(field, depth, static_cast<int64_t>(static_cast<int32_t>(v)));
-                    case F::TYPE_INT64:
+                    case google::protobuf::FieldDescriptor::TYPE_INT64:
                         return scalar(field, depth, static_cast<int64_t>(v));
-                    case F::TYPE_UINT32:
+                    case google::protobuf::FieldDescriptor::TYPE_UINT32:
                         return scalar(
                             field, depth, static_cast<uint64_t>(static_cast<uint32_t>(v)));
-                    case F::TYPE_SINT32:
+                    case google::protobuf::FieldDescriptor::TYPE_SINT32:
                         return scalar(
                             field,
                             depth,
                             static_cast<int64_t>(
-                                WireFormat::ZigZagDecode32(static_cast<uint32_t>(v))));
-                    case F::TYPE_SINT64:
+                                google::protobuf::internal::WireFormatLite::ZigZagDecode32(
+                                    static_cast<uint32_t>(v))));
+                    case google::protobuf::FieldDescriptor::TYPE_SINT64:
                         return scalar(
-                            field, depth, static_cast<int64_t>(WireFormat::ZigZagDecode64(v)));
-                    case F::TYPE_BOOL:
+                            field,
+                            depth,
+                            static_cast<int64_t>(
+                                google::protobuf::internal::WireFormatLite::ZigZagDecode64(v)));
+                    case google::protobuf::FieldDescriptor::TYPE_BOOL:
                         return scalar(field, depth, v != 0);
-                    case F::TYPE_ENUM:
+                    case google::protobuf::FieldDescriptor::TYPE_ENUM:
                         return enumValue(field, depth, static_cast<int32_t>(v));
                     default:
                         return scalar(field, depth, v);
                 }
             }
-            case WireFormat::WIRETYPE_FIXED64: {
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64: {
                 auto v = uint64_t{};
                 if (not in_.ReadLittleEndian64(&v))
                 {
@@ -385,15 +393,15 @@ private:
                 }
                 switch (field.type())
                 {
-                    case F::TYPE_SFIXED64:
+                    case google::protobuf::FieldDescriptor::TYPE_SFIXED64:
                         return scalar(field, depth, std::bit_cast<int64_t>(v));
-                    case F::TYPE_DOUBLE:
+                    case google::protobuf::FieldDescriptor::TYPE_DOUBLE:
                         return scalar(field, depth, std::bit_cast<double>(v));
                     default:
                         return scalar(field, depth, v);
                 }
             }
-            case WireFormat::WIRETYPE_FIXED32: {
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32: {
                 auto v = uint32_t{};
                 if (not in_.ReadLittleEndian32(&v))
                 {
@@ -401,16 +409,16 @@ private:
                 }
                 switch (field.type())
                 {
-                    case F::TYPE_SFIXED32:
+                    case google::protobuf::FieldDescriptor::TYPE_SFIXED32:
                         return scalar(
                             field, depth, static_cast<int64_t>(std::bit_cast<int32_t>(v)));
-                    case F::TYPE_FLOAT:
+                    case google::protobuf::FieldDescriptor::TYPE_FLOAT:
                         return scalar(field, depth, static_cast<double>(std::bit_cast<float>(v)));
                     default:
                         return scalar(field, depth, static_cast<uint64_t>(v));
                 }
             }
-            case WireFormat::WIRETYPE_LENGTH_DELIMITED:
+            case google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED:
                 return lengthDelimited(field, depth);
             default:
                 return malformed("invalid protobuf wire type");
@@ -420,7 +428,7 @@ private:
     // An enum value. libprotobuf keeps an undefined value of a closed enum as an unknown field, so
     // it counts against the unknown-field limits and is not reported.
     [[nodiscard]] AdmissionDecision
-    enumValue(gpb::FieldDescriptor const& field, uint64_t depth, int32_t v)
+    enumValue(google::protobuf::FieldDescriptor const& field, uint64_t depth, int32_t v)
     {
         if (field.enum_type()->is_closed() and field.enum_type()->FindValueByNumber(v) == nullptr)
         {
@@ -435,7 +443,7 @@ private:
     }
 
     [[nodiscard]] AdmissionDecision
-    lengthDelimited(gpb::FieldDescriptor const& field, uint64_t depth)
+    lengthDelimited(google::protobuf::FieldDescriptor const& field, uint64_t depth)
     {
         auto length = uint32_t{};
         if (not readLength(length))
@@ -445,7 +453,7 @@ private:
         auto const number = static_cast<uint64_t>(field.number());
         auto const at = static_cast<uint32_t>(depth);
 
-        if (field.type() == gpb::FieldDescriptor::TYPE_MESSAGE)
+        if (field.type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE)
         {
             if (depth + 1 > limits_.maxDepth)
             {
@@ -476,7 +484,7 @@ private:
         {
             return malformed("truncated protobuf field");
         }
-        if (field.type() == gpb::FieldDescriptor::TYPE_STRING)
+        if (field.type() == google::protobuf::FieldDescriptor::TYPE_STRING)
         {
             return emit(
                 {.kind = EventKind::String,
@@ -496,15 +504,15 @@ private:
 
     // A packed repeated scalar: each element is an entry.
     [[nodiscard]] AdmissionDecision
-    packedEntries(gpb::FieldDescriptor const& field, uint64_t depth)
+    packedEntries(google::protobuf::FieldDescriptor const& field, uint64_t depth)
     {
         auto length = uint32_t{};
         if (not readLength(length))
         {
             return malformed("truncated protobuf field");
         }
-        auto const element =
-            WireFormat::WireTypeForFieldType(static_cast<WireFormat::FieldType>(field.type()));
+        auto const element = google::protobuf::internal::WireFormatLite::WireTypeForFieldType(
+            static_cast<google::protobuf::internal::WireFormatLite::FieldType>(field.type()));
         auto const limit = in_.PushLimit(static_cast<int>(length));
         auto decision = AdmissionDecision::admit();
         while (in_.BytesUntilLimit() > 0 and decision.admitted())

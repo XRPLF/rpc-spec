@@ -35,8 +35,6 @@
 #include <vector>
 
 using namespace admission::spec;
-namespace gpb = google::protobuf;
-using WireFormat = gpb::internal::WireFormatLite;
 
 namespace {
 
@@ -50,15 +48,15 @@ namespace {
 // }
 class Schema
 {
-    gpb::DescriptorPool pool_;
-    gpb::DynamicMessageFactory factory_{&pool_};
+    google::protobuf::DescriptorPool pool_;
+    google::protobuf::DynamicMessageFactory factory_{&pool_};
 
 public:
-    gpb::Descriptor const* test{};
+    google::protobuf::Descriptor const* test{};
 
     Schema()
     {
-        auto file = gpb::FileDescriptorProto{};
+        auto file = google::protobuf::FileDescriptorProto{};
         file.set_name("prescan_test.proto");
         file.set_package("prescan");
         file.set_syntax("proto2");
@@ -72,12 +70,13 @@ public:
         green.set_name("GREEN");
         green.set_number(1);
 
-        auto const add = [](gpb::DescriptorProto& message,
-                            std::string const& name,
-                            int number,
-                            gpb::FieldDescriptorProto::Type type,
-                            gpb::FieldDescriptorProto::Label label,
-                            std::string const& typeName = {}) -> gpb::FieldDescriptorProto& {
+        auto const add =
+            [](google::protobuf::DescriptorProto& message,
+               std::string const& name,
+               int number,
+               google::protobuf::FieldDescriptorProto::Type type,
+               google::protobuf::FieldDescriptorProto::Label label,
+               std::string const& typeName = {}) -> google::protobuf::FieldDescriptorProto& {
             auto& field = *message.add_field();
             field.set_name(name);
             field.set_number(number);
@@ -89,27 +88,87 @@ public:
             }
             return field;
         };
-        using F = gpb::FieldDescriptorProto;
 
         auto& sub = *file.add_message_type();
         sub.set_name("Sub");
-        add(sub, "x", 1, F::TYPE_INT32, F::LABEL_OPTIONAL);
-        add(sub, "child", 2, F::TYPE_MESSAGE, F::LABEL_OPTIONAL, ".prescan.Sub");
+        add(sub,
+            "x",
+            1,
+            google::protobuf::FieldDescriptorProto::TYPE_INT32,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(sub,
+            "child",
+            2,
+            google::protobuf::FieldDescriptorProto::TYPE_MESSAGE,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL,
+            ".prescan.Sub");
 
         auto& test = *file.add_message_type();
         test.set_name("Test");
-        add(test, "a", 1, F::TYPE_UINT32, F::LABEL_OPTIONAL);
-        add(test, "items", 2, F::TYPE_BYTES, F::LABEL_REPEATED);
-        add(test, "sub", 3, F::TYPE_MESSAGE, F::LABEL_OPTIONAL, ".prescan.Sub");
-        add(test, "color", 4, F::TYPE_ENUM, F::LABEL_OPTIONAL, ".prescan.Color");
-        add(test, "nums", 5, F::TYPE_UINT32, F::LABEL_REPEATED).mutable_options()->set_packed(true);
-        add(test, "f", 6, F::TYPE_FIXED64, F::LABEL_OPTIONAL);
-        add(test, "i", 7, F::TYPE_INT32, F::LABEL_OPTIONAL);
-        add(test, "s", 8, F::TYPE_SINT64, F::LABEL_OPTIONAL);
-        add(test, "b", 9, F::TYPE_BOOL, F::LABEL_OPTIONAL);
-        add(test, "d", 10, F::TYPE_DOUBLE, F::LABEL_OPTIONAL);
-        add(test, "name", 11, F::TYPE_STRING, F::LABEL_OPTIONAL);
-        add(test, "fl", 12, F::TYPE_FLOAT, F::LABEL_OPTIONAL);
+        add(test,
+            "a",
+            1,
+            google::protobuf::FieldDescriptorProto::TYPE_UINT32,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "items",
+            2,
+            google::protobuf::FieldDescriptorProto::TYPE_BYTES,
+            google::protobuf::FieldDescriptorProto::LABEL_REPEATED);
+        add(test,
+            "sub",
+            3,
+            google::protobuf::FieldDescriptorProto::TYPE_MESSAGE,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL,
+            ".prescan.Sub");
+        add(test,
+            "color",
+            4,
+            google::protobuf::FieldDescriptorProto::TYPE_ENUM,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL,
+            ".prescan.Color");
+        add(test,
+            "nums",
+            5,
+            google::protobuf::FieldDescriptorProto::TYPE_UINT32,
+            google::protobuf::FieldDescriptorProto::LABEL_REPEATED)
+            .mutable_options()
+            ->set_packed(true);
+        add(test,
+            "f",
+            6,
+            google::protobuf::FieldDescriptorProto::TYPE_FIXED64,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "i",
+            7,
+            google::protobuf::FieldDescriptorProto::TYPE_INT32,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "s",
+            8,
+            google::protobuf::FieldDescriptorProto::TYPE_SINT64,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "b",
+            9,
+            google::protobuf::FieldDescriptorProto::TYPE_BOOL,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "d",
+            10,
+            google::protobuf::FieldDescriptorProto::TYPE_DOUBLE,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "name",
+            11,
+            google::protobuf::FieldDescriptorProto::TYPE_STRING,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
+        add(test,
+            "fl",
+            12,
+            google::protobuf::FieldDescriptorProto::TYPE_FLOAT,
+            google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL);
 
         if (pool_.BuildFile(file) == nullptr)
         {
@@ -122,7 +181,8 @@ public:
     [[nodiscard]] bool
     parses(std::string const& bytes)
     {
-        auto const message = std::unique_ptr<gpb::Message>{factory_.GetPrototype(test)->New()};
+        auto const message =
+            std::unique_ptr<google::protobuf::Message>{factory_.GetPrototype(test)->New()};
         return message->ParsePartialFromArray(bytes.data(), static_cast<int>(bytes.size()));
     }
 };
@@ -143,7 +203,7 @@ public:
     Writer&
     varint(int field, uint64_t value)
     {
-        tag(field, WireFormat::WIRETYPE_VARINT);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT);
         raw(varintBytes(value));
         return *this;
     }
@@ -151,7 +211,7 @@ public:
     Writer&
     fixed64(int field, uint64_t value)
     {
-        tag(field, WireFormat::WIRETYPE_FIXED64);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64);
         for (int i = 0; i < 8; ++i)
         {
             bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
@@ -162,7 +222,7 @@ public:
     Writer&
     fixed32(int field, uint32_t value)
     {
-        tag(field, WireFormat::WIRETYPE_FIXED32);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED32);
         for (int i = 0; i < 4; ++i)
         {
             bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
@@ -173,7 +233,7 @@ public:
     Writer&
     bytes(int field, std::string const& value)
     {
-        tag(field, WireFormat::WIRETYPE_LENGTH_DELIMITED);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED);
         raw(varintBytes(value.size()));
         raw(value);
         return *this;
@@ -182,16 +242,16 @@ public:
     Writer&
     group(int field, std::string const& body)
     {
-        tag(field, WireFormat::WIRETYPE_START_GROUP);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_START_GROUP);
         raw(body);
-        tag(field, WireFormat::WIRETYPE_END_GROUP);
+        tag(field, google::protobuf::internal::WireFormatLite::WIRETYPE_END_GROUP);
         return *this;
     }
 
     Writer&
-    tag(int field, WireFormat::WireType wireType)
+    tag(int field, google::protobuf::internal::WireFormatLite::WireType wireType)
     {
-        raw(varintBytes(WireFormat::MakeTag(field, wireType)));
+        raw(varintBytes(google::protobuf::internal::WireFormatLite::MakeTag(field, wireType)));
         return *this;
     }
 
@@ -253,7 +313,7 @@ nested(int depth)
 // over a tunable, and a cap of two `items`.
 struct TestMessage
 {
-    static gpb::Descriptor const*
+    static google::protobuf::Descriptor const*
     descriptor()
     {
         return schema().test;
@@ -343,31 +403,39 @@ TEST(ProtobufPrescanTests, refuses_input_no_conforming_encoder_produces)
         return decision.dropped() and decision.penalty == PenaltyClass::Malformed;
     };
     // Field number 0.
-    EXPECT_TRUE(malformed(Writer{}.tag(0, WireFormat::WIRETYPE_VARINT).raw("\x01").str()));
+    EXPECT_TRUE(malformed(
+        Writer{}
+            .tag(0, google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT)
+            .raw("\x01")
+            .str()));
     // Wire types 6 and 7.
     EXPECT_TRUE(malformed(Writer{}.raw(Writer::varintBytes((1 << 3) | 6)).raw("\x01").str()));
     EXPECT_TRUE(malformed(Writer{}.raw(Writer::varintBytes((1 << 3) | 7)).raw("\x01").str()));
     // A varint longer than 10 bytes.
     EXPECT_TRUE(malformed(
         Writer{}
-            .tag(1, WireFormat::WIRETYPE_VARINT)
+            .tag(1, google::protobuf::internal::WireFormatLite::WIRETYPE_VARINT)
             .raw(std::string(11, '\xFF'))
             .raw("\x01")
             .str()));
     // A length larger than what is left, including one that would wrap a 64-bit offset.
     EXPECT_TRUE(malformed(
         Writer{}
-            .tag(2, WireFormat::WIRETYPE_LENGTH_DELIMITED)
+            .tag(2, google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED)
             .raw(Writer::varintBytes(100))
             .raw("ab")
             .str()));
     EXPECT_TRUE(malformed(
         Writer{}
-            .tag(2, WireFormat::WIRETYPE_LENGTH_DELIMITED)
+            .tag(2, google::protobuf::internal::WireFormatLite::WIRETYPE_LENGTH_DELIMITED)
             .raw(Writer::varintBytes(std::numeric_limits<uint64_t>::max()))
             .str()));
     // A truncated fixed64.
-    EXPECT_TRUE(malformed(Writer{}.tag(6, WireFormat::WIRETYPE_FIXED64).raw("1234").str()));
+    EXPECT_TRUE(malformed(
+        Writer{}
+            .tag(6, google::protobuf::internal::WireFormatLite::WIRETYPE_FIXED64)
+            .raw("1234")
+            .str()));
 }
 
 // Cases the differential test found where CodedInputStream's readers differ from libprotobuf's
@@ -548,16 +616,17 @@ TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
 
 TEST(ProtobufPrescanTests, reports_values_typed_by_their_declared_type)
 {
-    auto const bytes = Writer{}
-                           .varint(7, static_cast<uint64_t>(int64_t{-5}))
-                           .varint(8, WireFormat::ZigZagEncode64(-3))
-                           .varint(9, 1)
-                           .fixed64(10, std::bit_cast<uint64_t>(1.5))
-                           .bytes(11, "abc")
-                           .fixed32(12, std::bit_cast<uint32_t>(2.5F))
-                           .bytes(2, "raw")
-                           .bytes(3, nested(2))
-                           .str();
+    auto const bytes =
+        Writer{}
+            .varint(7, static_cast<uint64_t>(int64_t{-5}))
+            .varint(8, google::protobuf::internal::WireFormatLite::ZigZagEncode64(-3))
+            .varint(9, 1)
+            .fixed64(10, std::bit_cast<uint64_t>(1.5))
+            .bytes(11, "abc")
+            .fixed32(12, std::bit_cast<uint32_t>(2.5F))
+            .bytes(2, "raw")
+            .bytes(3, nested(2))
+            .str();
     ASSERT_TRUE(schema().parses(bytes));
 
     auto events = std::vector<VisitEvent>{};
