@@ -1,3 +1,5 @@
+#include <admissionspec/AdmissionSpec.hpp>
+#include <admissionspec/ConnectionLimiter.hpp>
 #include <admissionspec/ProtobufPrescan.hpp>
 #include <admissionspec/SpecAttributes.hpp>
 #include <admissionspec/Types.hpp>
@@ -10,12 +12,16 @@
 #include <google/protobuf/wire_format_lite.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <bit>
+#include <chrono>
 #include <cstdint>
 #include <limits>
 #include <memory>
 #include <random>
 #include <span>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 using namespace admission::spec;
@@ -29,6 +35,8 @@ namespace {
 // message Test {
 //   optional uint32 a = 1; repeated bytes items = 2; optional Sub sub = 3;
 //   optional Color color = 4; repeated uint32 nums = 5 [packed = true]; optional fixed64 f = 6;
+//   optional int32 i = 7; optional sint64 s = 8; optional bool b = 9; optional double d = 10;
+//   optional string name = 11; optional float fl = 12;
 // }
 class Schema
 {
@@ -86,6 +94,12 @@ public:
         add(test, "color", 4, F::TYPE_ENUM, F::LABEL_OPTIONAL, ".prescan.Color");
         add(test, "nums", 5, F::TYPE_UINT32, F::LABEL_REPEATED).mutable_options()->set_packed(true);
         add(test, "f", 6, F::TYPE_FIXED64, F::LABEL_OPTIONAL);
+        add(test, "i", 7, F::TYPE_INT32, F::LABEL_OPTIONAL);
+        add(test, "s", 8, F::TYPE_SINT64, F::LABEL_OPTIONAL);
+        add(test, "b", 9, F::TYPE_BOOL, F::LABEL_OPTIONAL);
+        add(test, "d", 10, F::TYPE_DOUBLE, F::LABEL_OPTIONAL);
+        add(test, "name", 11, F::TYPE_STRING, F::LABEL_OPTIONAL);
+        add(test, "fl", 12, F::TYPE_FLOAT, F::LABEL_OPTIONAL);
 
         if (pool_.BuildFile(file) == nullptr)
         {
@@ -129,6 +143,17 @@ public:
     {
         tag(field, WireFormat::WIRETYPE_FIXED64);
         for (int i = 0; i < 8; ++i)
+        {
+            bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
+        }
+        return *this;
+    }
+
+    Writer&
+    fixed32(int field, uint32_t value)
+    {
+        tag(field, WireFormat::WIRETYPE_FIXED32);
+        for (int i = 0; i < 4; ++i)
         {
             bytes_.push_back(static_cast<char>((value >> (8 * i)) & 0xFF));
         }
@@ -214,6 +239,44 @@ nested(int depth)
     return body;
 }
 
+// A generated-message stand-in for the runtime schema, with a spec whose check refuses an `a`
+// over a tunable, and a cap of two `items`.
+struct TestMessage
+{
+    static gpb::Descriptor const*
+    descriptor()
+    {
+        return schema().test;
+    }
+};
+
+consteval auto
+admissionSpec(std::type_identity<TestMessage>)
+{
+    return makeSpec<TestMessage>(
+               tunable<"max_payload_bytes">(uint64_t{4096}, "admission.test.max_payload_bytes"),
+               tunable<"size_ramp">(
+                   ramp({{.upToBytes = 4096, .cost = 1.0}}), "admission.test.size_ramp"),
+               tunable<"max_a">(uint64_t{100}, "admission.test.max_a"))
+        .withAttributes(
+            {.typeId = 1,
+             .repeated = repeatedCaps({{.fieldNumber = 2, .maxEntries = 2, .minEntryBytes = 0}})})
+        .withCheck([](VisitEvent const& event, auto const& cfg) -> AdmissionDecision {
+            if (auto const* a = event.as<uint64_t>(); event.fieldNumber == 1 and
+                event.depth == 0 and a != nullptr and *a > cfg.template get<"max_a">())
+            {
+                return AdmissionDecision::drop("a too large", PenaltyClass::Invalid);
+            }
+            return AdmissionDecision::admit();
+        });
+}
+
+[[nodiscard]] std::span<uint8_t const>
+spanOf(std::string const& bytes)
+{
+    return {reinterpret_cast<uint8_t const*>(bytes.data()), bytes.size()};
+}
+
 }  // namespace
 
 TEST(ProtobufPrescanTests, admits_a_well_formed_message_and_reports_its_values)
@@ -242,8 +305,10 @@ TEST(ProtobufPrescanTests, admits_a_well_formed_message_and_reports_its_values)
     EXPECT_EQ(count(EventKind::Bytes), 2);
     EXPECT_EQ(count(EventKind::ObjectBegin), 2);
     EXPECT_EQ(count(EventKind::ObjectEnd), 2);
-    // a, the two nested x, color, the two packed nums, and f.
-    EXPECT_EQ(count(EventKind::Uint64), 7);
+    // a, the two packed nums, and f.
+    EXPECT_EQ(count(EventKind::Uint64), 4);
+    // The two nested x, and color.
+    EXPECT_EQ(count(EventKind::Int64), 3);
 }
 
 TEST(ProtobufPrescanTests, a_check_can_refuse_while_walking)
@@ -471,4 +536,81 @@ TEST(ProtobufPrescanTests, agrees_with_libprotobuf_on_mutated_payloads)
         }
     }
     EXPECT_EQ(disagreements, 0);
+}
+
+TEST(ProtobufPrescanTests, reports_values_typed_by_their_declared_type)
+{
+    auto const bytes = Writer{}
+                           .varint(7, static_cast<uint64_t>(int64_t{-5}))
+                           .varint(8, WireFormat::ZigZagEncode64(-3))
+                           .varint(9, 1)
+                           .fixed64(10, std::bit_cast<uint64_t>(1.5))
+                           .bytes(11, "abc")
+                           .fixed32(12, std::bit_cast<uint32_t>(2.5F))
+                           .bytes(2, "raw")
+                           .bytes(3, nested(2))
+                           .str();
+    ASSERT_TRUE(schema().parses(bytes));
+
+    auto events = std::vector<VisitEvent>{};
+    auto record = [&](VisitEvent const& event) {
+        events.push_back(event);
+        return AdmissionDecision::admit();
+    };
+    ASSERT_TRUE(
+        prescanProtobuf(spanOf(bytes), *schema().test, prescanLimits(), {}, record).admitted());
+
+    auto const find = [&](uint64_t field, uint32_t depth = 0) {
+        return *std::ranges::find_if(events, [&](VisitEvent const& e) {
+            return e.fieldNumber == field and e.depth == depth;
+        });
+    };
+    EXPECT_EQ(find(7).kind, EventKind::Int64);
+    EXPECT_EQ(*find(7).as<int64_t>(), -5);
+    EXPECT_EQ(*find(8).as<int64_t>(), -3);
+    EXPECT_EQ(find(9).kind, EventKind::Bool);
+    EXPECT_TRUE(*find(9).as<bool>());
+    EXPECT_DOUBLE_EQ(*find(10).as<double>(), 1.5);
+    EXPECT_EQ(find(11).kind, EventKind::String);
+    EXPECT_EQ(*find(11).as<std::string_view>(), "abc");
+    EXPECT_EQ(find(11).size, 3U);
+    EXPECT_DOUBLE_EQ(*find(12).as<double>(), 2.5);
+    EXPECT_EQ(find(2).kind, EventKind::Bytes);
+
+    // The nested message: begin and end at depth 0, its fields at 1 and 2.
+    EXPECT_EQ(find(3).kind, EventKind::ObjectBegin);
+    auto const end = *std::ranges::find_if(events, [](VisitEvent const& e) {
+        return e.kind == EventKind::ObjectEnd and e.depth == 0;
+    });
+    EXPECT_EQ(end.fieldNumber, 3U);
+    EXPECT_EQ(end.size, 2U);  // x and child
+    EXPECT_EQ(*find(1, 1).as<int64_t>(), 7);
+    EXPECT_EQ(*find(1, 2).as<int64_t>(), 7);
+}
+
+TEST(ProtobufPrescanTests, runs_a_specs_check_and_caps)
+{
+    EXPECT_TRUE(prescan<TestMessage>(spanOf(Writer{}.varint(1, 100).str())).admitted());
+    EXPECT_EQ(prescan<TestMessage>(spanOf(Writer{}.varint(1, 101).str())).reason, "a too large");
+    // The check reads the top level only: an `x` of 101 in a nested message is admitted.
+    EXPECT_TRUE(
+        prescan<TestMessage>(spanOf(Writer{}.bytes(3, Writer{}.varint(1, 101).str()).str()))
+            .admitted());
+    // The spec's cap of two items.
+    auto const three = Writer{}.bytes(2, "a").bytes(2, "b").bytes(2, "c").str();
+    EXPECT_EQ(prescan<TestMessage>(spanOf(three)).penalty, PenaltyClass::Invalid);
+}
+
+TEST(ProtobufPrescanTests, plugs_into_a_connection_limiter)
+{
+    auto limiter =
+        ConnectionLimiter<int>{BucketSettings{.capacity = 100.0, .refillRatePerSecond = 1.0}, 4};
+    auto const now = std::chrono::steady_clock::now();
+    auto const good = Writer{}.varint(1, 5).str();
+    auto const bad = Writer{}.varint(1, 500).str();
+    EXPECT_TRUE(
+        limiter.admit<TestMessage>(1, protobufVisitor<TestMessage>(spanOf(good)), now).admitted());
+    EXPECT_EQ(
+        limiter.admit<TestMessage>(1, protobufVisitor<TestMessage>(spanOf(bad)), now).reason,
+        "a too large");
 }

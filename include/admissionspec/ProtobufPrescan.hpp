@@ -9,11 +9,13 @@
 #include <google/protobuf/wire_format_lite.h>
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <span>
 #include <string_view>
+#include <type_traits>
 
 // Needs libprotobuf: build with the Conan option `with_protobuf=True` (CMake `with_protobuf=ON`).
 
@@ -87,7 +89,8 @@ public:
         }
         // A limit at the top level too, so the end of the payload reads as zero bytes left.
         auto const limit = in_.PushLimit(static_cast<int>(payload_.size()));
-        auto const decision = message(descriptor, 0);
+        auto fields = size_t{};
+        auto const decision = message(descriptor, 0, fields);
         in_.PopLimit(limit);
         return decision;
     }
@@ -143,10 +146,11 @@ private:
         return true;
     }
 
-    // Walk the fields up to the current limit, as members of `descriptor`. The end is decided
-    // before a tag is read: a tag of 0, or one that does not decode, is never an end.
+    // Walk the fields up to the current limit, as members of `descriptor` at `depth`, counting
+    // them in `fields`. The end is decided before a tag is read: a tag of 0, or one that does not
+    // decode, is never an end.
     [[nodiscard]] AdmissionDecision
-    message(gpb::Descriptor const& descriptor, uint64_t depth)
+    message(gpb::Descriptor const& descriptor, uint64_t depth, size_t& fields)
     {
         while (in_.BytesUntilLimit() > 0)
         {
@@ -159,6 +163,7 @@ private:
             {
                 return decision;
             }
+            ++fields;
         }
         return AdmissionDecision::admit();
     }
@@ -327,11 +332,43 @@ private:
         return check_(event);
     }
 
-    // Read one value of a known field with its declared wire type.
+    // Report a scalar of `field` at `depth`, as the event its C++ type maps to.
+    template <typename V>
+    [[nodiscard]] AdmissionDecision
+    scalar(gpb::FieldDescriptor const& field, uint64_t depth, V v)
+    {
+        auto const kind = [] {
+            if constexpr (std::is_same_v<V, bool>)
+            {
+                return EventKind::Bool;
+            }
+            else if constexpr (std::is_same_v<V, double>)
+            {
+                return EventKind::Double;
+            }
+            else if constexpr (std::is_same_v<V, int64_t>)
+            {
+                return EventKind::Int64;
+            }
+            else
+            {
+                static_assert(std::is_same_v<V, uint64_t>);
+                return EventKind::Uint64;
+            }
+        }();
+        return emit(
+            {.kind = kind,
+             .depth = static_cast<uint32_t>(depth),
+             .fieldNumber = static_cast<uint64_t>(field.number()),
+             .value = v});
+    }
+
+    // Read one value of a known field with its declared wire type, and report it typed by the
+    // field's declared type, as libprotobuf would store it.
     [[nodiscard]] AdmissionDecision
     value(gpb::FieldDescriptor const& field, WireFormat::WireType wireType, uint64_t depth)
     {
-        auto const number = static_cast<uint64_t>(field.number());
+        using F = gpb::FieldDescriptor;
         switch (wireType)
         {
             case WireFormat::WIRETYPE_VARINT: {
@@ -340,18 +377,31 @@ private:
                 {
                     return malformed("invalid protobuf varint");
                 }
-                if (field.type() == gpb::FieldDescriptor::TYPE_ENUM and
-                    field.enum_type()->is_closed() and
-                    field.enum_type()->FindValueByNumber(static_cast<int>(v)) == nullptr)
+                switch (field.type())
                 {
-                    // libprotobuf keeps an undefined value of a closed enum as an unknown field.
-                    unknownBytes_ += 1;
-                    if (++unknownFields_ > limits_.maxUnknownFields)
-                    {
-                        return invalid("too many unknown protobuf fields");
-                    }
+                    case F::TYPE_INT32:
+                        return scalar(field, depth, static_cast<int64_t>(static_cast<int32_t>(v)));
+                    case F::TYPE_INT64:
+                        return scalar(field, depth, static_cast<int64_t>(v));
+                    case F::TYPE_UINT32:
+                        return scalar(
+                            field, depth, static_cast<uint64_t>(static_cast<uint32_t>(v)));
+                    case F::TYPE_SINT32:
+                        return scalar(
+                            field,
+                            depth,
+                            static_cast<int64_t>(
+                                WireFormat::ZigZagDecode32(static_cast<uint32_t>(v))));
+                    case F::TYPE_SINT64:
+                        return scalar(
+                            field, depth, static_cast<int64_t>(WireFormat::ZigZagDecode64(v)));
+                    case F::TYPE_BOOL:
+                        return scalar(field, depth, v != 0);
+                    case F::TYPE_ENUM:
+                        return enumValue(field, depth, static_cast<int32_t>(v));
+                    default:
+                        return scalar(field, depth, v);
                 }
-                return emit({.kind = EventKind::Uint64, .fieldNumber = number, .value = v});
             }
             case WireFormat::WIRETYPE_FIXED64: {
                 auto v = uint64_t{};
@@ -359,7 +409,15 @@ private:
                 {
                     return malformed("truncated protobuf field");
                 }
-                return emit({.kind = EventKind::Uint64, .fieldNumber = number, .value = v});
+                switch (field.type())
+                {
+                    case F::TYPE_SFIXED64:
+                        return scalar(field, depth, std::bit_cast<int64_t>(v));
+                    case F::TYPE_DOUBLE:
+                        return scalar(field, depth, std::bit_cast<double>(v));
+                    default:
+                        return scalar(field, depth, v);
+                }
             }
             case WireFormat::WIRETYPE_FIXED32: {
                 auto v = uint32_t{};
@@ -367,16 +425,39 @@ private:
                 {
                     return malformed("truncated protobuf field");
                 }
-                return emit(
-                    {.kind = EventKind::Uint64,
-                     .fieldNumber = number,
-                     .value = static_cast<uint64_t>(v)});
+                switch (field.type())
+                {
+                    case F::TYPE_SFIXED32:
+                        return scalar(
+                            field, depth, static_cast<int64_t>(std::bit_cast<int32_t>(v)));
+                    case F::TYPE_FLOAT:
+                        return scalar(field, depth, static_cast<double>(std::bit_cast<float>(v)));
+                    default:
+                        return scalar(field, depth, static_cast<uint64_t>(v));
+                }
             }
             case WireFormat::WIRETYPE_LENGTH_DELIMITED:
                 return lengthDelimited(field, depth);
             default:
                 return malformed("invalid protobuf wire type");
         }
+    }
+
+    // An enum value. libprotobuf keeps an undefined value of a closed enum as an unknown field, so
+    // it counts against the unknown-field limits and is not reported.
+    [[nodiscard]] AdmissionDecision
+    enumValue(gpb::FieldDescriptor const& field, uint64_t depth, int32_t v)
+    {
+        if (field.enum_type()->is_closed() and field.enum_type()->FindValueByNumber(v) == nullptr)
+        {
+            unknownBytes_ += 1;
+            if (++unknownFields_ > limits_.maxUnknownFields)
+            {
+                return invalid("too many unknown protobuf fields");
+            }
+            return AdmissionDecision::admit();
+        }
+        return scalar(field, depth, static_cast<int64_t>(v));
     }
 
     [[nodiscard]] AdmissionDecision
@@ -388,6 +469,7 @@ private:
             return malformed("truncated protobuf field");
         }
         auto const number = static_cast<uint64_t>(field.number());
+        auto const at = static_cast<uint32_t>(depth);
 
         if (field.type() == gpb::FieldDescriptor::TYPE_MESSAGE)
         {
@@ -395,29 +477,47 @@ private:
             {
                 return invalid("protobuf messages nested too deeply");
             }
-            if (auto const d = emit({.kind = EventKind::ObjectBegin, .fieldNumber = number});
+            if (auto const d =
+                    emit({.kind = EventKind::ObjectBegin, .depth = at, .fieldNumber = number});
                 d.dropped())
             {
                 return d;
             }
             auto const limit = in_.PushLimit(static_cast<int>(length));
-            auto const decision = message(*field.message_type(), depth + 1);
+            auto fields = size_t{};
+            auto const decision = message(*field.message_type(), depth + 1, fields);
             in_.PopLimit(limit);
             if (decision.dropped())
             {
                 return decision;
             }
-            return emit({.kind = EventKind::ObjectEnd, .fieldNumber = number});
+            return emit(
+                {.kind = EventKind::ObjectEnd, .size = fields, .depth = at, .fieldNumber = number});
         }
 
-        // A string or bytes field: report the span, then step over it.
+        // A string or bytes field: report it, then step over it.
         auto const offset = static_cast<size_t>(in_.CurrentPosition());
         auto const body = payload_.subspan(offset, length);
         if (not in_.Skip(static_cast<int>(length)))
         {
             return malformed("truncated protobuf field");
         }
-        return emit({.kind = EventKind::Bytes, .fieldNumber = number, .value = body});
+        if (field.type() == gpb::FieldDescriptor::TYPE_STRING)
+        {
+            return emit(
+                {.kind = EventKind::String,
+                 .size = body.size(),
+                 .depth = at,
+                 .fieldNumber = number,
+                 .value =
+                     std::string_view{reinterpret_cast<char const*>(body.data()), body.size()}});
+        }
+        return emit(
+            {.kind = EventKind::Bytes,
+             .size = body.size(),
+             .depth = at,
+             .fieldNumber = number,
+             .value = body});
     }
 
     // A packed repeated scalar: each element is an entry.
@@ -458,19 +558,36 @@ private:
  * lengths by the rules of libprotobuf's parser, which are stricter than the stream's own readers:
  * at most 5 bytes each, a tag keeping its low 32 bits, a length within int32. Unknown fields and
  * groups are skipped the same way. A differential test holds it to accepting exactly what
- * `ParsePartialFromArray` accepts. It refuses, as
- * @ref PenaltyClass::Malformed: an invalid tag, field number 0, wire types 6 and 7, a varint over
- * 10 bytes, and truncated fields. As @ref PenaltyClass::Invalid: more unknown fields, or bytes in
- * them, than @p limits allow (an undefined value of a closed enum counts as one), a group when
- * @p limits rejects them, nesting deeper than @p limits allow, and a top-level repeated field over
- * its cap in @p caps or with an entry smaller than the cap allows.
+ * `ParsePartialFromArray` accepts.
+ *
+ * What @p check sees, for the fields the schema defines (unknown fields, and undefined values of
+ * a closed enum, are counted against @p limits but not reported):
+ * - one event per value, typed by the field's declared type as libprotobuf stores it: `Int64` for
+ *   int32, int64, sint32, sint64 (zigzag-decoded), sfixed32, sfixed64 and enums; `Uint64` for
+ *   uint32, uint64, fixed32 and fixed64; `Bool`; `Double` for double and float; `String` for
+ *   string (a view of its bytes); `Bytes` for bytes. A string or bytes event's @c size is its
+ *   length;
+ * - `ObjectBegin` and `ObjectEnd` around a nested message, the end's @c size its field count;
+ * - every event's @c fieldNumber, and its @c depth: 0 for the top-level message's fields, one more
+ *   inside each nested message.
+ *
+ * A repeated field's entries are reported one at a time, each with the field's number, and there
+ * are no `ArrayBegin` / `ArrayEnd` events: on the wire, entries need not be contiguous, and a
+ * packed field's elements are reported like unpacked entries. A check that needs a count keeps
+ * its own; @p caps covers the common case.
+ *
+ * It refuses, as @ref PenaltyClass::Malformed: an invalid tag, field number 0, wire types 6 and 7,
+ * a varint over 10 bytes, and truncated fields. As @ref PenaltyClass::Invalid: more unknown fields,
+ * or bytes in them, than @p limits allow, a group when @p limits rejects them, nesting deeper than
+ * @p limits allow, and a top-level repeated field over its cap in @p caps or with an entry smaller
+ * than the cap allows.
  *
  * @param payload The decoded payload.
  * @param descriptor The schema of the message.
  * @param limits The limits applied to every message.
  * @param caps The message's repeated-field caps.
- * @param check Invoked as `AdmissionDecision(VisitEvent const&)` for each value and each nested
- *        message's begin and end; the walk stops on its first drop.
+ * @param check Invoked as `AdmissionDecision(VisitEvent const&)`; the walk stops on its first
+ *        drop.
  * @return Admit, or the first drop.
  */
 template <typename Check>
@@ -500,17 +617,36 @@ prescanProtobuf(
 }
 
 /**
- * @brief Prescan a payload of the generated protobuf type @p T, with its spec's repeated caps
- * and streaming check.
+ * @brief A visitor that prescans a payload of the generated protobuf type @p T with its spec's
+ * repeated caps, for @ref ConnectionLimiter::admit, which calls it as `visitor(check)` with the
+ * spec's check.
+ *
+ * @param payload The decoded payload. It must outlive the visitor.
+ * @param limits The limits applied to every message.
+ */
+template <typename T>
+    requires HasAdmissionSpec<T> and requires { T::descriptor(); }
+[[nodiscard]] auto
+protobufVisitor(std::span<uint8_t const> payload, PrescanLimits const& limits = prescanLimits())
+{
+    return [payload, limits]<typename Check>(Check& check) -> AdmissionDecision {
+        static constexpr auto kSpec = admissionSpecFor<T>();
+        return prescanProtobuf(
+            payload, *T::descriptor(), limits, kSpec.attributes().repeated, check);
+    };
+}
+
+/**
+ * @brief Prescan a payload of the generated protobuf type @p T, with its spec's repeated caps and
+ * streaming check.
  */
 template <typename T>
     requires HasAdmissionSpec<T> and requires { T::descriptor(); }
 [[nodiscard]] AdmissionDecision
 prescan(std::span<uint8_t const> payload, PrescanLimits const& limits = prescanLimits())
 {
-    static constexpr auto kSpec = admissionSpecFor<T>();
     auto check = makeChecker<T>();
-    return prescanProtobuf(payload, *T::descriptor(), limits, kSpec.attributes().repeated, check);
+    return protobufVisitor<T>(payload, limits)(check);
 }
 
 }  // namespace admission::spec
