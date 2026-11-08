@@ -4,6 +4,7 @@
 #include <admissionspec/BucketSettings.hpp>
 #include <admissionspec/ConnectionLimiter.hpp>
 #include <admissionspec/ConnectionView.hpp>
+#include <admissionspec/PayloadTotals.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/PenaltyCosts.hpp>
 #include <admissionspec/Pipeline.hpp>
@@ -16,6 +17,7 @@
 #include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/Tunable.hpp>
 #include <admissionspec/VisitEvent.hpp>
+#include <admissionspec/WalkResult.hpp>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/descriptor.pb.h>
 #include <google/protobuf/dynamic_message.h>
@@ -831,4 +833,72 @@ TEST(ProtobufPrescanTests, runs_as_the_body_stage)
         admitBody<TestMessage>(protobufVisitor<TestMessage>(spanOf(bad)), OpenConnection{}, sink);
     EXPECT_EQ(refused.decision.reason, "a too large");
     EXPECT_EQ(refused.decision.penalty, PenaltyClass::Invalid);
+}
+
+TEST(ProtobufPrescanTests, reports_what_it_counted_in_the_whole_payload)
+{
+    // Unknown at the top level: a one-byte varint and an 11-byte length-delimited value; one more
+    // in a nested message; and an undefined value of a closed enum, counted as one byte.
+    auto const payload = Writer{}
+                             .varint(40, 1)
+                             .bytes(41, std::string(10, 'u'))
+                             .bytes(3, Writer{}.varint(40, 1).str())
+                             .varint(4, 9)
+                             .str();
+    auto const expected = PayloadTotals{.unknownFields = 4, .unknownFieldBytes = 14};
+
+    auto check = makeChecker<TestMessage>();
+    auto const walked = protobufVisitor<TestMessage>(spanOf(payload))(check);
+    EXPECT_TRUE(walked.decision.admitted());
+    EXPECT_EQ(walked.totals, expected);
+
+    // The same from a stream that delivers it three bytes at a time.
+    auto stream =
+        google::protobuf::io::ArrayInputStream{payload.data(), static_cast<int>(payload.size()), 3};
+    auto const inPieces = protobufVisitor<TestMessage>(stream, payload.size())(check);
+    EXPECT_TRUE(inPieces.decision.admitted());
+    EXPECT_EQ(inPieces.totals, expected);
+
+    // A payload with none reports zeros.
+    auto const known = protobufVisitor<TestMessage>(spanOf(Writer{}.varint(1, 5).str()))(check);
+    EXPECT_TRUE(known.decision.admitted());
+    EXPECT_EQ(known.totals, PayloadTotals{});
+}
+
+TEST(ProtobufPrescanTests, reports_what_it_counted_up_to_a_refusal)
+{
+    auto limits = BaseLimits{};
+    limits.maxUnknownFields = 1;
+
+    // Refused at the second unknown field; the third is never read.
+    auto const payload = Writer{}.varint(40, 1).varint(41, 1).varint(42, 1).str();
+    auto check = makeChecker<TestMessage>();
+    auto const walked = protobufVisitor<TestMessage>(spanOf(payload), limits)(check);
+    EXPECT_EQ(walked.decision.rule, Rule::UnknownFields);
+    EXPECT_EQ(walked.totals, (PayloadTotals{.unknownFields = 2, .unknownFieldBytes = 2}));
+}
+
+TEST(ProtobufPrescanTests, the_body_stage_passes_on_what_it_counted)
+{
+    auto limiter = ConnectionLimiter<int32_t>{
+        BucketSettings{.capacity = 100.0, .refillRatePerSecond = 1.0}, 4};
+    auto const now = std::chrono::steady_clock::now();
+    auto const costs = PenaltyCosts{.trivial = 1, .useless = 5, .invalid = 10, .malformed = 20};
+    auto sink = limiter.sink(1, now, costs);
+
+    // Admitted, with one unknown varint.
+    auto const admitted = admitBody<TestMessage>(
+        protobufVisitor<TestMessage>(spanOf(Writer{}.varint(1, 5).varint(40, 1).str())),
+        OpenConnection{},
+        sink);
+    EXPECT_TRUE(admitted.decision.admitted());
+    EXPECT_EQ(admitted.totals, (PayloadTotals{.unknownFields = 1, .unknownFieldBytes = 1}));
+
+    // Refused by the spec's check after an unknown varint was counted.
+    auto const refused = admitBody<TestMessage>(
+        protobufVisitor<TestMessage>(spanOf(Writer{}.varint(40, 1).varint(1, 500).str())),
+        OpenConnection{},
+        sink);
+    EXPECT_TRUE(refused.decision.dropped());
+    EXPECT_EQ(refused.totals, (PayloadTotals{.unknownFields = 1, .unknownFieldBytes = 1}));
 }

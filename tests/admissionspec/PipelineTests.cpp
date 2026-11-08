@@ -6,6 +6,7 @@
 #include <admissionspec/ConnectionLimiter.hpp>
 #include <admissionspec/ConnectionView.hpp>
 #include <admissionspec/FrameInfo.hpp>
+#include <admissionspec/PayloadTotals.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/PenaltyCosts.hpp>
 #include <admissionspec/Pipeline.hpp>
@@ -20,6 +21,7 @@
 #include <admissionspec/TokenBucketSink.hpp>
 #include <admissionspec/Tunable.hpp>
 #include <admissionspec/VisitEvent.hpp>
+#include <admissionspec/WalkResult.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -322,6 +324,42 @@ TEST(AdmissionPipelineTests, the_body_stage_refuses_a_type_the_sender_may_not_se
     walked = false;
     EXPECT_TRUE(admitBody<Gated>(walker, Connection{}, sink).decision.dropped());
     EXPECT_FALSE(walked);
+}
+
+TEST(AdmissionPipelineTests, the_body_stage_passes_on_what_its_walker_counted)
+{
+    auto const totals = PayloadTotals{.unknownFields = 3, .unknownFieldBytes = 40};
+
+    // Admitted or refused, the walker's totals reach the result.
+    auto sink = RecordingSink{};
+    auto const admitted = admitBody<Small>(
+        [&](auto&) { return WalkResult{.decision = AdmissionDecision::admit(), .totals = totals}; },
+        Connection{},
+        sink);
+    EXPECT_TRUE(admitted.decision.admitted());
+    EXPECT_EQ(admitted.totals, totals);
+
+    auto const refused = admitBody<Small>(
+        [&](auto&) {
+            return WalkResult{
+                .decision =
+                    AdmissionDecision::drop(Rule::UnknownFields, "too many", PenaltyClass::Invalid),
+                .totals = totals};
+        },
+        Connection{},
+        sink);
+    EXPECT_TRUE(refused.decision.dropped());
+    EXPECT_EQ(refused.totals, totals);
+
+    // A walker that returns a bare decision, and the header stage, report zeros.
+    EXPECT_EQ(
+        admitBody<Small>([](auto&) { return AdmissionDecision::admit(); }, Connection{}, sink)
+            .totals,
+        PayloadTotals{});
+    EXPECT_EQ(
+        admitHeader<Small>(FrameInfo{.wireBytes = 10, .decodedBytes = 10}, Connection{}, sink)
+            .totals,
+        PayloadTotals{});
 }
 
 TEST(ChargeSinkTests, token_bucket_sink_takes_the_larger_of_cost_and_penalty)
