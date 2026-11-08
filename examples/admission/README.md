@@ -162,6 +162,11 @@ this. A string or bytes value that spans two pieces reaches the check with its `
 `value`. The `Fetch` check needs only the hash's size, so it still works when the 32-byte hash is
 split.
 
+The protobuf walker also counts the unknown fields in the whole payload, and their bytes, and
+`admitBody` returns them in `StageResult::totals`, whether the message is admitted or refused. A
+host can record them before it chooses limits, to see what its honest traffic carries. Walkers
+that do not count, such as the JSON walker, report zeros.
+
 Each refusal carries a `Rule` that names the rule it broke: `RepeatedCap`, `EntrySize`,
 `UnknownFields`, `Group`, `Depth`, `Malformed`, or `Check` for the spec's own check. A host that
 charges or reports rules differently tells them apart by this, never by the reason text.

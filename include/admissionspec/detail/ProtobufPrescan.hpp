@@ -3,6 +3,7 @@
 
 #include <admissionspec/AdmissionDecision.hpp>
 #include <admissionspec/BaseLimits.hpp>
+#include <admissionspec/PayloadTotals.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/Rule.hpp>
 #include <admissionspec/VisitEvent.hpp>
@@ -38,6 +39,7 @@ class Prescan
     // In the message being walked; each nested message counts its own.
     uint64_t unknownFields_{};
     // In the whole payload.
+    uint64_t unknownFieldsTotal_{};
     uint64_t unknownBytes_{};
 
 public:
@@ -66,6 +68,15 @@ public:
         auto const walked = message(descriptor, 0);
         in_.PopLimit(limit);
         return walked ? AdmissionDecision::admit() : walked.error();
+    }
+
+    /**
+     * @brief What the walk counted in the whole payload, up to where it stopped.
+     */
+    [[nodiscard]] PayloadTotals
+    totals() const
+    {
+        return {.unknownFields = unknownFieldsTotal_, .unknownFieldBytes = unknownBytes_};
     }
 
 private:
@@ -213,6 +224,7 @@ private:
             return decision;
         }
         unknownBytes_ += static_cast<uint64_t>(in_.CurrentPosition() - start);
+        ++unknownFieldsTotal_;
         if (++unknownFields_ > limits_.maxUnknownFields)
         {
             return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
@@ -417,6 +429,7 @@ private:
         if (field.enum_type()->is_closed() and field.enum_type()->FindValueByNumber(v) == nullptr)
         {
             unknownBytes_ += 1;
+            ++unknownFieldsTotal_;
             if (++unknownFields_ > limits_.maxUnknownFields)
             {
                 return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
