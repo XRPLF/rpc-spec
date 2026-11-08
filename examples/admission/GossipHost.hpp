@@ -180,7 +180,7 @@ public:
                     "unknown message type",
                     admission::spec::PenaltyClass::Useless);
                 return admission::spec::StageResult{
-                    .decision = refusal, .standing = sinks.charge(refusal)};
+                    .decision = refusal, .standing = sinks.charge(refusal), .totals = {}};
             });
         if (header.decision.dropped())
         {

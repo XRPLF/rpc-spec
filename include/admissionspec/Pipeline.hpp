@@ -5,22 +5,45 @@
 #include <admissionspec/ChargeSink.hpp>
 #include <admissionspec/ConnectionView.hpp>
 #include <admissionspec/FrameInfo.hpp>
+#include <admissionspec/PayloadTotals.hpp>
 #include <admissionspec/PenaltyClass.hpp>
 #include <admissionspec/Rule.hpp>
 #include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/Standing.hpp>
+#include <admissionspec/WalkResult.hpp>
 
 namespace admission::spec {
 
 /**
- * @brief The outcome of an admission stage: its decision, and where the sender stands after the
- * stage's charge.
+ * @brief The outcome of an admission stage: its decision, where the sender stands after the
+ * stage's charge, and, from the body stage, what its walker counted in the payload.
  */
 struct StageResult
 {
     AdmissionDecision decision;
     Standing standing{Standing::Ok};
+    /**
+     * @brief Zero from the header stage, and from a walker that does not count.
+     */
+    PayloadTotals totals;
 };
+
+namespace detail {
+
+// A walker's result as a WalkResult, whichever of the two it returns.
+[[nodiscard]] inline WalkResult
+asWalkResult(WalkResult result)
+{
+    return result;
+}
+
+[[nodiscard]] inline WalkResult
+asWalkResult(AdmissionDecision decision)
+{
+    return {.decision = decision, .totals = {}};
+}
+
+}  // namespace detail
 
 /**
  * @brief The header stage for type @p T: decide from what a frame's header declares, before its
@@ -45,12 +68,13 @@ admitHeader(FrameInfo const& frame, Connection const& connection, Sink& sink)
         return {
             .decision = AdmissionDecision::drop(
                 Rule::Sender, "sender is over its limit", PenaltyClass::None),
-            .standing = Standing::Drop};
+            .standing = Standing::Drop,
+            .totals = {}};
     }
 
     static constexpr auto kSpec = admissionSpecFor<T>();
     auto const decision = kSpec.admitHeader(frame, connection, resolvedFor<T>());
-    return {.decision = decision, .standing = sink.charge(decision)};
+    return {.decision = decision, .standing = sink.charge(decision), .totals = {}};
 }
 
 /**
@@ -65,8 +89,12 @@ admitHeader(FrameInfo const& frame, Connection const& connection, Sink& sink)
  * the spec (see @ref AdmissionSpec::penaltyFor), with the check's cost unless the spec's type is
  * relayed by older releases. An admission is charged only a cost the check asked for.
  *
- * @param walker Reads the payload, called as `walker(check)`: @ref prescanProtobuf through
- *        @ref protobufVisitor, @ref JsonVisitor, or @ref visitPassthrough.
+ * The result carries what the walker counted in the payload (see @ref PayloadTotals), so a host can
+ * observe, for example, unknown-field bytes it does not yet limit.
+ *
+ * @param walker Reads the payload, called as `walker(check)`, and returns a @ref WalkResult or a
+ *        bare @ref AdmissionDecision: @ref prescanProtobuf through @ref protobufVisitor,
+ *        @ref JsonVisitor, or @ref visitPassthrough.
  * @param connection The connection the message arrived on.
  * @param sink Where to charge.
  */
@@ -78,16 +106,18 @@ admitBody(Walker&& walker, Connection const& connection, Sink& sink)
     static constexpr auto kSpec = admissionSpecFor<T>();
     if (auto const refusal = kSpec.refuseConnection(connection, 0.0))
     {
-        return {.decision = *refusal, .standing = sink.charge(*refusal)};
+        return {.decision = *refusal, .standing = sink.charge(*refusal), .totals = {}};
     }
 
     auto check = makeChecker<T>();
-    auto const decision = walker(check);
+    auto const walked = detail::asWalkResult(walker(check));
+    auto const& decision = walked.decision;
     if (decision.admitted())
     {
         return {
             .decision = decision,
-            .standing = decision.tokenCost > 0.0 ? sink.charge(decision) : sink.standing()};
+            .standing = decision.tokenCost > 0.0 ? sink.charge(decision) : sink.standing(),
+            .totals = walked.totals};
     }
 
     auto const refusal = AdmissionDecision::drop(
@@ -95,7 +125,7 @@ admitBody(Walker&& walker, Connection const& connection, Sink& sink)
         decision.reason,
         kSpec.penaltyFor(decision.penalty),
         kSpec.attributes().relayedByOlderVersions ? 0.0 : decision.tokenCost);
-    return {.decision = refusal, .standing = sink.charge(refusal)};
+    return {.decision = refusal, .standing = sink.charge(refusal), .totals = walked.totals};
 }
 
 }  // namespace admission::spec

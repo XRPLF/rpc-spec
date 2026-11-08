@@ -5,6 +5,7 @@
 #include <admissionspec/BaseLimits.hpp>
 #include <admissionspec/SpecLookup.hpp>
 #include <admissionspec/VisitEvent.hpp>
+#include <admissionspec/WalkResult.hpp>
 #include <admissionspec/detail/ProtobufPrescan.hpp>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/coded_stream.h>
@@ -113,6 +114,9 @@ prescanProtobuf(
  * @brief A walker that prescans a payload of the generated protobuf type @p T, for @ref admitBody,
  * which calls it as `walker(check)` with the spec's check and caps.
  *
+ * It returns a @ref WalkResult: the decision, and the unknown fields and their bytes in the whole
+ * payload, which @ref admitBody passes on in its @ref StageResult.
+ *
  * @param payload The decoded payload. It must outlive the visitor.
  * @param limits The limits applied to every message.
  */
@@ -121,8 +125,13 @@ template <typename T>
 [[nodiscard]] auto
 protobufVisitor(std::span<uint8_t const> payload, BaseLimits const& limits = {})
 {
-    return [payload, limits]<typename Check>(Check& check) -> AdmissionDecision {
-        return prescanProtobuf(payload, *T::descriptor(), limits, check);
+    return [payload, limits]<typename Check>(Check& check) -> WalkResult {
+        auto in = google::protobuf::io::CodedInputStream{
+            payload.data(),
+            static_cast<int>(std::min<size_t>(payload.size(), std::numeric_limits<int>::max()))};
+        auto prescan = detail::Prescan<Check>{in, payload.size(), limits, check};
+        auto const decision = prescan.run(*T::descriptor());
+        return {.decision = decision, .totals = prescan.totals()};
     };
 }
 
@@ -142,8 +151,11 @@ protobufVisitor(
     uint64_t size,
     BaseLimits const& limits = {})
 {
-    return [&stream, size, limits]<typename Check>(Check& check) -> AdmissionDecision {
-        return prescanProtobuf(stream, size, *T::descriptor(), limits, check);
+    return [&stream, size, limits]<typename Check>(Check& check) -> WalkResult {
+        auto in = google::protobuf::io::CodedInputStream{&stream};
+        auto prescan = detail::Prescan<Check>{in, size, limits, check};
+        auto const decision = prescan.run(*T::descriptor());
+        return {.decision = decision, .totals = prescan.totals()};
     };
 }
 
@@ -158,7 +170,7 @@ template <typename T>
 prescanProtobuf(std::span<uint8_t const> payload, BaseLimits const& limits = {})
 {
     auto check = makeChecker<T>();
-    return protobufVisitor<T>(payload, limits)(check);
+    return protobufVisitor<T>(payload, limits)(check).decision;
 }
 
 }  // namespace admission::spec
