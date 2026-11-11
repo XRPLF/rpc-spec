@@ -567,6 +567,7 @@ TEST(ProtobufPrescanTests, counts_unknown_fields_in_each_message_on_its_own)
 {
     auto limits = BaseLimits{};
     limits.maxUnknownFields = 2;
+    limits.maxNestedUnknownFields = 2;
 
     // Two unknown fields in each of two nested messages, and two at the top level, all pass.
     auto const sub = Writer{}.varint(40, 1).varint(41, 1).str();
@@ -586,6 +587,38 @@ TEST(ProtobufPrescanTests, counts_unknown_fields_in_each_message_on_its_own)
     // The byte limit counts the whole payload: here four unknown values of one byte each.
     limits.maxUnknownFieldBytes = 3;
     EXPECT_EQ(scan(Writer{}.bytes(3, sub).bytes(3, sub).str(), limits).rule, Rule::UnknownFields);
+}
+
+TEST(ProtobufPrescanTests, holds_nested_messages_to_their_own_unknown_field_limit)
+{
+    auto limits = BaseLimits{};
+    limits.maxUnknownFields = 2;
+    limits.maxNestedUnknownFields = 0;
+
+    // The outermost message keeps its own limit.
+    EXPECT_TRUE(
+        scan(Writer{}.varint(40, 1).varint(41, 1).bytes(3, nested(2)).str(), limits).admitted());
+    EXPECT_EQ(
+        scan(Writer{}.varint(40, 1).varint(41, 1).varint(42, 1).str(), limits).rule,
+        Rule::UnknownFields);
+
+    // A nested message, at any depth, may hold none.
+    EXPECT_EQ(
+        scan(Writer{}.bytes(3, Writer{}.varint(40, 1).str()).str(), limits).rule,
+        Rule::UnknownFields);
+    auto const deeper = Writer{}.varint(1, 7).bytes(2, Writer{}.varint(40, 1).str()).str();
+    EXPECT_EQ(scan(Writer{}.bytes(3, deeper).str(), limits).rule, Rule::UnknownFields);
+
+    // A higher nested limit does not raise the outermost one.
+    limits.maxNestedUnknownFields = 16;
+    auto const sixteen = [] {
+        auto w = Writer{};
+        for (int32_t i{}; i < 16; ++i)
+            w.varint(40 + i, 1);
+        return w.str();
+    }();
+    EXPECT_TRUE(scan(Writer{}.bytes(3, sixteen).str(), limits).admitted());
+    EXPECT_EQ(scan(sixteen, limits).rule, Rule::UnknownFields);
 }
 
 TEST(ProtobufPrescanTests, counts_an_undefined_closed_enum_value_as_unknown)
