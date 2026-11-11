@@ -214,6 +214,14 @@ private:
         return value(*known, wireType, depth);
     }
 
+    // The most unknown fields the message at `depth` may hold: the outermost one's limit, or the
+    // nested one's below it.
+    [[nodiscard]] uint64_t
+    unknownFieldLimit(uint64_t depth) const
+    {
+        return depth == 0 ? limits_.maxUnknownFields : limits_.maxNestedUnknownFields;
+    }
+
     // Skip a field the schema does not define, counting it against the unknown-field limits.
     [[nodiscard]] AdmissionDecision
     unknown(uint32_t tag, uint64_t depth)
@@ -225,7 +233,7 @@ private:
         }
         unknownBytes_ += static_cast<uint64_t>(in_.CurrentPosition() - start);
         ++unknownFieldsTotal_;
-        if (++unknownFields_ > limits_.maxUnknownFields)
+        if (++unknownFields_ > unknownFieldLimit(depth))
         {
             return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
         }
@@ -430,7 +438,7 @@ private:
         {
             unknownBytes_ += 1;
             ++unknownFieldsTotal_;
-            if (++unknownFields_ > limits_.maxUnknownFields)
+            if (++unknownFields_ > unknownFieldLimit(depth))
             {
                 return invalid(Rule::UnknownFields, "too many unknown protobuf fields");
             }
