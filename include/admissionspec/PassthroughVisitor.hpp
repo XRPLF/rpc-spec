@@ -1,7 +1,8 @@
 /** @file */
 #pragma once
 
-#include <admissionspec/Types.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/VisitEvent.hpp>
 
 #include <cstdint>
 #include <span>

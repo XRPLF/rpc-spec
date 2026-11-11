@@ -1,4 +1,9 @@
-#include <admissionspec/Types.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/FixedString.hpp>
+#include <admissionspec/ResolvedTunables.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
+#include <admissionspec/Tunable.hpp>
+#include <admissionspec/detail/ResolvedType.hpp>
 #include <gtest/gtest.h>
 
 #include <array>
@@ -86,10 +91,10 @@ TEST(TypesTests, tunable)
     EXPECT_EQ(t1.defaultValue, 10000ull);
     EXPECT_EQ(t1.configKey, "test.max_bytes");
     EXPECT_EQ(decltype(t1)::kName, "max_bytes");
-    EXPECT_EQ(t1.defaultValue, admission::spec::toResolved(t1.defaultValue));
+    EXPECT_EQ(t1.defaultValue, admission::spec::detail::toResolved(t1.defaultValue));
     if constexpr (not std::is_same_v<
                       decltype(t1)::ValueType,
-                      admission::spec::ResolvedTypeOfT<decltype(t1)>>)
+                      admission::spec::detail::ResolvedTypeOfT<decltype(t1)>>)
     {
         EXPECT_FALSE(false) << "T1 Tunable type mismatch";
     }
@@ -98,10 +103,10 @@ TEST(TypesTests, tunable)
     EXPECT_EQ(t2.defaultValue, 42.5);
     EXPECT_EQ(t2.configKey, "test.max_requests");
     EXPECT_EQ(decltype(t2)::kName, "max_requests");
-    EXPECT_EQ(t2.defaultValue, admission::spec::toResolved(t2.defaultValue));
+    EXPECT_EQ(t2.defaultValue, admission::spec::detail::toResolved(t2.defaultValue));
     if constexpr (not std::is_same_v<
                       decltype(t2)::ValueType,
-                      admission::spec::ResolvedTypeOfT<decltype(t2)>>)
+                      admission::spec::detail::ResolvedTypeOfT<decltype(t2)>>)
     {
         EXPECT_FALSE(false) << "T2 Tunable type mismatch";
     }
@@ -118,10 +123,10 @@ TEST(TypesTests, tunable)
     EXPECT_EQ(decltype(t3)::kName, "max_bytes_2");
     auto resolved = std::vector<admission::spec::SizeTier>(
         t3.defaultValue.tiers.begin(), t3.defaultValue.tiers.end());
-    EXPECT_EQ(resolved, admission::spec::toResolved(t3.defaultValue));
+    EXPECT_EQ(resolved, admission::spec::detail::toResolved(t3.defaultValue));
     if constexpr (not std::is_same_v<
                       decltype(t3)::ValueType,
-                      admission::spec::ResolvedTypeOfT<decltype(t3)>>)
+                      admission::spec::detail::ResolvedTypeOfT<decltype(t3)>>)
     {
         EXPECT_FALSE(false) << "T3 Tunable type mismatch";
     }

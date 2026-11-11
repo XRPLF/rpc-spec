@@ -5,7 +5,11 @@
 #include <boost/system/error_code.hpp>
 #include <boost/system/system_error.hpp>
 
-#include <admissionspec/Types.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/Rule.hpp>
+#include <admissionspec/SpecLookup.hpp>
+#include <admissionspec/VisitEvent.hpp>
 
 #include <cstdint>
 #include <limits>
@@ -68,7 +72,7 @@ class JsonVisitor
 {
     Check& check_;
     AdmissionDecision& decision_;
-    std::uint32_t depth_{0};
+    std::uint32_t depth_{};
     std::vector<std::string> containerKeys_;
     std::string pendingKey_;
 
@@ -626,9 +630,43 @@ visitJson(std::span<uint8_t const> bytes, Check& check, VisitJsonOptions const& 
     }
     if (ec)
     {
-        return AdmissionDecision::drop("Invalid JSON payload", options.costForInvalidPayload);
+        return AdmissionDecision::drop(
+            Rule::Malformed,
+            "Invalid JSON payload",
+            PenaltyClass::None,
+            options.costForInvalidPayload);
     }
     return decision;
+}
+
+/**
+ * @brief A walker that visits a JSON payload, for @ref admitBody, which calls it as
+ * `walker(check)` with the spec's check and caps. The JSON counterpart of @ref protobufVisitor.
+ *
+ * @tparam VisitorOptions The compile-time size limits; see @ref DefaultJsonVisitorOptions.
+ * @param payload The payload. It must outlive the visitor.
+ * @param options The nesting limit and the cost of a malformed payload.
+ */
+template <typename VisitorOptions = DefaultJsonVisitorOptions>
+[[nodiscard]] auto
+jsonVisitor(std::span<uint8_t const> payload, VisitJsonOptions const& options = {})
+{
+    return [payload, options]<typename Check>(Check& check) -> AdmissionDecision {
+        return visitJson<Check, VisitorOptions>(payload, check, options);
+    };
+}
+
+/**
+ * @brief Visit a JSON payload of type @p T with its spec's check and caps. The JSON counterpart of
+ * @ref prescanProtobuf.
+ */
+template <typename T, typename VisitorOptions = DefaultJsonVisitorOptions>
+    requires HasAdmissionSpec<T>
+[[nodiscard]] AdmissionDecision
+prescanJson(std::span<uint8_t const> payload, VisitJsonOptions const& options = {})
+{
+    auto check = makeChecker<T>();
+    return jsonVisitor<VisitorOptions>(payload, options)(check);
 }
 
 }  // namespace admission::spec

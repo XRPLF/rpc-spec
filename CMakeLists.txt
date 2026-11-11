@@ -18,6 +18,14 @@ find_package(Boost REQUIRED COMPONENTS json)
 
 target_link_libraries(rpcspec INTERFACE Boost::json)
 
+# The protobuf admission prescan (include/admissionspec/ProtobufPrescan.hpp) needs libprotobuf.
+# Only consumers that admit untrusted protobuf, such as xrpld, turn it on.
+option(with_protobuf "Link libprotobuf for the protobuf admission prescan" OFF)
+if(with_protobuf)
+    find_package(protobuf CONFIG REQUIRED)
+    target_link_libraries(rpcspec INTERFACE protobuf::libprotobuf)
+endif()
+
 # Boost's headers ask MSVC to auto-link version-mangled library names that Conan's packages
 # don't use. Link the real targets only, as xrpld does.
 if(TARGET Boost::disable_autolinking)
@@ -67,4 +75,10 @@ option(rpcspec_tests "Build the rpcspec unit tests" OFF)
 if(rpcspec_tests)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+# --- Examples (standalone only) -----------------------------------------------
+option(rpcspec_examples "Build the rpcspec examples (the admission example needs with_protobuf)" ${rpcspec_tests})
+if(rpcspec_examples AND with_protobuf)
+    add_subdirectory(examples/admission)
 endif()

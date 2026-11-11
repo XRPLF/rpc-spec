@@ -1,0 +1,55 @@
+/** @file */
+#pragma once
+
+#include <cstdint>
+
+namespace admission::spec {
+
+/**
+ * @brief Limits applied to every message while it is walked, unless its spec's own check refuses
+ * sooner. The host may override the defaults from its configuration.
+ */
+struct BaseLimits
+{
+    /**
+     * @brief The most fields the outermost message may hold that its schema does not define. An
+     * undefined value of a closed enum counts as one.
+     *
+     * Each nested message is counted on its own, against @c maxNestedUnknownFields, so a later
+     * schema that adds a field to a message repeated many times stays within the limit; the
+     * payload's size and its repeated-field caps bound the total. @c maxUnknownFieldBytes bounds
+     * the whole payload.
+     */
+    uint64_t maxUnknownFields{16};
+
+    /**
+     * @brief The most fields each nested message may hold that its schema does not define,
+     * counted as @c maxUnknownFields is.
+     *
+     * A message that lists many small nested messages can allow fewer, even none: a parser keeps
+     * the storage of every unknown field, so a few in each of thousands of entries can cost far
+     * more memory than the entries themselves. A later schema that adds a field to such a nested
+     * message must then send it only to hosts that announce support for it.
+     */
+    uint64_t maxNestedUnknownFields{16};
+
+    /**
+     * @brief The most bytes the unknown fields of the whole payload may take together.
+     */
+    uint64_t maxUnknownFieldBytes{1024};
+
+    /**
+     * @brief The deepest messages may nest.
+     */
+    uint64_t maxDepth{100};
+
+    /**
+     * @brief Whether a protobuf group (wire types 3 and 4) is refused.
+     */
+    bool rejectGroups{true};
+
+    constexpr bool
+    operator==(BaseLimits const&) const = default;
+};
+
+}  // namespace admission::spec

@@ -7,6 +7,10 @@ find_package(GTest REQUIRED)
 add_executable(
     rpcspec_tests
     admissionspec/ConnectionLimiterTests.cpp
+    admissionspec/JsonVisitorTests.cpp
+    admissionspec/PassthroughVisitorTests.cpp
+    admissionspec/PipelineTests.cpp
+    admissionspec/RepeatedCapsCheckTests.cpp
     admissionspec/ResolverTests.cpp
     admissionspec/TokenBucketTests.cpp
     admissionspec/TypesTests.cpp
@@ -85,3 +89,10 @@ target_compile_definitions(rpcspec_clio_tests PRIVATE RPCSPEC_IS_CLIO=1)
 include(GoogleTest)
 gtest_discover_tests(rpcspec_tests)
 gtest_discover_tests(rpcspec_clio_tests)
+
+# The protobuf prescan's tests, including its differential test against libprotobuf.
+if(with_protobuf)
+    add_executable(rpcspec_protobuf_tests admissionspec/ProtobufPrescanTests.cpp)
+    target_link_libraries(rpcspec_protobuf_tests PRIVATE rpcspec::rpcspec GTest::gtest_main)
+    gtest_discover_tests(rpcspec_protobuf_tests)
+endif()

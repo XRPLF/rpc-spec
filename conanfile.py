@@ -23,6 +23,7 @@ class XrplRpcSpecConan(ConanFile):
         "cmake/*",
         "CMakeLists.txt",
         "tests/*",
+        "examples/*",
         "LICENSE.md",
         "README.md",
     )
@@ -37,12 +38,16 @@ class XrplRpcSpecConan(ConanFile):
     options = {
         "server": [None, "clio", "xrpld"],
         "tests": [True, False],
+        # Enables the protobuf admission prescan (include/admissionspec/ProtobufPrescan.hpp).
+        # xrpld turns it on; Clio, which admits no untrusted protobuf, leaves it off.
+        "with_protobuf": [True, False],
     }
 
     default_options = {
         # Defaults to None so that consumers are forced to override
         "server": None,
         "tests": False,
+        "with_protobuf": False,
         # boost 1.91's cobalt_io_ssl component fails package_info() unless cobalt
         # is disabled (it expects an OpenSSL-backed build we don't pull in).
         # We only need Boost::json, so drop cobalt. Mirrors xrpld.
@@ -62,6 +67,9 @@ class XrplRpcSpecConan(ConanFile):
             # real test dependency is gtest. Boost::json comes from the main
             # `requires` above.
             self.test_requires("gtest/1.17.0")
+        if self.options.with_protobuf:
+            # Keep this aligned with xrpld's protobuf version to avoid a clash when consumed there.
+            self.requires("protobuf/6.33.5", transitive_headers=True)
 
     def validate(self):
         if self.options.server is None:
@@ -88,6 +96,7 @@ class XrplRpcSpecConan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.variables["rpcspec_tests"] = bool(self.options.tests)
+        tc.variables["with_protobuf"] = bool(self.options.with_protobuf)
         tc.generate()
 
     def package(self):
@@ -116,6 +125,8 @@ class XrplRpcSpecConan(ConanFile):
         self.cpp_info.includedirs = ["include"]
         self.cpp_info.set_property("cmake_target_name", "rpcspec::rpcspec")
         self.cpp_info.requires = ["boost::json"]
+        if self.options.with_protobuf:
+            self.cpp_info.requires.append("protobuf::libprotobuf")
         self.cpp_info.defines = [f"RPCSPEC_IS_{str(self.options.server).upper()}=1"]
 
         # Deliberately cmake/ rather than lib/cmake/rpcspec: the same relative path then

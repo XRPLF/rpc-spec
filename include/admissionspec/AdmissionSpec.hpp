@@ -1,14 +1,22 @@
 /** @file */
 #pragma once
 
-#include <admissionspec/Types.hpp>
+#include <admissionspec/AdmissionDecision.hpp>
+#include <admissionspec/ConnectionView.hpp>
+#include <admissionspec/FrameInfo.hpp>
+#include <admissionspec/PenaltyClass.hpp>
+#include <admissionspec/ResolvedTunables.hpp>
+#include <admissionspec/Rule.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
+#include <admissionspec/SpecAttributes.hpp>
+#include <admissionspec/VisitEvent.hpp>
 
 #include <concepts>
-#include <cstddef>
 #include <cstdint>
-#include <span>
+#include <optional>
+#include <string_view>
 #include <tuple>
-#include <type_traits>
+#include <utility>
 
 namespace admission::spec {
 
@@ -29,98 +37,49 @@ struct NoHook
 };
 
 /**
- * @brief Declarative admission-control policy associated with a C++ type @p T.
+ * @brief The declared admission policy for a message type @p T.
  *
- * A spec is just a bag of named @ref Tunable values plus optional author hooks. Two tunables are
- * required by every spec — @c "max_payload_bytes" (the hard drop cap) and @c "size_ramp" (the
- * size→cost ramp) — and `makeSpec` @c static_asserts their presence.
- * Everything else is an extra tunable the hooks read by name. Hooks receive the resolved bag, so
- * their thresholds are config-overridable too.
+ * A spec holds three things:
+ * - named @ref Tunable values, which configuration may override. Two are required:
+ *   @c "max_payload_bytes" (the cap on either declared size) and @c "size_ramp" (the price by
+ *   decoded size); `makeSpec` checks both are present;
+ * - @ref SpecAttributes, the type's fixed facts: its type id, whether only a privileged sender may
+ *   send it,
+ *   a required feature, whether older releases relay it as received, and repeated-field caps;
+ * - optionally, a check: a callable invoked with each @ref VisitEvent while the payload is walked,
+ *   which keeps any state it needs and may refuse the message before it is parsed.
  *
- * The type is consteval-constructed and meant to live as a @c static @c constexpr object;
- * evaluation runs against a @ref ResolvedTunables produced by resolving the bag.
+ * A spec is built at compile time and lives as a @c static @c constexpr object.
  *
  * @code
- * consteval auto admissionSpec(std::type_identity<MyMessage>) {
- *     using namespace util::admission;
+ * consteval auto admissionSpec(std::type_identity<MyMessage>)
+ * {
  *     return makeSpec<MyMessage>(
- *                tunable<"max_payload_bytes">(
- *                    uint64_t{64 * 1024}, "admission.my_message.max_payload_bytes"),
- *                tunable<"size_ramp">(
- *                    ramp({{1024, 0.5}, {64 * 1024, 4.0}}), "admission.my_message.size_ramp"),
- *                tunable<"max_entries">(size_t{100}, "admission.my_message.max_entries")
- *            )
- *         // streaming: the check sees one event at a time and keeps whatever state it needs, so an
- *         // amplification attempt is rejected before the message is ever fully hydrated.
- *         .withCheck(EntriesCap{});   // a small stateful functor, e.g.:
- * }
- *
- * // Counts elements of the `entries` list (field 3) and fails on the (max_entries+1)th — no
- * // buffering, no waiting for the list to close. A fresh EntriesCap runs per message.
- * struct EntriesCap {
- *     bool inEntries{};
- *     size_t count{};
- *     AdmissionDecision operator()(VisitEvent const& e, auto const& cfg) {
- *         if (e.kind == EventKind::ArrayBegin && e.fieldNumber == 3)
- *         {
- *           inEntries = true;
- *           count = 0;
- *         }
- *         else if (e.kind == EventKind::ArrayEnd && e.fieldNumber == 3)
- *         {
- *           inEntries = false;
- *         }
- *         else if (inEntries && e.kind == EventKind::Int64 &&
- *                  ++count > cfg.template get<"max_entries">())
- *         {
- *             // penalize an amplification attempt harder than a benign reject
- *             return AdmissionDecision::drop("too many entries", 4.0);
- *         }
- *         return AdmissionDecision::admit();
- *     }
- * };
- * @endcode
- *
- * And at the ingress point, where a @ref ConnectionLimiter owns one token bucket per connection.
- * The caller owns the traversal — it hands the limiter a visitor that decodes the raw payload
- * (SAX for JSON, a tag-walk for protobuf) and invokes the per-attribute check on each node it
- * decodes:
- *
- * @code
- * // Constructed once at startup from resolved config (see Resolver.hpp / BucketSettings).
- * auto limiter = ConnectionLimiter<ConnectionId>{bucketSettings, maxConnections};
- *
- * void onFrame(ConnectionId conn, std::span<uint8_t const> frame) {
- *     auto const now = std::chrono::steady_clock::now();
- *
- *     // 1. Pre-parse gate: hard byte cap + size-ramp cost, debited from conn's bucket.
- *     if (limiter.admitPre<MyMessage>(conn, frame, now).dropped())
- *     {
- *         return;  // dropped: oversize or rate limited — never parsed.
- *     }
- *
- *     // 2. Streaming gate: our visitor drives the decode and calls checkAttr per attribute,
- *     //    short-circuiting on the first drop — the message is never fully hydrated on reject.
- *     auto walk = [frame](auto checkAttr) -> AdmissionDecision {
- *         return walkMyMessage(frame, checkAttr);  // caller-provided traversal
- *     };
- *     if (limiter.admit<MyMessage>(conn, walk, now).dropped())
- *     {
- *         return;  // dropped: e.g. too many entries.
- *     }
- *
- *     handle(parse<MyMessage>(frame));
+ *                tunable<"max_payload_bytes">(uint64_t{64 * 1024},
+ * "admission.my.max_payload_bytes"), tunable<"size_ramp">(ramp({{1024, 0.5}, {64 * 1024, 4.0}}),
+ * "admission.my.size_ramp"), tunable<"max_priority">(int64_t{9}, "admission.my.max_priority"))
+ *         .withAttributes({.typeId = 7, .repeated = repeatedCaps({{.fieldNumber = 3, .maxEntries =
+ * 100}})}) .withCheck([](VisitEvent const& event, auto const& cfg) { if (auto const* p =
+ * event.as<int64_t>(); event.depth == 0 and event.fieldNumber == 1 and p != nullptr and *p >
+ * cfg.template get<"max_priority">())
+ *             {
+ *                 return AdmissionDecision::drop("priority too high", PenaltyClass::Invalid);
+ *             }
+ *             return AdmissionDecision::admit();
+ *         });
  * }
  * @endcode
  *
- * @note Bucket capacity/refill are connection-scoped (see @ref BucketParams), not part of this
- * spec.
+ * The stages that apply it are in Pipeline.hpp: @ref admitHeader decides from the frame header,
+ * @ref admitBody runs the check while a walker reads the payload, and both charge a host-supplied
+ * @ref ChargeSink.
  */
 template <typename T, typename TunablesTuple, typename Check = NoHook>
 class AdmissionSpec
 {
     TunablesTuple tunables_;
     Check check_;
+    SpecAttributes attributes_;
 
 public:
     /**
@@ -138,9 +97,10 @@ public:
      *
      * @param tunables The declared tunables.
      * @param check The streaming check, or NoHook when none is attached.
+     * @param attributes The type's fixed admission facts.
      */
-    consteval AdmissionSpec(TunablesTuple tunables, Check check)
-        : tunables_{std::move(tunables)}, check_{std::move(check)}
+    consteval AdmissionSpec(TunablesTuple tunables, Check check, SpecAttributes attributes = {})
+        : tunables_{std::move(tunables)}, check_{std::move(check)}, attributes_{attributes}
     {
     }
 
@@ -156,7 +116,44 @@ public:
     [[nodiscard]] consteval auto
     withCheck(C check) const
     {
-        return AdmissionSpec<T, TunablesTuple, C>{tunables_, check};
+        return AdmissionSpec<T, TunablesTuple, C>{tunables_, check, attributes_};
+    }
+
+    /**
+     * @brief Attach the type's fixed admission facts; returns the updated spec.
+     *
+     * @param attributes The facts to attach.
+     * @return A copy of this spec carrying @p attributes.
+     */
+    [[nodiscard]] consteval AdmissionSpec
+    withAttributes(SpecAttributes attributes) const
+    {
+        return AdmissionSpec{tunables_, check_, attributes};
+    }
+
+    /**
+     * @brief The type's fixed admission facts.
+     */
+    [[nodiscard]] constexpr SpecAttributes const&
+    attributes() const noexcept
+    {
+        return attributes_;
+    }
+
+    /**
+     * @brief The penalty a refusal of this type carries, given the class the failed rule asks for.
+     *
+     * A type an older release passes on as received is refused at @ref PenaltyClass::Trivial at
+     * most, so an honest relay is not penalized for what it did not write.
+     */
+    [[nodiscard]] constexpr PenaltyClass
+    penaltyFor(PenaltyClass requested) const noexcept
+    {
+        if (attributes_.relayedByOlderVersions and requested > PenaltyClass::Trivial)
+        {
+            return PenaltyClass::Trivial;
+        }
+        return requested;
     }
 
     /**
@@ -182,23 +179,78 @@ public:
     }
 
     /**
-     * @brief Pre-deserialization stage: enforce the hard byte cap and compute the size cost.
+     * @brief Whether the connection may send this type at all: a privileged-only type from an
+     * unprivileged sender, or a type whose feature the connection did not negotiate, is refused.
      *
-     * @param payload The raw message bytes.
-     * @param cfg The resolved tunables supplying the cap and the size ramp.
-     * @return Admit carrying the size cost, or Drop when the cap is exceeded.
+     * Both stages ask it. For a peer, the header stage settles it; for RPC, whose method is known
+     * only once its body is read, the body stage does.
+     *
+     * @param connection The connection the message arrived on.
+     * @param cost The stage's cost, charged with the refusal unless the type is relayed by older
+     *        releases.
+     * @return The refusal, or nothing if the connection may send this type.
      */
-    [[nodiscard]] AdmissionDecision
-    preAdmit(std::span<uint8_t const> payload, Resolved const& cfg) const
+    template <ConnectionView Connection>
+    [[nodiscard]] std::optional<AdmissionDecision>
+    refuseConnection(Connection const& connection, double cost) const
     {
-        double const cost =
-            costFor(cfg.template get<"size_ramp">(), static_cast<uint64_t>(payload.size()));
-
-        if (payload.size() > cfg.template get<"max_payload_bytes">())
+        auto const refuse = [&](Rule rule, std::string_view why) {
+            auto const applied = penaltyFor(PenaltyClass::Useless);
+            return AdmissionDecision::drop(
+                rule, why, applied, applied == PenaltyClass::Trivial ? 0.0 : cost);
+        };
+        if (attributes_.privilegedOnly and not connection.privileged())
         {
-            return AdmissionDecision::drop("payload exceeds max bytes for this type", cost);
+            return refuse(Rule::Privileged, "only a privileged sender may send this type");
         }
+        if (attributes_.requiresFeature and not connection.hasFeature(*attributes_.requiresFeature))
+        {
+            return refuse(Rule::Feature, "the connection did not negotiate this type's feature");
+        }
+        return std::nullopt;
+    }
 
+    /**
+     * @brief First stage: decide from a frame's header alone, before its payload is read.
+     *
+     * In order: the connection gate (see @ref refuseConnection), a
+     * compressed payload on a connection that did not negotiate compression, then either declared
+     * size over @c "max_payload_bytes". The cost is the size ramp on the decoded size, charged on
+     * admission and on refusal alike, except for a type older releases pass on as received, whose
+     * refusals cost only @ref PenaltyClass::Trivial.
+     *
+     * @param frame What the header declares.
+     * @param connection The connection the frame arrived on.
+     * @param cfg The resolved tunables supplying the cap and the size ramp.
+     * @return Admit carrying the size cost, or Drop with its reason and penalty class.
+     */
+    template <ConnectionView Connection>
+    [[nodiscard]] AdmissionDecision
+    admitHeader(FrameInfo const& frame, Connection const& connection, Resolved const& cfg) const
+    {
+        double const cost = costFor(cfg.template get<"size_ramp">(), frame.decodedBytes);
+        if (auto const refusal = refuseConnection(connection, cost))
+        {
+            return *refusal;
+        }
+        if (frame.compressed and not connection.compressionNegotiated())
+        {
+            return AdmissionDecision::drop(
+                Rule::Compression,
+                "compressed payload without negotiated compression",
+                PenaltyClass::Malformed,
+                cost);
+        }
+        auto const cap = cfg.template get<"max_payload_bytes">();
+        if (frame.wireBytes > cap or frame.decodedBytes > cap)
+        {
+            auto const applied = penaltyFor(PenaltyClass::Useless);
+            return AdmissionDecision::drop(
+                Rule::Oversized,
+                "payload exceeds max bytes for this type",
+                applied,
+                applied == PenaltyClass::Trivial ? 0.0 : cost);
+        }
         return AdmissionDecision::admit(cost);
     }
 
@@ -245,110 +297,6 @@ makeSpec(Tunables... tunables)
         R"(AdmissionSpec requires a tunable named "size_ramp" (the size->cost ramp).)");
     return AdmissionSpec<T, std::tuple<Tunables...>>{
         std::tuple<Tunables...>{tunables...}, NoHook{}};
-}
-
-/**
- * @brief Trait escape hatch for associating a spec with a foreign type @p T.
- *
- * For types you own, prefer an ADL-visible `consteval auto admissionSpec(std::type_identity<T>)`
- * overload in @p T's namespace. For foreign types, specialize this trait with a `static consteval
- * auto spec()`.
- */
-template <typename T>
-struct AdmissionTraits;  // primary template intentionally undefined
-
-namespace detail {
-
-template <typename T>
-concept HasAdmissionAdl = requires { admissionSpec(std::type_identity<T>{}); };
-
-template <typename T>
-concept HasAdmissionTrait = requires { AdmissionTraits<T>::spec(); };
-
-}  // namespace detail
-
-/**
- * @brief True when @p T has an associated admission spec (via ADL overload or trait
- * specialization).
- */
-template <typename T>
-concept HasAdmissionSpec = detail::HasAdmissionAdl<T> or detail::HasAdmissionTrait<T>;
-
-/**
- * @brief Resolve the @ref AdmissionSpec associated with @p T.
- */
-template <typename T>
-[[nodiscard]] consteval auto
-admissionSpecFor()
-{
-    if constexpr (detail::HasAdmissionAdl<T>)
-    {
-        return admissionSpec(std::type_identity<T>{});
-    }
-    else
-    {
-        static_assert(
-            detail::HasAdmissionTrait<T>,
-            "No AdmissionSpec for T: provide an ADL 'admissionSpec(std::type_identity<T>)' "
-            "overload in "
-            "T's namespace, or specialize util::admission::AdmissionTraits<T>.");
-        return AdmissionTraits<T>::spec();
-    }
-}
-
-/**
- * @brief The (otherwise unnameable) @ref AdmissionSpec type associated with @p T.
- */
-template <typename T>
-    requires HasAdmissionSpec<T>
-using SpecOf = decltype(admissionSpecFor<T>());
-
-/**
- * @brief The resolved-tunables type of @p T's spec (what a check's @c cfg argument is).
- */
-template <typename T>
-    requires HasAdmissionSpec<T>
-using ResolvedOf = SpecOf<T>::Resolved;
-
-/**
- * @brief The resolved tunables for type @p T.
- */
-template <typename T>
-    requires HasAdmissionSpec<T>
-[[nodiscard]] auto const&
-resolvedFor()
-{
-    static auto const kResolved = admissionSpecFor<T>().resolveDefaults();
-    return kResolved;
-}
-
-/**
- * @brief Run the pre-deserialization stage for type @p T against a raw payload.
- */
-template <typename T>
-    requires HasAdmissionSpec<T>
-[[nodiscard]] AdmissionDecision
-preAdmit(std::span<uint8_t const> payload)
-{
-    static constexpr auto kSpec = admissionSpecFor<T>();
-    return kSpec.preAdmit(payload, resolvedFor<T>());
-}
-
-/**
- * @brief Make a fresh streaming checker for type @p T, bound to its resolved tunables.
- *
- * The binding point between a caller-provided payload visitor and the type's
- * @ref AdmissionSpec — call once per message to get an `AdmissionDecision(VisitEvent const&)`
- * callable, then feed it each event and stop on the first drop. See @ref
- * admission::spec::ConnectionLimiter::admit().
- */
-template <typename T>
-    requires HasAdmissionSpec<T>
-[[nodiscard]] auto
-makeChecker()
-{
-    static constexpr auto kSpec = admissionSpecFor<T>();
-    return kSpec.makeChecker(resolvedFor<T>());
 }
 
 }  // namespace admission::spec

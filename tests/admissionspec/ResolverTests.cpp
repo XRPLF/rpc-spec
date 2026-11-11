@@ -1,5 +1,7 @@
+#include <admissionspec/ResolvedTunables.hpp>
 #include <admissionspec/Resolver.hpp>
-#include <admissionspec/Types.hpp>
+#include <admissionspec/SizeCostRamp.hpp>
+#include <admissionspec/Tunable.hpp>
 #include <gtest/gtest.h>
 
 #include <cstdint>

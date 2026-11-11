@@ -69,6 +69,9 @@ include/rpcspec/
 include/admissionspec/  # independent admission-control/rate-limiting DSL
   folly/                # vendored folly TokenBucket (not linted or formatted)
 
+examples/admission/     # one node admitting protobuf peer frames and JSON RPC requests
+                        # with the same specs, stages and sinks; start with its README
+
 cmake/                  # generator for the per-handler instantiation TUs
 tests/                  # standalone unit tests
   stubs/                # libxrpl mock — tests need only gtest + Boost::json
@@ -148,6 +151,11 @@ cmake --preset conan-release
 cmake --build --preset conan-release
 ctest --preset conan-release --output-on-failure
 ```
+
+The protobuf admission prescan (`include/admissionspec/ProtobufPrescan.hpp`) needs
+libprotobuf, so it and its tests are behind the `with_protobuf` option (CMake:
+`with_protobuf`). xrpld turns it on; Clio leaves it off. To build its tests,
+add `-o with_protobuf=True` to the install above; they build as `rpcspec_protobuf_tests`.
 
 ### Plain CMake
 

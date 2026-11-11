@@ -1,0 +1,33 @@
+// The schema of a small, made-up gossip protocol, for the admission example.
+syntax = "proto2";
+
+package gossip;
+
+// Liveness check. Fixed fields only.
+message Ping {
+  required uint32 seq = 1;
+  optional uint64 sent_at = 2;
+}
+
+// The hashes of objects a node has. Older releases of the protocol pass it on as they received it.
+message Inventory {
+  repeated bytes hashes = 1;
+  optional uint32 epoch = 2;
+}
+
+// Load figures that only a node's trusted peers may send it.
+message AdminReport {
+  repeated string loads = 1;
+}
+
+enum FetchKind {
+  fkHEADER = 1;
+  fkBODY = 2;
+}
+
+// A request for one object, sent only to peers that negotiated the fetch feature.
+message Fetch {
+  required FetchKind kind = 1;
+  required bytes hash = 2;
+  optional uint32 limit = 3;
+}
