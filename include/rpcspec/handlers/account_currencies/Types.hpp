@@ -16,14 +16,16 @@ namespace rpc::spec::handlers::account_currencies {
 inline constexpr uint32_t kLimitMin = 10;
 
 /**
- * @brief Largest `limit` the handler accepts; bigger values are clamped down.
+ * @brief Largest `limit` the handler accepts; bigger values are clamped down. xrpld clamps with
+ * its own limits, which match these, and lets an admin go past this.
  */
-inline constexpr uint32_t kLimitMax = 400;
+inline constexpr uint32_t kLimitMax = 10'000;
 
 /**
- * @brief `limit` applied when the request omits the field.
+ * @brief `limit` applied when the request omits the field: as many owner directory entries as
+ * `kLimitMax`, so an account with fewer gets every currency in one response.
  */
-inline constexpr uint32_t kLimitDefault = 200;
+inline constexpr uint32_t kLimitDefault = 10'000;
 
 /**
  * @brief Input for the 'account_currencies' RPC command.
